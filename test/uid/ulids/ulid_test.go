@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/*
+BenchmarkULIDChan-8                      2000000               748 ns/op              16 B/op          1 allocs/op
+BenchmarkNewULIDCrypto-8                 2000000               731 ns/op              16 B/op          1 allocs/op
+BenchmarkNewULIDMontonicCrypto-8        10000000               135 ns/op              16 B/op          1 allocs/op
+*/
 package ulids
 
 import (
@@ -24,9 +29,6 @@ import (
 	"testing"
 	"time"
 )
-
-// ULIDS provides cryptographically secure random ULIDs
-type ULIDS <-chan ulid.ULID
 
 func BenchmarkULIDChan(b *testing.B) {
 	b.ReportAllocs()

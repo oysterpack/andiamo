@@ -35,16 +35,12 @@ type Bar struct {
 	foos []*Foo
 }
 
-func NewFoo1() FooInstance {
-	return FooInstance{
-		Foo: &Foo{value: "Foo1"},
-	}
+func NewFoo1() *Foo {
+	return &Foo{value: "Foo1"}
 }
 
-func NewFoo2() FooInstance {
-	return FooInstance{
-		Foo: &Foo{value: "Foo2"},
-	}
+func NewFoo2() *Foo {
+	return &Foo{value: "Foo2"}
 }
 
 type BarConfig struct {
@@ -56,23 +52,43 @@ func NewBar(in BarConfig) *Bar {
 	return &Bar{in.Foos}
 }
 
-type FooInstance struct {
-	fx.Out
-	Foo *Foo `group:"Foo"`
+func NewFoos() fx.Option {
+	return fx.Provide(
+		fx.Annotated{Group: "Foo", Target: NewFoo1},
+		fx.Annotated{Group: "Foo", Target: NewFoo2},
+	)
 }
 
 func TestFxSimple(t *testing.T) {
-	fxtest.New(t,
+	app := fxtest.New(t,
 		fx.Provide(
-			NewFoo1,
-			NewFoo2,
+			fx.Annotated{Group: "Foo", Target: NewFoo1},
+			fx.Annotated{Group: "Foo", Target: NewFoo2},
 			NewBar,
 		),
-		fx.Invoke(func(bar *Bar) {
+		fx.Invoke(func(bar *Bar, graph fx.DotGraph) {
+			log.Println(graph)
 			log.Printf("bar: %v", bar)
 			for i, foo := range bar.foos {
 				log.Printf("bar.foos[%d]: %v", i, foo)
 			}
 		}),
 	)
+	app.RequireStart()
+}
+
+func TestFxGroup(t *testing.T) {
+	app := fxtest.New(t,
+		NewFoos(),
+		fx.Provide(NewBar),
+		fx.Invoke(func(bar *Bar, graph fx.DotGraph) {
+			log.Println(graph)
+			log.Printf("TestFxGroup: bar: %v", bar)
+			log.Printf("TestFxGroup: len(bar.foos): %v", len(bar.foos))
+			for i, foo := range bar.foos {
+				log.Printf("TestFxGroup: bar.foos[%d]: %v", i, foo)
+			}
+		}),
+	)
+	app.RequireStart()
 }

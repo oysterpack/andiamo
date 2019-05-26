@@ -1,0 +1,49 @@
+@startuml
+
+class Organization {
+    ID: OrgId
+    Name: OrgName
+}
+
+class Cluster {
+    ID: ClusterId
+    Name: ClusterName
+}
+
+class Namespace {
+    ID: NamespaceID
+    Name: NamespaceName
+}
+
+class App {
+    ID: AppID
+    Name: AppName
+    Version: semver.Version
+}
+
+class Module {
+    ID: ModuleID
+    // maps to a go package
+    Name: ModuleName
+    Version: semver.Version
+}
+
+interface Service {
+    Desc() ServiceDesc
+}
+
+class ServiceDesc {
+    ID: ServiceID
+    Name: ServiceName
+    Version: semver.Version
+}
+
+Organization *-- Cluster
+Cluster *-- Namespace
+Namespace *-- App
+App *-- Module
+Module --> Service
+
+Service ..> ServiceDesc
+
+@enduml
