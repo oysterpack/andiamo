@@ -18,10 +18,15 @@
 package apptest
 
 import (
+	"crypto/rand"
 	"fmt"
+	"github.com/Masterminds/semver"
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"os"
 	"strings"
+	"testing"
+	"time"
 )
 
 type Key string
@@ -68,4 +73,43 @@ func LookupEnv(key Key) (string, bool) {
 // prefixes the specified key
 func prefix(key Key) string {
 	return fmt.Sprintf("%s_%s", app.ENV_PREFIX, strings.ToUpper(string(key)))
+}
+
+func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
+	// And its properties match what was specified in the env
+	if desc.ID != expected.ID {
+		t.Errorf("ID did not match: %s != %s", desc.ID, expected.ID)
+	}
+	if desc.Name != expected.Name {
+		t.Errorf("Name did not match: %s != %s", desc.Name, expected.Name)
+	}
+	if !(*semver.Version)(desc.Version).Equal((*semver.Version)(expected.Version)) {
+		t.Errorf("Version did not match: %s != %s", (*semver.Version)(desc.Version), (*semver.Version)(expected.Version))
+	}
+	if desc.ReleaseID != expected.ReleaseID {
+		t.Errorf("ReleaseID did not match: %s != %s", desc.ReleaseID, expected.ReleaseID)
+	}
+}
+
+func InitEnvForDesc() app.Desc {
+	const APP_NAME = app.Name("foobar")
+	var appVer = semver.MustParse("0.0.1")
+
+	ClearAppEnvSettings()
+
+	id := ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader)
+	releaseID := ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader)
+
+	Setenv(ID, id.String())
+	Setenv(NAME, string(APP_NAME))
+	Setenv(RELEASE_ID, releaseID.String())
+	Setenv(VERSION, appVer.String())
+
+	ver := app.Version(*appVer)
+	return app.Desc{
+		ID:        app.ID(id),
+		Name:      APP_NAME,
+		Version:   &ver,
+		ReleaseID: app.ReleaseID(releaseID),
+	}
 }

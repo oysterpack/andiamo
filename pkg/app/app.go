@@ -18,9 +18,7 @@ package app
 
 import (
 	"crypto/rand"
-	"fmt"
 	"github.com/Masterminds/semver"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/oklog/ulid"
 	"go.uber.org/fx"
 	"time"
@@ -45,21 +43,6 @@ func New(options ...fx.Option) *fx.App {
 	}))
 	return fx.New(options...)
 }
-
-// Desc provides information to identify the application deployment
-type Desc struct {
-	ID        `required:"true"`
-	Name      `required:"true"`
-	Version   *Version `required:"true"`
-	ReleaseID `required:"true" split_words:"true"`
-}
-
-func (d *Desc) String() string {
-	return fmt.Sprintf("Desc{ID=%s, Name=%s, Version=%s, ReleaseID=%s}", ulid.ULID(d.ID), d.Name, (*semver.Version)(d.Version), ulid.ULID(d.ReleaseID))
-}
-
-// InstanceID is the unique app instance ID
-type InstanceID ulid.ULID
 
 // ID is the unique application ID.
 type ID ulid.ULID
@@ -102,39 +85,5 @@ func (v *Version) Decode(value string) error {
 	return nil
 }
 
-// Config specifies basic application configuration.
-type Config struct {
-	// StartTimeout specifies how long to wait for the application to start.
-	// If not specified, then the default timeout is 15 seconds
-	StartTimeout time.Duration `default:"15s" split_words:"true"`
-	// StopTimeout specifies how long to wait for the application to stop.
-	// If not specified, then the default timeout is 15 seconds
-	StopTimeout time.Duration `default:"15s" split_words:"true"`
-}
-
-func (c Config) String() string {
-	return fmt.Sprintf("Config{StartTimeout=%s, StopTimeout=%s}", c.StartTimeout, c.StopTimeout)
-}
-
-// LoadDescFromEnv loads the app Desc from the system environment. The following env vars are required:
-// - APPX12_ID
-// - APPX12_NAME
-// - APPX12_VERSION
-// - APPX12_RELEASE_ID
-func LoadDescFromEnv() (desc Desc, err error) {
-	err = envconfig.Process(ENV_PREFIX, &desc)
-	return
-}
-
-// LoadConfigFromEnv loads the app Config from the system environment. The following env vars are read:
-// - APPX12_START_TIMEOUT
-// - APPX12_STOP_TIMEOUT
-func LoadConfigFromEnv() Config {
-	var config Config
-	if err := envconfig.Process(ENV_PREFIX, &config); err != nil {
-		// an error should never happen because Config has no required fields and defaults are specified
-		// if an error does occur, then it's a bug in the underlying `envconfig` package
-		panic(err)
-	}
-	return config
-}
+// InstanceID is the unique app instance ID
+type InstanceID ulid.ULID
