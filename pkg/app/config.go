@@ -25,10 +25,10 @@ import (
 // Config specifies basic application configuration.
 type Config struct {
 	// StartTimeout specifies how long to wait for the application to start.
-	// If not specified, then the default timeout is 15 seconds
+	// - default = 15 seconds
 	StartTimeout time.Duration `default:"15s" split_words:"true"`
 	// StopTimeout specifies how long to wait for the application to stop.
-	// If not specified, then the default timeout is 15 seconds
+	// - default = 15 seconds
 	StopTimeout time.Duration `default:"15s" split_words:"true"`
 }
 
@@ -36,10 +36,10 @@ func (c Config) String() string {
 	return fmt.Sprintf("Config{StartTimeout=%s, StopTimeout=%s}", c.StartTimeout, c.StopTimeout)
 }
 
-// LoadConfigFromEnv loads the app Config from the system environment. The following env vars are read:
+// LoadConfig loads the app Config from the system environment. The following env vars are read:
 // - APPX12_START_TIMEOUT
 // - APPX12_STOP_TIMEOUT
-func LoadConfigFromEnv() Config {
+func LoadConfig() Config {
 	var config Config
 	if err := envconfig.Process(ENV_PREFIX, &config); err != nil {
 		// an error should never happen because Config has no required fields and defaults are specified

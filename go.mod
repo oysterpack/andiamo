@@ -19,6 +19,7 @@ require (
 	github.com/oklog/ulid v1.3.1
 	github.com/reconquest/barely v0.0.0-20160729074550-0f12e3bb2e13 // indirect
 	github.com/reconquest/loreley v0.0.0-20190408221007-9e95b93c818f // indirect
+	github.com/rs/zerolog v1.14.3
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/dig v1.7.0 // indirect
 	go.uber.org/fx v1.9.0

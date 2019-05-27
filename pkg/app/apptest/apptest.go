@@ -32,12 +32,16 @@ import (
 type Key string
 
 const (
-	ID            = Key("ID")
-	NAME          = Key("NAME")
-	VERSION       = Key("VERSION")
-	RELEASE_ID    = Key("RELEASE_ID")
+	ID         = Key("ID")
+	NAME       = Key("NAME")
+	VERSION    = Key("VERSION")
+	RELEASE_ID = Key("RELEASE_ID")
+
 	START_TIMEOUT = Key("START_TIMEOUT")
 	STOP_TIMEOUT  = Key("STOP_TIMEOUT")
+
+	LOG_GLOBAL_LEVEL     = Key("LOG_GLOBAL_LEVEL")
+	LOG_DISABLE_SAMPLING = Key("LOG_DISABLE_SAMPLING")
 )
 
 // Setenv prefixes the key with "APPX12" and then sets the value of the environment variable named by the prefixed key.
@@ -59,8 +63,12 @@ func ClearAppEnvSettings() {
 	Unsetenv(VERSION)
 	Unsetenv(NAME)
 	Unsetenv(RELEASE_ID)
+
 	Unsetenv(START_TIMEOUT)
 	Unsetenv(STOP_TIMEOUT)
+
+	Unsetenv(LOG_GLOBAL_LEVEL)
+	Unsetenv(LOG_DISABLE_SAMPLING)
 }
 
 // Getenv prefixes the key with "APP12X" and then retrieves the value of the environment variable named by the prefixed key.

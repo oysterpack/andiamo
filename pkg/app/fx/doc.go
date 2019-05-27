@@ -15,8 +15,8 @@
  */
 
 /*
-Package `app` standardizes the base application model.
-[12-Factor App](https://12factor.net/) design guidelines are followed.
+Package `fxapp` standardizes how to compose applications using reusable modules leveraging ["go.uber.org/fx"](https://godoc.org/go.uber.org/fx)
+Applications follow [12-Factor App](https://12factor.net/) design guidelines.
 
 Features
 ========
@@ -65,4 +65,4 @@ App Context Injections
    - error
 
 */
-package app
+package fx

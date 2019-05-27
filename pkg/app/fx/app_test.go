@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package app_test
+package fx
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func TestNewApp(t *testing.T) {
 		// When the fx.App is created
 		var desc app.Desc
 		var instanceID app.InstanceID
-		fxapp := app.New(
+		fxapp := New(
 			fx.Populate(&desc),
 			fx.Populate(&instanceID),
 		)
@@ -71,7 +71,7 @@ func TestNewApp(t *testing.T) {
 	t.Run("using overidden app start and stop timeouts", func(t *testing.T) {
 		apptest.Setenv(apptest.START_TIMEOUT, "30s")
 		apptest.Setenv(apptest.STOP_TIMEOUT, "60s")
-		fxapp := app.New()
+		fxapp := New()
 		if fxapp.StartTimeout() != 30*time.Second {
 			t.Error("StartTimeout did not match the default")
 		}

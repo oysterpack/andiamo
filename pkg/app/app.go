@@ -17,32 +17,13 @@
 package app
 
 import (
-	"crypto/rand"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
-	"go.uber.org/fx"
-	"time"
 )
 
 // ENV_PREFIX is used as the environment variable name prefix to load config.
 // "APPX12" was chosen to represent 12-factor apps.
 const ENV_PREFIX = "APPX12"
-
-// New construct a new fx.App with the following options:
-// - app start and stop timeout options are configured from the env - see `LoadConfigFromEnv()`
-// - constructor functions for:
-//   - Desc - loaded from the env - see `LoadDescFromEnv()`
-//   - InstanceID
-func New(options ...fx.Option) *fx.App {
-	config := LoadConfigFromEnv()
-	options = append(options, fx.StartTimeout(config.StartTimeout))
-	options = append(options, fx.StopTimeout(config.StopTimeout))
-	options = append(options, fx.Provide(LoadDescFromEnv))
-	options = append(options, fx.Provide(func() InstanceID {
-		return InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	}))
-	return fx.New(options...)
-}
 
 // ID is the unique application ID.
 type ID ulid.ULID
@@ -57,11 +38,19 @@ func (id *ID) Decode(value string) error {
 	return nil
 }
 
+func (id ID) String() string {
+	return ulid.ULID(id).String()
+}
+
 // Name is the application name.
 type Name string
 
 // ReleaseID is the application release ID.
 type ReleaseID ulid.ULID
+
+func (id ReleaseID) String() string {
+	return ulid.ULID(id).String()
+}
 
 // Decode implements the envconfig.Decoder interface
 func (id *ReleaseID) Decode(value string) error {
@@ -85,5 +74,13 @@ func (v *Version) Decode(value string) error {
 	return nil
 }
 
+func (v *Version) String() string {
+	return (*semver.Version)(v).String()
+}
+
 // InstanceID is the unique app instance ID
 type InstanceID ulid.ULID
+
+func (id InstanceID) String() string {
+	return ulid.ULID(id).String()
+}

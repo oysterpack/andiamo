@@ -51,7 +51,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 	apptest.Setenv(apptest.VERSION, version.String())
 
 	// When the Desc is loaded from the env
-	desc, err := app.LoadDescFromEnv()
+	desc, err := app.LoadDesc()
 
 	// Then it is loaded successfully
 	if err != nil {

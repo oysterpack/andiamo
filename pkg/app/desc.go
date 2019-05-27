@@ -35,12 +35,12 @@ func (d *Desc) String() string {
 	return fmt.Sprintf("Desc{ID=%s, Name=%s, Version=%s, ReleaseID=%s}", ulid.ULID(d.ID), d.Name, (*semver.Version)(d.Version), ulid.ULID(d.ReleaseID))
 }
 
-// LoadDescFromEnv loads the app Desc from the system environment. The following env vars are required:
+// LoadDesc loads the app Desc from the system environment. The following env vars are required:
 // - APPX12_ID
 // - APPX12_NAME
 // - APPX12_VERSION
 // - APPX12_RELEASE_ID
-func LoadDescFromEnv() (desc Desc, err error) {
+func LoadDesc() (desc Desc, err error) {
 	err = envconfig.Process(ENV_PREFIX, &desc)
 	return
 }
