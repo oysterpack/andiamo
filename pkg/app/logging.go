@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
+	"log"
 	"os"
 )
 
@@ -30,8 +31,10 @@ const (
 	LEVEL     = LogField("l")
 	MESSAGE   = LogField("m")
 	ERROR     = LogField("e")
+	CALLER    = LogField("c")
+	STACK     = LogField("s")
 
-	APP             = LogField("app")
+	APP             = LogField("a")
 	APP_ID          = LogField("i")
 	APP_RELEASE_ID  = LogField("r")
 	APP_NAME        = LogField("n")
@@ -41,8 +44,9 @@ const (
 
 // NewLogger constructs a new timestamped Logger with standardized fields.
 //
-// TODO: show example log statement
-func NewLogger(instanceID InstanceID, desc Desc) zerolog.Logger {
+// Example log message:
+// {"l":"info","a":{"i":"01DBXQXE6WS76C2EXYBC06MSWB","r":"01DBXQXE6WSGB4EZGW8TGEH0PV","n":"foobar","v":"0.0.1","x":"01DBXQXE6WR0H602E09TA96X4D"},"t":1558997547228,"m":"info msg"}
+func NewLogger(instanceID InstanceID, desc Desc) *zerolog.Logger {
 	logger := zerolog.New(os.Stderr).With().
 		Timestamp().
 		Dict(string(APP), zerolog.Dict().
@@ -53,16 +57,16 @@ func NewLogger(instanceID InstanceID, desc Desc) zerolog.Logger {
 			Str(string(APP_INSTANCE_ID), instanceID.String())).
 		Logger()
 
-	return logger
+	return &logger
 }
 
 // ConfigureZerolog applies the following configurations on zerolog:
 // - configures the standard logger field names defined by `LogField`
-// - Unix millisecond timestamp format is used for performance reasons
+// - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 // - applies `LogConfig` settings
 func ConfigureZerolog() error {
 	configureStandardLogFields()
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	var config LogConfig
 	err := envconfig.Process(ENV_PREFIX, &config)
@@ -79,6 +83,14 @@ func configureStandardLogFields() {
 	zerolog.LevelFieldName = string(LEVEL)
 	zerolog.MessageFieldName = string(MESSAGE)
 	zerolog.ErrorFieldName = string(ERROR)
+	zerolog.CallerFieldName = string(CALLER)
+	zerolog.ErrorStackFieldName = string(STACK)
+}
+
+// UseAsStandardLoggerOutput uses the specified logger as the go std log output.
+func UseAsStandardLoggerOutput(logger *zerolog.Logger) {
+	log.SetFlags(0)
+	log.SetOutput(logger)
 }
 
 // LogLevel is a type alias for zerolog.Level in order to be able to implement the `envconfig.Decoder` interface on it
@@ -92,6 +104,10 @@ func (l *LogLevel) Decode(value string) error {
 	}
 	*l = LogLevel(level)
 	return nil
+}
+
+func (l LogLevel) String() string {
+	return zerolog.Level(l).String()
 }
 
 // LogConfig
@@ -108,5 +124,5 @@ func (l *LogConfig) Apply() {
 }
 
 func (c *LogConfig) String() string {
-	return fmt.Sprintf("LogConfig{GlobalLevel=%s, DisableSampling=%v}", zerolog.Level(c.GlobalLevel), c.DisableSampling)
+	return fmt.Sprintf("LogConfig{GlobalLevel=%s, DisableSampling=%v}", c.GlobalLevel, c.DisableSampling)
 }
