@@ -46,6 +46,7 @@ App Context Injections
 1. `app.InstanceID`
     - each `fx.App` instance is assigned a unique `app.InstanceID` ULID
 2. `app.Desc`
+3. `*zerolog.Logger`
 
 // TODO App Features:
 - zap logger is provided within the fx.App context
