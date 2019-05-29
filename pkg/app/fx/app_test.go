@@ -21,22 +21,33 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	"github.com/rs/zerolog"
 	"go.uber.org/fx"
+	"log"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestNewApp(t *testing.T) {
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
 	// Given the env is initialized
 	expectedDesc := apptest.InitEnvForDesc()
 
-	t.Run("using default app start and stop timeouts", func(t *testing.T) {
+	t.Run("using default settings", func(t *testing.T) {
 		// When the fx.App is created
 		var desc app.Desc
 		var instanceID app.InstanceID
 		fxapp := New(
 			fx.Populate(&desc),
 			fx.Populate(&instanceID),
+			fx.Invoke(UseLogger),
 		)
 		if fxapp.StartTimeout() != 15*time.Second {
 			t.Error("StartTimeout did not match the default")
@@ -66,6 +77,7 @@ func TestNewApp(t *testing.T) {
 		if zeroULID == ulid.ULID(instanceID) {
 			t.Error("instanceID was not initialized")
 		}
+
 	})
 
 	t.Run("using overidden app start and stop timeouts", func(t *testing.T) {
@@ -81,6 +93,31 @@ func TestNewApp(t *testing.T) {
 		if err := fxapp.Start(context.Background()); err != nil {
 			panic(err)
 		}
+		defer func() {
+			if err := fxapp.Stop(context.Background()); err != nil {
+				t.Errorf("fxapp.Stop error: %v", err)
+			}
+		}()
 	})
+}
 
+func UseLogger(logger *zerolog.Logger, desc app.Desc, instanceID app.InstanceID) {
+	logger.Info().
+		Str("instance_id", instanceID.String()).
+		Str("desc", desc.String()).
+		Msg("app is running")
+
+	log.Printf("logging using go std log")
+}
+
+func TestLoadDesc(t *testing.T) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Fatal("loading Desc should have failed and triggered a panic")
+		} else {
+			t.Logf("panic is expected: %v", err)
+		}
+	}()
+	apptest.ClearAppEnvSettings()
+	loadDesc()
 }

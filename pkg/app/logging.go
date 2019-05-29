@@ -22,6 +22,7 @@ import (
 	"github.com/rs/zerolog"
 	"log"
 	"os"
+	"time"
 )
 
 type LogField string
@@ -34,6 +35,10 @@ const (
 	CALLER    = LogField("c")
 	STACK     = LogField("s")
 
+	// all log events should specify the event name
+	EVENT = LogField("n")
+
+	// app related fields
 	APP             = LogField("a")
 	APP_ID          = LogField("i")
 	APP_RELEASE_ID  = LogField("r")
@@ -42,10 +47,35 @@ const (
 	APP_INSTANCE_ID = LogField("x")
 )
 
+// App lifecycle events
+// - NOTE: they are logged with no level to ensure they are always logged, i.e., regardless of the global log level
+var (
+	Started = LogEvent{
+		Name:  "app_start",
+		Level: zerolog.NoLevel,
+	}
+
+	Stopped = LogEvent{
+		Name:  "app_stop",
+		Level: zerolog.NoLevel,
+	}
+)
+
 // NewLogger constructs a new timestamped Logger with standardized fields.
 //
 // Example log message:
+//
 // {"l":"info","a":{"i":"01DBXQXE6WS76C2EXYBC06MSWB","r":"01DBXQXE6WSGB4EZGW8TGEH0PV","n":"foobar","v":"0.0.1","x":"01DBXQXE6WR0H602E09TA96X4D"},"t":1558997547228,"m":"info msg"}
+//
+// 	l   = level
+//	t   = timestamp in Unix time
+//  m   = message
+//	a   = app
+//	a.i = app ID
+//	a.r = release ID
+//	a.n = app name
+//	a.v = app version
+//	a.x = app instance ID
 func NewLogger(instanceID InstanceID, desc Desc) *zerolog.Logger {
 	logger := zerolog.New(os.Stderr).With().
 		Timestamp().
@@ -67,6 +97,8 @@ func NewLogger(instanceID InstanceID, desc Desc) *zerolog.Logger {
 func ConfigureZerolog() error {
 	configureStandardLogFields()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.DurationFieldUnit = time.Millisecond
+	zerolog.DurationFieldInteger = true
 
 	var config LogConfig
 	err := envconfig.Process(ENV_PREFIX, &config)
@@ -125,4 +157,20 @@ func (l *LogConfig) Apply() {
 
 func (c *LogConfig) String() string {
 	return fmt.Sprintf("LogConfig{GlobalLevel=%s, DisableSampling=%v}", c.GlobalLevel, c.DisableSampling)
+}
+
+// LogEvent is used to define application log events.
+// This enables application log events to be defined as code and documented.
+type LogEvent struct {
+	Name string
+	zerolog.Level
+}
+
+// Log starts a new log message.
+// - LogEvent.Level is used as the message log level
+// - LogEvent.Name is used for the `EVENT` log field value
+//
+// NOTE: You must call Msg on the returned event in order to send the event.
+func (l *LogEvent) Log(logger *zerolog.Logger) *zerolog.Event {
+	return logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
 }

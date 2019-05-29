@@ -45,8 +45,7 @@ func TestLogConfig(t *testing.T) {
 		if config.GlobalLevel != DEFAULT_LOG_LEVEL {
 			t.Errorf("Config.GlobalLevel default value did not match: %v", config.GlobalLevel)
 		}
-		const DEFAULT_DISABLE_SAMPLING = false
-		if config.DisableSampling != DEFAULT_DISABLE_SAMPLING {
+		if config.DisableSampling {
 			t.Errorf("Config.DisableSampling default value did not match: %v", config.DisableSampling)
 		}
 	})
@@ -181,6 +180,7 @@ type LogEvent struct {
 	Timestamp int64   `json:"t"`
 	Message   string  `json:"m"`
 	App       AppDesc `json:"a"`
+	Event     string  `json:"n"`
 }
 
 func (e *LogEvent) Time() time.Time {
@@ -202,52 +202,52 @@ type AppDesc struct {
 	InstanceID string `json:"x"`
 }
 
-// Benchmark Summary
-// ================
-// Benchmarks show that zerolog performance is on par with std log, i.e., the logging to stderr is IO bound.
-// However, zerolog is more efficient with memory allocations - zerolog has zero allocations :)
-
-// {"l":"info","a":{"i":"01DBY05VDS61D3QB34YC3D6HT4","r":"01DBY05VDSTXQJ1H73F648Z2V3","n":"foobar","v":"0.0.1","x":"01DBY05VDS1S7A68Y3PETT9E05"},"t":1559006212}
-// 50000             21167 ns/op               0 B/op          0 allocs/op
-func BenchmarkLoggingWithNoMessage(b *testing.B) {
-	desc := apptest.InitEnvForDesc()
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
-		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
-	}
-	// When a new zerolog.Logger is created
-	logger := app.NewLogger(instanceID, desc)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		logger.Info().Msg("")
-	}
+var FooEvent = app.LogEvent{
+	Name:  "foo",
+	Level: zerolog.WarnLevel,
+}
+var BarEvent = app.LogEvent{
+	Name:  "bar",
+	Level: zerolog.ErrorLevel,
 }
 
-// {"l":"info","a":{"i":"01DBY07S8PCA10QPNVGMAVQ2H2","r":"01DBY07S8PZXHFANS4WJEPTVYT","n":"foobar","v":"0.0.1","x":"01DBY07S8PRYYY6EYVD0JPS3RE"},"t":1559006275,"m":"message"}
-// 100000             21026 ns/op               0 B/op          0 allocs/op
-func BenchmarkLoggingWithMessage(b *testing.B) {
+func TestLogEvent_New(t *testing.T) {
+	// Given an app.Desc and app.InstanceID
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
+	logger := app.NewLogger(instanceID, desc)
 	// And zerolog is configured
 	if err := app.ConfigureZerolog(); err != nil {
-		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
+		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
-	// When a new zerolog.Logger is created
-	logger := app.NewLogger(instanceID, desc)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		logger.Info().Msg("message")
-	}
-}
+	// And the Logger is writing to a string.Builder in order to capture the output
+	buf := new(strings.Builder)
+	logger2 := logger.Output(buf)
+	logger = &logger2
 
-// 2019/05/27 21:18:11 message
-// 100000             20960 ns/op               8 B/op          1 allocs/op
-func BenchmarkStdLog(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		log.Println("message")
+	// When a foo event is logged
+	FooEvent.Log(logger).Msg("")
+	logEventMsg := buf.String()
+	t.Log(logEventMsg)
+
+	var logEvent LogEvent
+	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+		t.Errorf("Invalid JSON log event: %v", err)
+	} else {
+		t.Logf("JSON log event: %#v", logEvent)
+		// Then the log level will match
+		if logEvent.Level != FooEvent.Level.String() {
+			t.Errorf("log level did not match")
+		}
+		// And the LogEvent name will match
+		if logEvent.Event != FooEvent.Name {
+			t.Errorf("msg did not match")
+		}
 	}
+	buf.Reset()
+
+	BarEvent.Log(logger).Msg("")
+	logEventMsg = buf.String()
+	t.Log(logEventMsg)
 }
