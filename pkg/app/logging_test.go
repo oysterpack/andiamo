@@ -23,6 +23,7 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"log"
 	"os"
@@ -31,15 +32,19 @@ import (
 	"time"
 )
 
+const PKG app.Package = "github.com/oysterpack/partire-k8s/pkg/app_test"
+
 func TestLogConfig(t *testing.T) {
 	apptest.ClearAppEnvSettings()
 
 	t.Run("with default settings", func(t *testing.T) {
+		// Given app.LogConfig is loaded from the env
 		var config app.LogConfig
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)
 		}
+		// Then it is loaded with default values
 		t.Logf("LogConfig: %s", &config)
 		const DEFAULT_LOG_LEVEL = app.LogLevel(zerolog.InfoLevel)
 		if config.GlobalLevel != DEFAULT_LOG_LEVEL {
@@ -51,12 +56,14 @@ func TestLogConfig(t *testing.T) {
 	})
 
 	t.Run("with LOG_GLOBAL_LEVEL warn", func(t *testing.T) {
+		// Given app.LogConfig is loaded from the env
 		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "warn")
 		var config app.LogConfig
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)
 		}
+		// Then the global log level is matches the env var setting
 		t.Logf("LogConfig: %s", &config)
 		const EXPECTED_LOG_LEVEL = app.LogLevel(zerolog.WarnLevel)
 		if config.GlobalLevel != EXPECTED_LOG_LEVEL {
@@ -65,12 +72,14 @@ func TestLogConfig(t *testing.T) {
 	})
 
 	t.Run("with LOG_DISABLE_SAMPLING true", func(t *testing.T) {
+		// Given app.LogConfig is loaded from the env
 		apptest.Setenv(apptest.LOG_DISABLE_SAMPLING, "true")
 		var config app.LogConfig
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)
 		}
+		// Then the disable sampling setting matches the env var setting
 		t.Logf("LogConfig: %s", &config)
 		if !config.DisableSampling {
 			t.Errorf("Config.DisableSampling did not match: %v", config.DisableSampling)
@@ -78,19 +87,14 @@ func TestLogConfig(t *testing.T) {
 	})
 }
 
+func TestLogError(t *testing.T) {
+	logger := apptest.NewTestLogger(PKG)
+	logger.Error().Err(errors.New("BOOM!!!")).Msg("")
+	t.Logf("error log event: %s", logger.Buf.String())
+}
+
 func TestConfigureZerologAndNewLogger(t *testing.T) {
-	// Given an app.Desc and app.InstanceID
-	desc := apptest.InitEnvForDesc()
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
-		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
-	}
-	// When a new zerolog.Logger is created
-	logger := app.NewLogger(instanceID, desc)
-	buf := new(strings.Builder)
-	logger2 := logger.Output(buf)
-	logger = &logger2
+	logger := apptest.NewTestLogger(PKG)
 	// Then debug messages should not be logged
 	if e := logger.Debug(); e.Enabled() {
 		logger.Debug().Msg("debug msg")
@@ -102,7 +106,7 @@ func TestConfigureZerologAndNewLogger(t *testing.T) {
 	}
 	logger.Info().Msg("info msg")
 	logEventTime := time.Now()
-	logEventMsg := buf.String()
+	logEventMsg := logger.Buf.String()
 	t.Log(logEventMsg)
 
 	var logEvent LogEvent
@@ -112,10 +116,10 @@ func TestConfigureZerologAndNewLogger(t *testing.T) {
 		// And JSON log event data matches
 		t.Logf("JSON log event: %#v", logEvent)
 		t.Logf("now: %v | event timestamp: %v", time.Now(), logEvent.Time())
-		if !logEvent.MatchesDesc(&desc) {
+		if !logEvent.MatchesDesc(&logger.Desc) {
 			t.Errorf("app.Desc did not match")
 		}
-		if logEvent.App.InstanceID != instanceID.String() {
+		if logEvent.App.InstanceID != logger.InstanceID.String() {
 			t.Errorf("app.InstanceID did not match")
 		}
 		if logEvent.Level != zerolog.InfoLevel.String() {
@@ -129,9 +133,9 @@ func TestConfigureZerologAndNewLogger(t *testing.T) {
 		}
 	}
 
-	buf.Reset()
+	logger.Buf.Reset()
 	logger.Warn().Msg("warning msg")
-	logEventMsg = buf.String()
+	logEventMsg = logger.Buf.String()
 	t.Log(logEventMsg)
 }
 
@@ -175,6 +179,35 @@ func TestConfigureZerolog(t *testing.T) {
 	})
 }
 
+func TestLogEvent_Log(t *testing.T) {
+	logger := apptest.NewTestLogger(PKG)
+
+	// When a foo event is logged
+	FooEvent.Log(logger.Logger).Msg("")
+	logEventMsg := logger.Buf.String()
+	t.Log(logEventMsg)
+
+	var logEvent LogEvent
+	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+		t.Errorf("Invalid JSON log event: %v", err)
+	} else {
+		t.Logf("JSON log event: %#v", logEvent)
+		// Then the log level will match
+		if logEvent.Level != FooEvent.Level.String() {
+			t.Errorf("log level did not match")
+		}
+		// And the LogEvent name will match
+		if logEvent.Event != FooEvent.Name {
+			t.Errorf("msg did not match")
+		}
+	}
+	logger.Buf.Reset()
+
+	BarEvent.Log(logger.Logger).Msg("")
+	logEventMsg = logger.Buf.String()
+	t.Log(logEventMsg)
+}
+
 type LogEvent struct {
 	Level     string  `json:"l"`
 	Timestamp int64   `json:"t"`
@@ -209,45 +242,4 @@ var FooEvent = app.LogEvent{
 var BarEvent = app.LogEvent{
 	Name:  "bar",
 	Level: zerolog.ErrorLevel,
-}
-
-func TestLogEvent_New(t *testing.T) {
-	// Given an app.Desc and app.InstanceID
-	desc := apptest.InitEnvForDesc()
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger := app.NewLogger(instanceID, desc)
-	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
-		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
-	}
-
-	// And the Logger is writing to a string.Builder in order to capture the output
-	buf := new(strings.Builder)
-	logger2 := logger.Output(buf)
-	logger = &logger2
-
-	// When a foo event is logged
-	FooEvent.Log(logger).Msg("")
-	logEventMsg := buf.String()
-	t.Log(logEventMsg)
-
-	var logEvent LogEvent
-	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-		t.Errorf("Invalid JSON log event: %v", err)
-	} else {
-		t.Logf("JSON log event: %#v", logEvent)
-		// Then the log level will match
-		if logEvent.Level != FooEvent.Level.String() {
-			t.Errorf("log level did not match")
-		}
-		// And the LogEvent name will match
-		if logEvent.Event != FooEvent.Name {
-			t.Errorf("msg did not match")
-		}
-	}
-	buf.Reset()
-
-	BarEvent.Log(logger).Msg("")
-	logEventMsg = buf.String()
-	t.Log(logEventMsg)
 }

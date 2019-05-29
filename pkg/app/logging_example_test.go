@@ -26,16 +26,29 @@ import (
 	"time"
 )
 
+// This example demonstrates a couple of approaches to log events in a consistent and standardized manner.
+// Log events should be carefully vetted and logged via an expressive and type-safe library.
+func ExampleLogEvent() {
+	logger := newLogger()
+
+	appLog := NewAppLog(logger)
+	appLog.Started()
+	appLog.Stopped()
+
+	timedout := NewLogTimeoutEvent(logger)
+	timedout(2 * time.Second)
+
+	// Sample log output
+	// {"a":{"i":"01DC2PKQA8AVT00HAJRX7NBNP1","r":"01DC2PKQA8VWCKXAQY92356R5H","n":"foobar","v":"0.0.1","x":"01DC2PKQA877R22Q59C6J0RHR1"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","n":"start","t":1559163952}
+	// {"a":{"i":"01DC2PKQA8AVT00HAJRX7NBNP1","r":"01DC2PKQA8VWCKXAQY92356R5H","n":"foobar","v":"0.0.1","x":"01DC2PKQA877R22Q59C6J0RHR1"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","n":"stop","t":1559163952}
+	// {"l":"warn","a":{"i":"01DC2PKQA8AVT00HAJRX7NBNP1","r":"01DC2PKQA8VWCKXAQY92356R5H","n":"foobar","v":"0.0.1","x":"01DC2PKQA877R22Q59C6J0RHR1"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","n":"timeout","Duration":{"ms":2000},"t":1559163952}
+
+	// Output:
+	//
+}
+
 // Application log events
 var (
-	AppStarted = app.LogEvent{
-		Name:  "app_started",
-		Level: zerolog.InfoLevel,
-	}
-	AppStopped = app.LogEvent{
-		Name:  "app_stopped",
-		Level: zerolog.InfoLevel,
-	}
 	Timeout = app.LogEvent{
 		Name:  "timeout",
 		Level: zerolog.WarnLevel,
@@ -52,14 +65,14 @@ func NewAppLog(logger *zerolog.Logger) AppLog {
 	return AppLog{logger}
 }
 
-// Started logs an event when the app is started
+// Start logs an event when the app is started
 func (l *AppLog) Started() {
-	AppStarted.Log(l.Logger).Msg("")
+	app.Start.Log(l.Logger).Msg("")
 }
 
-// Started logs an event when the app is stopped
+// Start logs an event when the app is stopped
 func (l *AppLog) Stopped() {
-	AppStopped.Log(l.Logger).Msg("")
+	app.Stop.Log(l.Logger).Msg("")
 }
 
 // LogTimeoutEvent is used to log timeout events
@@ -71,27 +84,6 @@ func NewLogTimeoutEvent(logger *zerolog.Logger) LogTimeoutEvent {
 	}
 }
 
-// This example demonstrates a couple of approaches to log events in a consistent and standardized manner.
-// Log events should be carefully vetted and logged via an expressive and type-safe library.
-func ExampleLogEvent() {
-	logger := newLogger()
-
-	appLog := NewAppLog(logger)
-	appLog.Started()
-	appLog.Stopped()
-
-	timedout := NewLogTimeoutEvent(logger)
-	timedout(2 * time.Second)
-
-	// Sample log output
-	// {"l":"info","a":{"i":"01DC0G120KG2HP5V2GXMYE8VHP","r":"01DC0G120KREEXZS2RH78T5NZQ","n":"foobar","v":"0.0.1","x":"01DC0G120KPFKF5SYWVWRKBJ2R"},"n":"app_started","t":1559089940}
-	// {"l":"info","a":{"i":"01DC0G120KG2HP5V2GXMYE8VHP","r":"01DC0G120KREEXZS2RH78T5NZQ","n":"foobar","v":"0.0.1","x":"01DC0G120KPFKF5SYWVWRKBJ2R"},"n":"app_stopped","t":1559089940}
-	// {"l":"warn","a":{"i":"01DC0G120KG2HP5V2GXMYE8VHP","r":"01DC0G120KREEXZS2RH78T5NZQ","n":"foobar","v":"0.0.1","x":"01DC0G120KPFKF5SYWVWRKBJ2R"},"n":"timeout","Duration":{"ms":2000},"t":1559089940}
-
-	// Output:
-	//
-}
-
 func newLogger() *zerolog.Logger {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
@@ -100,5 +92,5 @@ func newLogger() *zerolog.Logger {
 	if err := app.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
-	return logger
+	return PKG.Logger(logger)
 }

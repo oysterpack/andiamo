@@ -36,7 +36,7 @@ import (
 //   - *zerolog.Logger
 //     - is used as the fx.App logger, which logs all fx.App log events using debug level
 //     - is used as the go std logger
-// - lifecycle hook is regsitered to log app.Start and app.Stop log events
+// - lifecycle hook is registered to log app.Start and app.Stop log events
 func New(options ...fx.Option) *fx.App {
 	config := app.LoadConfig()
 	options = append(options, fx.StartTimeout(config.StartTimeout))
@@ -75,13 +75,14 @@ func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 }
 
 func registerLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
+	appLogger := app.PKG.Logger(logger)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			app.Started.Log(logger).Msg("")
+			app.Start.Log(appLogger).Msg("")
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			app.Stopped.Log(logger).Msg("")
+			app.Stop.Log(appLogger).Msg("")
 			return nil
 		},
 	})

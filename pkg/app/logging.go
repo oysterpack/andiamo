@@ -25,18 +25,40 @@ import (
 	"time"
 )
 
+// Package is used to hold a package path, e.g.
+//
+// 		const PKG Package = "github.com/oysterpack/partire-k8s/pkg/app"
+type Package string
+
+// Logger returns a new Logger with the package added to the logger context.
+// All log events should include the package that logged the event.
+func (p Package) Logger(logger *zerolog.Logger) *zerolog.Logger {
+	pkgLogger := logger.With().
+		Str(string(PACKAGE), string(p)).
+		Logger()
+	return &pkgLogger
+}
+
+const PKG Package = "github.com/oysterpack/partire-k8s/pkg/app"
+
+// LogField is used to define log event fields used for structured logging.
 type LogField string
 
+// LogField enum
 const (
+	// TIMESTAMP value is in Unix time.
 	TIMESTAMP = LogField("t")
-	LEVEL     = LogField("l")
-	MESSAGE   = LogField("m")
-	ERROR     = LogField("e")
-	CALLER    = LogField("c")
-	STACK     = LogField("s")
+	// LEVEL is the log level
+	LEVEL = LogField("l")
+	// MESSAGE is the log message
+	MESSAGE = LogField("m")
+	// ERROR is used to log the error message
+	ERROR = LogField("e")
 
 	// all log events should specify the event name
 	EVENT = LogField("n")
+	// PKG_PATH is used to provide the event scope, i.e., which package logged the event.
+	PACKAGE = LogField("p")
 
 	// app related fields
 	APP             = LogField("a")
@@ -50,13 +72,13 @@ const (
 // App lifecycle events
 // - NOTE: they are logged with no level to ensure they are always logged, i.e., regardless of the global log level
 var (
-	Started = LogEvent{
-		Name:  "app_start",
+	Start = LogEvent{
+		Name:  "start",
 		Level: zerolog.NoLevel,
 	}
 
-	Stopped = LogEvent{
-		Name:  "app_stop",
+	Stop = LogEvent{
+		Name:  "stop",
 		Level: zerolog.NoLevel,
 	}
 )
@@ -115,8 +137,6 @@ func configureStandardLogFields() {
 	zerolog.LevelFieldName = string(LEVEL)
 	zerolog.MessageFieldName = string(MESSAGE)
 	zerolog.ErrorFieldName = string(ERROR)
-	zerolog.CallerFieldName = string(CALLER)
-	zerolog.ErrorStackFieldName = string(STACK)
 }
 
 // UseAsStandardLoggerOutput uses the specified logger as the go std log output.
