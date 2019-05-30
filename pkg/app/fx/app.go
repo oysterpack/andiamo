@@ -75,7 +75,8 @@ func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 }
 
 func registerLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
-	appLogger := app.PKG.Logger(logger)
+	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
+	appLogger := PACKAGE.Logger(logger)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			app.Start.Log(appLogger).Msg("")

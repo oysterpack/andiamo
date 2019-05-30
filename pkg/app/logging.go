@@ -27,7 +27,7 @@ import (
 
 // Package is used to hold a package path, e.g.
 //
-// 		const PKG Package = "github.com/oysterpack/partire-k8s/pkg/app"
+// const PKG Package = "github.com/oysterpack/partire-k8s/pkg/app"
 type Package string
 
 // Logger returns a new Logger with the package added to the logger context.
@@ -39,26 +39,26 @@ func (p Package) Logger(logger *zerolog.Logger) *zerolog.Logger {
 	return &pkgLogger
 }
 
-const PKG Package = "github.com/oysterpack/partire-k8s/pkg/app"
-
 // LogField is used to define log event fields used for structured logging.
 type LogField string
 
 // LogField enum
 const (
-	// TIMESTAMP value is in Unix time.
+	// TIMESTAMP specifies when the log event occurred in Unix time.
 	TIMESTAMP = LogField("t")
-	// LEVEL is the log level
+	// LEVEL specifies the log level.
 	LEVEL = LogField("l")
-	// MESSAGE is the log message
+	// MESSAGE specifies the log message.
 	MESSAGE = LogField("m")
-	// ERROR is used to log the error message
+	// ERROR specifies the error message.
 	ERROR = LogField("e")
 
-	// all log events should specify the event name
-	EVENT = LogField("n")
-	// PKG_PATH is used to provide the event scope, i.e., which package logged the event.
+	// PACKAGE specifies which package logged the event
 	PACKAGE = LogField("p")
+	// EVENT is used to specify the event name. All log events should specify the event name.
+	EVENT = LogField("n")
+	// COMPONENT is used to to specify the application component that logged the event.
+	COMPONENT = LogField("c")
 
 	// app related fields
 	APP             = LogField("a")
@@ -82,6 +82,22 @@ var (
 		Level: zerolog.NoLevel,
 	}
 )
+
+// LogEvent is used to define application log events.
+// This enables application log events to be defined as code and documented.
+type LogEvent struct {
+	Name string
+	zerolog.Level
+}
+
+// Log starts a new log message.
+// - LogEvent.Level is used as the message log level
+// - LogEvent.Name is used for the `EVENT` log field value
+//
+// NOTE: You must call Msg on the returned event in order to send the event.
+func (l *LogEvent) Log(logger *zerolog.Logger) *zerolog.Event {
+	return logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
+}
 
 // NewLogger constructs a new timestamped Logger with standardized fields.
 //
@@ -117,49 +133,38 @@ func NewLogger(instanceID InstanceID, desc Desc) *zerolog.Logger {
 // - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 // - applies `LogConfig` settings
 func ConfigureZerolog() error {
-	configureStandardLogFields()
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	zerolog.DurationFieldUnit = time.Millisecond
-	zerolog.DurationFieldInteger = true
-
-	var config LogConfig
-	err := envconfig.Process(ENV_PREFIX, &config)
-	if err != nil {
-		return err
+	configureStandardLogFields := func() {
+		zerolog.TimestampFieldName = string(TIMESTAMP)
+		zerolog.LevelFieldName = string(LEVEL)
+		zerolog.MessageFieldName = string(MESSAGE)
+		zerolog.ErrorFieldName = string(ERROR)
 	}
-	config.Apply()
 
-	return nil
-}
+	configureTimeRelatedFields := func() {
+		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+		zerolog.DurationFieldUnit = time.Millisecond
+		zerolog.DurationFieldInteger = true
+	}
 
-func configureStandardLogFields() {
-	zerolog.TimestampFieldName = string(TIMESTAMP)
-	zerolog.LevelFieldName = string(LEVEL)
-	zerolog.MessageFieldName = string(MESSAGE)
-	zerolog.ErrorFieldName = string(ERROR)
+	loadLogConfig := func() error {
+		var config LogConfig
+		err := envconfig.Process(ENV_PREFIX, &config)
+		if err != nil {
+			return err
+		}
+		config.Apply()
+		return nil
+	}
+
+	configureStandardLogFields()
+	configureTimeRelatedFields()
+	return loadLogConfig()
 }
 
 // UseAsStandardLoggerOutput uses the specified logger as the go std log output.
 func UseAsStandardLoggerOutput(logger *zerolog.Logger) {
 	log.SetFlags(0)
 	log.SetOutput(logger)
-}
-
-// LogLevel is a type alias for zerolog.Level in order to be able to implement the `envconfig.Decoder` interface on it
-type LogLevel zerolog.Level
-
-// Decode implements `envconfig.Decoder` interface
-func (l *LogLevel) Decode(value string) error {
-	level, err := zerolog.ParseLevel(value)
-	if err != nil {
-		return err
-	}
-	*l = LogLevel(level)
-	return nil
-}
-
-func (l LogLevel) String() string {
-	return zerolog.Level(l).String()
 }
 
 // LogConfig
@@ -179,18 +184,19 @@ func (c *LogConfig) String() string {
 	return fmt.Sprintf("LogConfig{GlobalLevel=%s, DisableSampling=%v}", c.GlobalLevel, c.DisableSampling)
 }
 
-// LogEvent is used to define application log events.
-// This enables application log events to be defined as code and documented.
-type LogEvent struct {
-	Name string
-	zerolog.Level
+// LogLevel is a type alias for zerolog.Level in order to be able to implement the `envconfig.Decoder` interface on it
+type LogLevel zerolog.Level
+
+// Decode implements `envconfig.Decoder` interface
+func (l *LogLevel) Decode(value string) error {
+	level, err := zerolog.ParseLevel(value)
+	if err != nil {
+		return err
+	}
+	*l = LogLevel(level)
+	return nil
 }
 
-// Log starts a new log message.
-// - LogEvent.Level is used as the message log level
-// - LogEvent.Name is used for the `EVENT` log field value
-//
-// NOTE: You must call Msg on the returned event in order to send the event.
-func (l *LogEvent) Log(logger *zerolog.Logger) *zerolog.Event {
-	return logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
+func (l LogLevel) String() string {
+	return zerolog.Level(l).String()
 }
