@@ -99,6 +99,32 @@ func TestNewApp(t *testing.T) {
 			}
 		}()
 	})
+
+	t.Run("using invalid app start/stop timeouts", func(t *testing.T) {
+		apptest.InitEnvForDesc()
+		apptest.Setenv(apptest.START_TIMEOUT, "--")
+		defer func() {
+			if err := recover(); err == nil {
+				t.Error("fx.New() should have because the app start timeout was misconfigured")
+			} else {
+				t.Logf("as expected, fx.New() failed because of: %v", err)
+			}
+		}()
+		New()
+	})
+
+	t.Run("using invalid log config", func(t *testing.T) {
+		apptest.InitEnvForDesc()
+		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "--")
+		defer func() {
+			if err := recover(); err == nil {
+				t.Error("fx.New() should have because the app global log level was misconfigured")
+			} else {
+				t.Logf("as expected, fx.New() failed because of: %v", err)
+			}
+		}()
+		New()
+	})
 }
 
 func UseLogger(logger *zerolog.Logger, desc app.Desc, instanceID app.InstanceID) {

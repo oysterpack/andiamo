@@ -17,12 +17,19 @@
 package logcfg_test
 
 import (
+	"crypto/rand"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
+	"log"
+	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestLogConfig(t *testing.T) {
@@ -42,7 +49,7 @@ func TestLogConfig(t *testing.T) {
 			t.Errorf("Config.GlobalLevel default value did not match: %v", config.GlobalLevel)
 		}
 		if config.DisableSampling {
-			t.Errorf("Config.DisableSampling default value did not match: %v", config.DisableSampling)
+			t.Error("Config.DisableSampling default value should be false but was found to be true")
 		}
 	})
 
@@ -74,6 +81,80 @@ func TestLogConfig(t *testing.T) {
 		t.Logf("Config: %s", &config)
 		if !config.DisableSampling {
 			t.Errorf("Config.DisableSampling did not match: %v", config.DisableSampling)
+		}
+	})
+}
+
+func TestUseAsStandardLoggerOutput(t *testing.T) {
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	// Given an app.Desc and app.InstanceID
+	desc := apptest.InitEnvForDesc()
+	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
+	// And zerolog is configured
+	if err := logcfg.ConfigureZerolog(); err != nil {
+		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
+	}
+	// And a new zerolog.Logger
+	logger := logcfg.NewLogger(instanceID, desc)
+	buf := new(strings.Builder)
+	logger2 := logger.Output(buf)
+	logger = &logger2
+	// When the zerolog Logger is used as the std logger
+	logcfg.UseAsStandardLoggerOutput(logger)
+	// Then std logger will write to zerolog Logger
+	log.Printf("this should be logging using zero log: %s", desc)
+	logEventMsg := buf.String()
+	t.Log(logEventMsg)
+}
+
+func TestConfigureZerolog(t *testing.T) {
+	t.Run("using default config", func(t *testing.T) {
+		apptest.ClearAppEnvSettings()
+		if err := logcfg.ConfigureZerolog(); err != nil {
+			t.Fatalf("logcfg.ConfigureZerolog() failed: %v", err)
+		}
+
+		if zerolog.TimestampFieldName != string(logging.TIMESTAMP) {
+			t.Errorf("zerolog.TimestampFieldName should be %q, but is %q", zerolog.TimestampFieldName, logging.TIMESTAMP)
+		}
+		if zerolog.LevelFieldName != string(logging.LEVEL) {
+			t.Errorf("zerolog.LevelFieldName should be %q, but is %q", zerolog.LevelFieldName, logging.LEVEL)
+		}
+		if zerolog.MessageFieldName != string(logging.MESSAGE) {
+			t.Errorf("zerolog.MessageFieldName should be %q, but is %q", zerolog.MessageFieldName, logging.MESSAGE)
+		}
+		if zerolog.ErrorFieldName != string(logging.ERROR) {
+			t.Errorf("zerolog.ErrorFieldName should be %q, but is %q", zerolog.ErrorFieldName, logging.ERROR)
+		}
+
+		if zerolog.TimeFieldFormat != zerolog.TimeFormatUnix {
+			t.Errorf("zerolog.ErrorFieldName should be zerolog.TimeFormatUnix, but is %q", zerolog.TimeFieldFormat)
+		}
+		if zerolog.DurationFieldUnit != time.Millisecond {
+			t.Errorf("zerolog.DurationFieldUnit should be time.Millisecond, but is %s", zerolog.DurationFieldUnit)
+		}
+		if !zerolog.DurationFieldInteger {
+			t.Error("zerolog.DurationFieldInteger should be true")
+		}
+
+		if zerolog.GlobalLevel() != zerolog.InfoLevel {
+			t.Errorf("zerolog.GlobalLevel() should be Info, but is : %v", zerolog.GlobalLevel())
+		}
+	})
+
+	t.Run("with invalid log level", func(t *testing.T) {
+		apptest.ClearAppEnvSettings()
+		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "INVALID")
+		if err := logcfg.ConfigureZerolog(); err == nil {
+			t.Fatal("should have failed because INVALID log level was set in env")
+		} else {
+			t.Log(err)
 		}
 	})
 }

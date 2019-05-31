@@ -39,12 +39,8 @@ func (c Timeouts) String() string {
 // LoadTimeouts loads the app Timeouts from the system environment. The following env vars are read:
 // - APPX12_START_TIMEOUT
 // - APPX12_STOP_TIMEOUT
-func LoadTimeouts() Timeouts {
+func LoadTimeouts() (Timeouts, error) {
 	var config Timeouts
-	if err := envconfig.Process(ENV_PREFIX, &config); err != nil {
-		// an error should never happen because Timeouts has no required fields and defaults are specified
-		// if an error does occur, then it's a bug in the underlying `envconfig` package
-		panic(err)
-	}
-	return config
+	err := envconfig.Process(ENV_PREFIX, &config)
+	return config, err
 }

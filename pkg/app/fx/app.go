@@ -40,7 +40,10 @@ import (
 //     - is used as the go std logger
 // - lifecycle hook is registered to log app.Start and app.Stop log events
 func New(options ...fx.Option) *fx.App {
-	config := app.LoadTimeouts()
+	config, err := app.LoadTimeouts()
+	if err != nil {
+		log.Panicf("app.LoadTimeouts() failed: %v", err)
+	}
 	options = append(options, fx.StartTimeout(config.StartTimeout))
 	options = append(options, fx.StopTimeout(config.StopTimeout))
 
@@ -70,7 +73,7 @@ func loadDesc() app.Desc {
 func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 	logger := logcfg.NewLogger(instanceID, desc)
 	if err := logcfg.ConfigureZerolog(); err != nil {
-		panic(err)
+		log.Panicf("logcfg.ConfigureZerolog() failed: %v", err)
 	}
 	logcfg.UseAsStandardLoggerOutput(logger)
 	return logger

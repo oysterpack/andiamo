@@ -17,16 +17,11 @@
 package logcfg_test
 
 import (
-	"crypto/rand"
 	"encoding/json"
-	"github.com/oklog/ulid"
+	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
-	"log"
-	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -71,50 +66,24 @@ func TestConfigureZerologAndNewLogger(t *testing.T) {
 		}
 	}
 
+	// Given and error is logged
 	logger.Buf.Reset()
-	logger.Warn().Msg("warning msg")
+	logger.Error().Err(errors.New("error occurred")).Msg("warning msg")
 	logEventMsg = logger.Buf.String()
 	t.Log(logEventMsg)
-}
 
-func TestUseAsStandardLoggerOutput(t *testing.T) {
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
-	// Given an app.Desc and app.InstanceID
-	desc := apptest.InitEnvForDesc()
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	// And zerolog is configured
-	if err := logcfg.ConfigureZerolog(); err != nil {
-		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
-	}
-	// And a new zerolog.Logger
-	logger := logcfg.NewLogger(instanceID, desc)
-	buf := new(strings.Builder)
-	logger2 := logger.Output(buf)
-	logger = &logger2
-	// When the zerolog Logger is used as the std logger
-	logcfg.UseAsStandardLoggerOutput(logger)
-	// Then std logger will write to zerolog Logger
-	log.Printf("this should be logging using zero log: %s", desc)
-	logEventMsg := buf.String()
-	t.Log(logEventMsg)
-}
-
-func TestConfigureZerolog(t *testing.T) {
-	t.Run("with invalid log level", func(t *testing.T) {
-		apptest.ClearAppEnvSettings()
-		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "INVALID")
-		if err := logcfg.ConfigureZerolog(); err == nil {
-			t.Fatal("should have failed because INVALID log level was set in env")
-		} else {
-			t.Log(err)
+	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+		t.Errorf("Invalid JSON log event: %v", err)
+	} else {
+		// Then the error is logged
+		if logEvent.Error != "error occurred" {
+			t.Errorf("error did not match")
 		}
-	})
+		// And the log event level is Error
+		if logEvent.Level != zerolog.ErrorLevel.String() {
+			t.Errorf("log level did not match")
+		}
+	}
 }
 
 type LogEvent struct {
@@ -123,6 +92,7 @@ type LogEvent struct {
 	Message   string  `json:"m"`
 	App       AppDesc `json:"a"`
 	Event     string  `json:"n"`
+	Error     string  `json:"e"`
 }
 
 func (e *LogEvent) Time() time.Time {
