@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package log_test
+package logcfg_test
 
 import (
 	"crypto/rand"
 	"encoding/json"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"log"
 	"os"
@@ -89,16 +89,16 @@ func TestUseAsStandardLoggerOutput(t *testing.T) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// And a new zerolog.Logger
-	logger := applog.NewLogger(instanceID, desc)
+	logger := logcfg.NewLogger(instanceID, desc)
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)
 	logger = &logger2
 	// When the zerolog Logger is used as the std logger
-	applog.UseAsStandardLoggerOutput(logger)
+	logcfg.UseAsStandardLoggerOutput(logger)
 	// Then std logger will write to zerolog Logger
 	log.Printf("this should be logging using zero log: %s", desc)
 	logEventMsg := buf.String()
@@ -109,41 +109,12 @@ func TestConfigureZerolog(t *testing.T) {
 	t.Run("with invalid log level", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
 		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "INVALID")
-		if err := applog.ConfigureZerolog(); err == nil {
+		if err := logcfg.ConfigureZerolog(); err == nil {
 			t.Fatal("should have failed because INVALID log level was set in env")
 		} else {
 			t.Log(err)
 		}
 	})
-}
-
-func TestLogEvent_Log(t *testing.T) {
-	logger := apptest.NewTestLogger(PACKAGE)
-
-	// When a foo event is logged
-	FooEvent.Log(logger.Logger).Msg("")
-	logEventMsg := logger.Buf.String()
-	t.Log(logEventMsg)
-
-	var logEvent LogEvent
-	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-		t.Errorf("Invalid JSON log event: %v", err)
-	} else {
-		t.Logf("JSON log event: %#v", logEvent)
-		// Then the log level will match
-		if logEvent.Level != FooEvent.Level.String() {
-			t.Errorf("log level did not match")
-		}
-		// And the Event name will match
-		if logEvent.Event != FooEvent.Name {
-			t.Errorf("msg did not match")
-		}
-	}
-	logger.Buf.Reset()
-
-	BarEvent.Log(logger.Logger).Msg("")
-	logEventMsg = logger.Buf.String()
-	t.Log(logEventMsg)
 }
 
 type LogEvent struct {
@@ -171,13 +142,4 @@ type AppDesc struct {
 	Name       string `json:"n"`
 	Version    string `json:"v"`
 	InstanceID string `json:"x"`
-}
-
-var FooEvent = applog.Event{
-	Name:  "foo",
-	Level: zerolog.WarnLevel,
-}
-var BarEvent = applog.Event{
-	Name:  "bar",
-	Level: zerolog.ErrorLevel,
 }

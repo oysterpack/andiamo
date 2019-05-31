@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-package log_test
+package logcfg_test
 
 import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"log"
 	"testing"
@@ -39,13 +40,13 @@ func BenchmarkLoggingWithNoMessage(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
+	logger := logging.PackageLogger(logcfg.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
@@ -61,13 +62,13 @@ func BenchmarkLoggingWithMessage(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
+	logger := logging.PackageLogger(logcfg.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
@@ -83,17 +84,17 @@ func BenchmarkLogEvent_Log(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
+	logger := logging.PackageLogger(logcfg.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
-	fooEvent := applog.Event{
+	fooEvent := logging.Event{
 		Name:  "foo",
 		Level: zerolog.WarnLevel,
 	}

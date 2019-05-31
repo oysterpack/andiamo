@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package log
+package logcfg
 
 import (
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"log"
 	"time"
@@ -71,10 +72,10 @@ func (l Level) String() string {
 // - loads `Config` from the system env and applies it
 func ConfigureZerolog() error {
 	configureStandardLogFields := func() {
-		zerolog.TimestampFieldName = string(TIMESTAMP)
-		zerolog.LevelFieldName = string(LEVEL)
-		zerolog.MessageFieldName = string(MESSAGE)
-		zerolog.ErrorFieldName = string(ERROR)
+		zerolog.TimestampFieldName = string(logging.TIMESTAMP)
+		zerolog.LevelFieldName = string(logging.LEVEL)
+		zerolog.MessageFieldName = string(logging.MESSAGE)
+		zerolog.ErrorFieldName = string(logging.ERROR)
 	}
 
 	configureTimeRelatedFields := func() {

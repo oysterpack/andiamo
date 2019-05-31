@@ -23,7 +23,8 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"log"
 	"os"
@@ -125,7 +126,7 @@ func InitEnvForDesc() app.Desc {
 	}
 }
 
-// TestLogger writes to a string,Builder, which can then be inspected
+// TestLogger writes to a string.Builder, which can then be inspected while testing.
 type TestLogger struct {
 	*zerolog.Logger
 	Buf *strings.Builder
@@ -133,8 +134,8 @@ type TestLogger struct {
 	app.InstanceID
 }
 
-// NewTestLogger consructs a new TestLogger instance.
-func NewTestLogger(pkg app.Package) *TestLogger {
+// NewTestLogger constructs a new TestLogger instance.
+func NewTestLogger(p app.Package) *TestLogger {
 	// Given an app.Desc and app.InstanceID
 	desc := InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
@@ -144,7 +145,7 @@ func NewTestLogger(pkg app.Package) *TestLogger {
 	}
 	// When a new zerolog.Logger is created
 	logger := applog.NewLogger(instanceID, desc)
-	logger = applog.PackageLogger(logger, pkg)
+	logger = logging.PackageLogger(logger, p)
 	// And the log output is captured in a strings.Builder
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)

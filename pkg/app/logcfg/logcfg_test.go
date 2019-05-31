@@ -14,16 +14,10 @@
  * limitations under the License.
  */
 
-package log_test
+package logcfg_test
 
 import (
-	"errors"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	"testing"
+	"github.com/oysterpack/partire-k8s/pkg/app"
 )
 
-func TestLogError(t *testing.T) {
-	logger := apptest.NewTestLogger(PACKAGE)
-	logger.Error().Err(errors.New("BOOM!!!")).Msg("")
-	t.Logf("error log event: %s", logger.Buf.String())
-}
+const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/logcfg_test"

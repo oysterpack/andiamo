@@ -21,7 +21,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"testing"
 	"time"
 )

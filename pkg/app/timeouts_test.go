@@ -18,7 +18,7 @@ package app_test
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"testing"
 	"time"
 )

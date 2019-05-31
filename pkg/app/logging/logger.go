@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
-package log_test
+package logging
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/rs/zerolog"
 )
 
-const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/log_test"
+// PackageLogger add the specified package as a field to the logger
+func PackageLogger(logger *zerolog.Logger, p app.Package) *zerolog.Logger {
+	pkgLogger := logger.With().
+		Str(string(PACKAGE), string(p)).
+		Logger()
+	return &pkgLogger
+}

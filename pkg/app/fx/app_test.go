@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"

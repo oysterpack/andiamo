@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package log_test
+package logcfg_test
 
 import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	"github.com/oysterpack/partire-k8s/pkg/app/log"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"testing"
 )
@@ -30,14 +30,14 @@ func TestLogConfig(t *testing.T) {
 
 	t.Run("with default settings", func(t *testing.T) {
 		// Given app.Config is loaded from the env
-		var config log.Config
+		var config logcfg.Config
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)
 		}
 		// Then it is loaded with default values
 		t.Logf("Config: %s", &config)
-		const DEFAULT_LOG_LEVEL = log.Level(zerolog.InfoLevel)
+		const DEFAULT_LOG_LEVEL = logcfg.Level(zerolog.InfoLevel)
 		if config.GlobalLevel != DEFAULT_LOG_LEVEL {
 			t.Errorf("Config.GlobalLevel default value did not match: %v", config.GlobalLevel)
 		}
@@ -49,14 +49,14 @@ func TestLogConfig(t *testing.T) {
 	t.Run("with LOG_GLOBAL_LEVEL warn", func(t *testing.T) {
 		// Given app.Config is loaded from the env
 		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "warn")
-		var config log.Config
+		var config logcfg.Config
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)
 		}
 		// Then the global log level is matches the env var setting
 		t.Logf("Config: %s", &config)
-		const EXPECTED_LOG_LEVEL = log.Level(zerolog.WarnLevel)
+		const EXPECTED_LOG_LEVEL = logcfg.Level(zerolog.WarnLevel)
 		if config.GlobalLevel != EXPECTED_LOG_LEVEL {
 			t.Errorf("Config.GlobalLevel did not match: %v", config.GlobalLevel)
 		}
@@ -65,7 +65,7 @@ func TestLogConfig(t *testing.T) {
 	t.Run("with LOG_DISABLE_SAMPLING true", func(t *testing.T) {
 		// Given app.Config is loaded from the env
 		apptest.Setenv(apptest.LOG_DISABLE_SAMPLING, "true")
-		var config log.Config
+		var config logcfg.Config
 		err := envconfig.Process(app.ENV_PREFIX, &config)
 		if err != nil {
 			t.Error(err)

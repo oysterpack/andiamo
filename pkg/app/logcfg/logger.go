@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package log
+package logcfg
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"os"
 )
@@ -40,21 +41,13 @@ import (
 func NewLogger(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 	logger := zerolog.New(os.Stderr).With().
 		Timestamp().
-		Dict(string(APP), zerolog.Dict().
-			Str(string(APP_ID), desc.ID.String()).
-			Str(string(APP_RELEASE_ID), desc.ReleaseID.String()).
-			Str(string(APP_NAME), string(desc.Name)).
-			Str(string(APP_VERSION), desc.Version.String()).
-			Str(string(APP_INSTANCE_ID), instanceID.String())).
+		Dict(string(logging.APP), zerolog.Dict().
+			Str(string(logging.APP_ID), desc.ID.String()).
+			Str(string(logging.APP_RELEASE_ID), desc.ReleaseID.String()).
+			Str(string(logging.APP_NAME), string(desc.Name)).
+			Str(string(logging.APP_VERSION), desc.Version.String()).
+			Str(string(logging.APP_INSTANCE_ID), instanceID.String())).
 		Logger()
 
 	return &logger
-}
-
-// PackageLogger add the specified package as a field to the logger
-func PackageLogger(logger *zerolog.Logger, p app.Package) *zerolog.Logger {
-	pkgLogger := logger.With().
-		Str(string(PACKAGE), string(p)).
-		Logger()
-	return &pkgLogger
 }

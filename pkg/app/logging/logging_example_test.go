@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-package log_test
+package logging_test
 
 import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"log"
 	"time"
@@ -50,7 +51,7 @@ func ExampleLogEvent() {
 
 // Application log events
 var (
-	Timeout = applog.Event{
+	Timeout = logging.Event{
 		Name:  "timeout",
 		Level: zerolog.WarnLevel,
 	}
@@ -68,12 +69,12 @@ func NewAppLog(logger *zerolog.Logger) AppLog {
 
 // Start logs an event when the app is started
 func (l *AppLog) Started() {
-	applog.Start.Log(l.Logger).Msg("")
+	logging.Start.Log(l.Logger).Msg("")
 }
 
 // Start logs an event when the app is stopped
 func (l *AppLog) Stopped() {
-	applog.Stop.Log(l.Logger).Msg("")
+	logging.Stop.Log(l.Logger).Msg("")
 }
 
 // LogTimeoutEvent is used to log timeout events
@@ -88,10 +89,10 @@ func NewLogTimeoutEvent(logger *zerolog.Logger) LogTimeoutEvent {
 func newLogger() *zerolog.Logger {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger := applog.NewLogger(instanceID, desc)
+	logger := logcfg.NewLogger(instanceID, desc)
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
-	return applog.PackageLogger(logger, PACKAGE)
+	return logging.PackageLogger(logger, PACKAGE)
 }

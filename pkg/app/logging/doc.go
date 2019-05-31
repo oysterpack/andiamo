@@ -15,14 +15,20 @@
  */
 
 /*
-Package `log` standardizes application logging.
+Package logging standardizes application logging - using zerolog as the logging framework.
 
-[zerolog](https://github.com/rs/zerolog) is used as the logging framework because:
-- it provides structured JSON logging
-- it is fast and memory efficient - avoids allocations and reflection
-- its API is simple to understand and work with
+`Field`
+-------
+- standardizes the log field names
 
+`Event`
+-------
+- used to define all application log events in code
+- is used to log events to a `zerolog.Logger`
 
+`PackageLogger()`
+-----------------
+- used to scope log events to a package, i.e., it adds the `PACKAGE` field to the log event
 
 */
-package log
+package logging

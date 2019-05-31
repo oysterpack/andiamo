@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package log
+package logging
 
 // Field is used to define log event fields used for structured logging.
 type Field string

@@ -21,7 +21,8 @@ import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
@@ -67,24 +68,24 @@ func loadDesc() app.Desc {
 
 // panics if an error occurs while trying to configure zerolog
 func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
-	logger := applog.NewLogger(instanceID, desc)
-	if err := applog.ConfigureZerolog(); err != nil {
+	logger := logcfg.NewLogger(instanceID, desc)
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		panic(err)
 	}
-	applog.UseAsStandardLoggerOutput(logger)
+	logcfg.UseAsStandardLoggerOutput(logger)
 	return logger
 }
 
 func registerLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
 	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
-	appLogger := applog.PackageLogger(logger, PACKAGE)
+	appLogger := logging.PackageLogger(logger, PACKAGE)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			applog.Start.Log(appLogger).Msg("")
+			logging.Start.Log(appLogger).Msg("")
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			applog.Stop.Log(appLogger).Msg("")
+			logging.Stop.Log(appLogger).Msg("")
 			return nil
 		},
 	})
