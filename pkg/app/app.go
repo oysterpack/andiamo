@@ -84,3 +84,8 @@ type InstanceID ulid.ULID
 func (id InstanceID) String() string {
 	return ulid.ULID(id).String()
 }
+
+// Package is used to hold a package path, e.g.
+//
+// const PACKAGE Package = "github.com/oysterpack/partire-k8s/pkg/app"
+type Package string

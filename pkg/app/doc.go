@@ -20,35 +20,34 @@ Package `app` standardizes the base application model.
 
 Features
 ========
+`Desc`
+------
+- APPX12_ID (required) -> `ID`
+  - app identifier - specified as a [ULID](https://github.com/ulid/spec)
+- APPX12_NAME (required) -> `Name`
+  - app name within the given context. Within k8s, the name must be unique within a namespace context.
+- APPX12_VERSION (required) -> `Version`
+  - follows semver convention
+- APPX12_RELEASE_ID (required) -> `ReleaseID`
+  - app release ID - specified as a [ULID](https://github.com/ulid/spec)
 
-App Config
+`InstanceID`
+------------
+- each app instance is assigned a unique InstanceID, which is used to associate log events, metrics, etc, to an app instance
+
+`Timeouts`
 ----------
-- all app config is loaded from env vars (https://12factor.net/config)
-
-1. App start and stop timeouts are specified via env vars:
 - APPX12_START_TIMEOUT (default = 15s)
 - APPX12_STOP_TIMEOUT (default = 15s)
 
-- `app.Config` is loaded from the env by `app.New()` and used to configure the app start and stop timeouts
+- rationale: apps should start and stop as quickly as possible within an expected time. If the application takes longer
+  than expected, then there is an issue that needs to be investigated.
 
-2. `app.Desc` is loaded from the env and made available within the fx.App context:
-- APPX12_ID (required)
-  - app identifier - specified as a [ULID](https://github.com/ulid/spec)
-- APPX12_NAME (required)
-  - app name within the given context. Within k8s, the name must be unique within a namespace context.
-- APPX12_VERSION (required)
-  - follows semver convention
-- APPX12_RELEASE_ID (required)
-  - app release ID - specified as a [ULID](https://github.com/ulid/spec)
-
-App Context Injections
-----------------------
-1. `app.InstanceID`
-    - each `fx.App` instance is assigned a unique `app.InstanceID` ULID
-2. `app.Desc`
+`Package`
+---------
+- use case: each package that logs events should add the package name to the log event context
 
 // TODO App Features:
-- zap logger is provided within the fx.App context
 - Application life cycle events are logged
    - app.new
    - app.starting
@@ -63,6 +62,5 @@ App Context Injections
 - events
    - app life cycle events
    - error
-
 */
 package app

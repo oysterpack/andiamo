@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
@@ -29,7 +30,7 @@ import (
 
 // New constructs a new fx.App.
 // It is configured with the following options:
-// - app start and stop timeout options are configured from the env - see `LoadConfig()`
+// - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
 // - constructor functions for:
 //   - Desc - loaded from the env - see `LoadDesc()`
 //   - InstanceID
@@ -38,7 +39,7 @@ import (
 //     - is used as the go std logger
 // - lifecycle hook is registered to log app.Start and app.Stop log events
 func New(options ...fx.Option) *fx.App {
-	config := app.LoadConfig()
+	config := app.LoadTimeouts()
 	options = append(options, fx.StartTimeout(config.StartTimeout))
 	options = append(options, fx.StopTimeout(config.StopTimeout))
 
@@ -66,24 +67,24 @@ func loadDesc() app.Desc {
 
 // panics if an error occurs while trying to configure zerolog
 func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
-	logger := app.NewLogger(instanceID, desc)
-	if err := app.ConfigureZerolog(); err != nil {
+	logger := applog.NewLogger(instanceID, desc)
+	if err := applog.ConfigureZerolog(); err != nil {
 		panic(err)
 	}
-	app.UseAsStandardLoggerOutput(logger)
+	applog.UseAsStandardLoggerOutput(logger)
 	return logger
 }
 
 func registerLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
 	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
-	appLogger := PACKAGE.Logger(logger)
+	appLogger := applog.PackageLogger(logger, PACKAGE)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			app.Start.Log(appLogger).Msg("")
+			applog.Start.Log(appLogger).Msg("")
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			app.Stop.Log(appLogger).Msg("")
+			applog.Stop.Log(appLogger).Msg("")
 			return nil
 		},
 	})

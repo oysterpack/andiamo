@@ -22,8 +22,8 @@ import (
 	"time"
 )
 
-// Config specifies basic application configuration.
-type Config struct {
+// Timeouts specifies basic application configuration.
+type Timeouts struct {
 	// StartTimeout specifies how long to wait for the application to start.
 	// - default = 15 seconds
 	StartTimeout time.Duration `default:"15s" split_words:"true"`
@@ -32,17 +32,17 @@ type Config struct {
 	StopTimeout time.Duration `default:"15s" split_words:"true"`
 }
 
-func (c Config) String() string {
-	return fmt.Sprintf("Config{StartTimeout=%s, StopTimeout=%s}", c.StartTimeout, c.StopTimeout)
+func (c Timeouts) String() string {
+	return fmt.Sprintf("Timeouts{StartTimeout=%s, StopTimeout=%s}", c.StartTimeout, c.StopTimeout)
 }
 
-// LoadConfig loads the app Config from the system environment. The following env vars are read:
+// LoadTimeouts loads the app Timeouts from the system environment. The following env vars are read:
 // - APPX12_START_TIMEOUT
 // - APPX12_STOP_TIMEOUT
-func LoadConfig() Config {
-	var config Config
+func LoadTimeouts() Timeouts {
+	var config Timeouts
 	if err := envconfig.Process(ENV_PREFIX, &config); err != nil {
-		// an error should never happen because Config has no required fields and defaults are specified
+		// an error should never happen because Timeouts has no required fields and defaults are specified
 		// if an error does occur, then it's a bug in the underlying `envconfig` package
 		panic(err)
 	}

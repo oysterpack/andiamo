@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package app_test
+package log_test
 
 import (
 	"crypto/rand"
 	"encoding/json"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
-	"github.com/pkg/errors"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
 	"github.com/rs/zerolog"
 	"log"
 	"os"
@@ -32,69 +31,8 @@ import (
 	"time"
 )
 
-const PKG app.Package = "github.com/oysterpack/partire-k8s/pkg/app_test"
-
-func TestLogConfig(t *testing.T) {
-	apptest.ClearAppEnvSettings()
-
-	t.Run("with default settings", func(t *testing.T) {
-		// Given app.LogConfig is loaded from the env
-		var config app.LogConfig
-		err := envconfig.Process(app.ENV_PREFIX, &config)
-		if err != nil {
-			t.Error(err)
-		}
-		// Then it is loaded with default values
-		t.Logf("LogConfig: %s", &config)
-		const DEFAULT_LOG_LEVEL = app.LogLevel(zerolog.InfoLevel)
-		if config.GlobalLevel != DEFAULT_LOG_LEVEL {
-			t.Errorf("Config.GlobalLevel default value did not match: %v", config.GlobalLevel)
-		}
-		if config.DisableSampling {
-			t.Errorf("Config.DisableSampling default value did not match: %v", config.DisableSampling)
-		}
-	})
-
-	t.Run("with LOG_GLOBAL_LEVEL warn", func(t *testing.T) {
-		// Given app.LogConfig is loaded from the env
-		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "warn")
-		var config app.LogConfig
-		err := envconfig.Process(app.ENV_PREFIX, &config)
-		if err != nil {
-			t.Error(err)
-		}
-		// Then the global log level is matches the env var setting
-		t.Logf("LogConfig: %s", &config)
-		const EXPECTED_LOG_LEVEL = app.LogLevel(zerolog.WarnLevel)
-		if config.GlobalLevel != EXPECTED_LOG_LEVEL {
-			t.Errorf("Config.GlobalLevel did not match: %v", config.GlobalLevel)
-		}
-	})
-
-	t.Run("with LOG_DISABLE_SAMPLING true", func(t *testing.T) {
-		// Given app.LogConfig is loaded from the env
-		apptest.Setenv(apptest.LOG_DISABLE_SAMPLING, "true")
-		var config app.LogConfig
-		err := envconfig.Process(app.ENV_PREFIX, &config)
-		if err != nil {
-			t.Error(err)
-		}
-		// Then the disable sampling setting matches the env var setting
-		t.Logf("LogConfig: %s", &config)
-		if !config.DisableSampling {
-			t.Errorf("Config.DisableSampling did not match: %v", config.DisableSampling)
-		}
-	})
-}
-
-func TestLogError(t *testing.T) {
-	logger := apptest.NewTestLogger(PKG)
-	logger.Error().Err(errors.New("BOOM!!!")).Msg("")
-	t.Logf("error log event: %s", logger.Buf.String())
-}
-
 func TestConfigureZerologAndNewLogger(t *testing.T) {
-	logger := apptest.NewTestLogger(PKG)
+	logger := apptest.NewTestLogger(PACKAGE)
 	// Then debug messages should not be logged
 	if e := logger.Debug(); e.Enabled() {
 		logger.Debug().Msg("debug msg")
@@ -151,16 +89,16 @@ func TestUseAsStandardLoggerOutput(t *testing.T) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		t.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// And a new zerolog.Logger
-	logger := app.NewLogger(instanceID, desc)
+	logger := applog.NewLogger(instanceID, desc)
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)
 	logger = &logger2
 	// When the zerolog Logger is used as the std logger
-	app.UseAsStandardLoggerOutput(logger)
+	applog.UseAsStandardLoggerOutput(logger)
 	// Then std logger will write to zerolog Logger
 	log.Printf("this should be logging using zero log: %s", desc)
 	logEventMsg := buf.String()
@@ -171,7 +109,7 @@ func TestConfigureZerolog(t *testing.T) {
 	t.Run("with invalid log level", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
 		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "INVALID")
-		if err := app.ConfigureZerolog(); err == nil {
+		if err := applog.ConfigureZerolog(); err == nil {
 			t.Fatal("should have failed because INVALID log level was set in env")
 		} else {
 			t.Log(err)
@@ -180,7 +118,7 @@ func TestConfigureZerolog(t *testing.T) {
 }
 
 func TestLogEvent_Log(t *testing.T) {
-	logger := apptest.NewTestLogger(PKG)
+	logger := apptest.NewTestLogger(PACKAGE)
 
 	// When a foo event is logged
 	FooEvent.Log(logger.Logger).Msg("")
@@ -196,7 +134,7 @@ func TestLogEvent_Log(t *testing.T) {
 		if logEvent.Level != FooEvent.Level.String() {
 			t.Errorf("log level did not match")
 		}
-		// And the LogEvent name will match
+		// And the Event name will match
 		if logEvent.Event != FooEvent.Name {
 			t.Errorf("msg did not match")
 		}
@@ -235,11 +173,11 @@ type AppDesc struct {
 	InstanceID string `json:"x"`
 }
 
-var FooEvent = app.LogEvent{
+var FooEvent = applog.Event{
 	Name:  "foo",
 	Level: zerolog.WarnLevel,
 }
-var BarEvent = app.LogEvent{
+var BarEvent = applog.Event{
 	Name:  "bar",
 	Level: zerolog.ErrorLevel,
 }

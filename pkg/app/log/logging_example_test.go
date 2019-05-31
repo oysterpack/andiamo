@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package app_test
+package log_test
 
 import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
 	"github.com/rs/zerolog"
 	"log"
 	"time"
@@ -49,7 +50,7 @@ func ExampleLogEvent() {
 
 // Application log events
 var (
-	Timeout = app.LogEvent{
+	Timeout = applog.Event{
 		Name:  "timeout",
 		Level: zerolog.WarnLevel,
 	}
@@ -67,12 +68,12 @@ func NewAppLog(logger *zerolog.Logger) AppLog {
 
 // Start logs an event when the app is started
 func (l *AppLog) Started() {
-	app.Start.Log(l.Logger).Msg("")
+	applog.Start.Log(l.Logger).Msg("")
 }
 
 // Start logs an event when the app is stopped
 func (l *AppLog) Stopped() {
-	app.Stop.Log(l.Logger).Msg("")
+	applog.Stop.Log(l.Logger).Msg("")
 }
 
 // LogTimeoutEvent is used to log timeout events
@@ -87,10 +88,10 @@ func NewLogTimeoutEvent(logger *zerolog.Logger) LogTimeoutEvent {
 func newLogger() *zerolog.Logger {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger := app.NewLogger(instanceID, desc)
+	logger := applog.NewLogger(instanceID, desc)
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
-	return PKG.Logger(logger)
+	return applog.PackageLogger(logger, PACKAGE)
 }

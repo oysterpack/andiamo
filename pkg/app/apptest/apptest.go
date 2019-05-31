@@ -23,6 +23,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
 	"github.com/rs/zerolog"
 	"log"
 	"os"
@@ -138,12 +139,12 @@ func NewTestLogger(pkg app.Package) *TestLogger {
 	desc := InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := app.NewLogger(instanceID, desc)
-	logger = pkg.Logger(logger)
+	logger := applog.NewLogger(instanceID, desc)
+	logger = applog.PackageLogger(logger, pkg)
 	// And the log output is captured in a strings.Builder
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)

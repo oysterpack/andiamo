@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package app_test
+package log_test
 
 import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/apptest"
+	applog "github.com/oysterpack/partire-k8s/pkg/app/log"
 	"github.com/rs/zerolog"
 	"log"
 	"testing"
@@ -38,13 +39,13 @@ func BenchmarkLoggingWithNoMessage(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := PKG.Logger(app.NewLogger(instanceID, desc))
+	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
@@ -60,13 +61,13 @@ func BenchmarkLoggingWithMessage(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := PKG.Logger(app.NewLogger(instanceID, desc))
+	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
@@ -78,21 +79,21 @@ func BenchmarkLoggingWithMessage(b *testing.B) {
 
 // {"l":"warn","a":{"i":"01DC2Q1A7KYQB7VZT1EPYAQ4BG","r":"01DC2Q1A7K5V738F3RR2TWJ2RN","n":"foobar","v":"0.0.1","x":"01DC2Q1A7KXEFAMBTVA9RFTAR2"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","n":"foo","t":1559164398,"m":"message"}
 // 50000             22037 ns/op               0 B/op          0 allocs/op
-func BenchmarkLogEvent_New(b *testing.B) {
+func BenchmarkLogEvent_Log(b *testing.B) {
 	desc := apptest.InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := PKG.Logger(app.NewLogger(instanceID, desc))
+	logger := applog.PackageLogger(applog.NewLogger(instanceID, desc), PACKAGE)
 	// And zerolog is configured
-	if err := app.ConfigureZerolog(); err != nil {
+	if err := applog.ConfigureZerolog(); err != nil {
 		b.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 
-	fooEvent := app.LogEvent{
+	fooEvent := applog.Event{
 		Name:  "foo",
 		Level: zerolog.WarnLevel,
 	}
