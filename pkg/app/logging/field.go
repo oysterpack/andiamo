@@ -29,24 +29,46 @@ const (
 	MESSAGE = Field("m")
 	// ERROR specifies the error message.
 	ERROR = Field("e")
+	// STACK is used to log the stack trace.
+	STACK = Field("s")
 
 	// PACKAGE specifies which package logged the event
 	PACKAGE = Field("p")
 	// EVENT is used to specify the event name. All log events should specify the event name.
 	EVENT = Field("n")
 
+	// standard field names
+	// ID
+	ID = Field("i")
+	// NAME stores app.Name
+	NAME = Field("n")
+	// INSTANCE_ID
+	INSTANCE_ID = Field("x")
+
+	// ERR is used to group error related fields
+	// - f = failure
+	ERR = Field("f")
+	// ERR_ID stores the unique error ID
+	ERR_ID = ID
+	// ERR_NAME stores the human readable name
+	ERR_NAME = NAME
+	// ERR_SRC_ID stores error source ID
+	ERR_SRC_ID = Field("s")
+	// ERR_INSTANCE_ID stores error instance ID
+	ERR_INSTANCE_ID = INSTANCE_ID
+
 	// APP is used to group app related fields
 	APP = Field("a")
 	// APP_ID stores app.ID as a ULID
-	APP_ID = Field("i")
+	APP_ID = ID
 	// APP_RELEASE_ID stores the app.ReleaseID as a ULID
 	APP_RELEASE_ID = Field("r")
 	// APP_NAME stores app.Name
-	APP_NAME = Field("n")
+	APP_NAME = NAME
 	// APP_VERSION stores app.Version
 	APP_VERSION = Field("v")
 	// APP_INSTANCE_ID stores app.InstanceID
-	APP_INSTANCE_ID = Field("x")
+	APP_INSTANCE_ID = INSTANCE_ID
 
 	// COMPONENT is used to to specify the application component that logged the event. It stores the component name.
 	COMPONENT = Field("c")

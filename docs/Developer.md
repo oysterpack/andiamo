@@ -1,6 +1,7 @@
 # Standards
 - [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
 - [12-Factor App](https://12factor.net/)
+- [How to write a Git commit message](https://chris.beams.io/posts/git-commit/)
 
 # Go Tools
 - running tests with code coverage
@@ -12,7 +13,7 @@
 
 # Code Commit Checklist
 - [ ] go fmt
-- [ ] go lint
+- [ ] [golint](https://github.com/golang/lint)
 - [ ] go vet
 - [ ] unit tests
 - [ ] benchmark tests

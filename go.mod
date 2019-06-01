@@ -8,6 +8,7 @@ require (
 	github.com/facebookgo/inject v0.0.0-20180706035515-f23751cae28b // indirect
 	github.com/facebookgo/structtag v0.0.0-20150214074306-217e25fb9691 // indirect
 	github.com/fatih/color v1.7.0 // indirect
+	github.com/go-errors/errors v1.0.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/json-iterator/go v1.1.6 // indirect

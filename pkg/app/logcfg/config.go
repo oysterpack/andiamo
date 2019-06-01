@@ -22,6 +22,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/pkgerrors"
 	"log"
 	"time"
 )
@@ -67,6 +68,8 @@ func (l Level) String() string {
 //   - LEVEL
 //	 - MESSAGE
 //   - ERROR
+//   - STACK
+// - stack marshaller is set
 // - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 // - duration field unit is set to millisecond
 // - loads `Config` from the system env and applies it
@@ -76,6 +79,7 @@ func ConfigureZerolog() error {
 		zerolog.LevelFieldName = string(logging.LEVEL)
 		zerolog.MessageFieldName = string(logging.MESSAGE)
 		zerolog.ErrorFieldName = string(logging.ERROR)
+		zerolog.ErrorStackFieldName = string(logging.STACK)
 	}
 
 	configureTimeRelatedFields := func() {
@@ -86,7 +90,7 @@ func ConfigureZerolog() error {
 
 	loadLogConfig := func() error {
 		var config Config
-		err := envconfig.Process(app.ENV_PREFIX, &config)
+		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
 			return err
 		}
@@ -94,6 +98,7 @@ func ConfigureZerolog() error {
 		return nil
 	}
 
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	configureStandardLogFields()
 	configureTimeRelatedFields()
 	return loadLogConfig()

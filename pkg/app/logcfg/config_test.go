@@ -38,7 +38,7 @@ func TestLogConfig(t *testing.T) {
 	t.Run("with default settings", func(t *testing.T) {
 		// Given app.Config is loaded from the env
 		var config logcfg.Config
-		err := envconfig.Process(app.ENV_PREFIX, &config)
+		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
 			t.Error(err)
 		}
@@ -57,7 +57,7 @@ func TestLogConfig(t *testing.T) {
 		// Given app.Config is loaded from the env
 		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "warn")
 		var config logcfg.Config
-		err := envconfig.Process(app.ENV_PREFIX, &config)
+		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
 			t.Error(err)
 		}
@@ -73,7 +73,7 @@ func TestLogConfig(t *testing.T) {
 		// Given app.Config is loaded from the env
 		apptest.Setenv(apptest.LOG_DISABLE_SAMPLING, "true")
 		var config logcfg.Config
-		err := envconfig.Process(app.ENV_PREFIX, &config)
+		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
 			t.Error(err)
 		}

@@ -24,14 +24,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"testing"
-	"time"
 )
 
 const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/log_test"
 
 func TestLogError(t *testing.T) {
 	logger := apptest.NewTestLogger(PACKAGE)
-	logger.Error().Err(errors.New("BOOM!!!")).Msg("")
+	// in order for the stack to be logged, Stack() needs to be called before Err()
+	logger.Error().Stack().Err(errors.New("BOOM!!!")).Msg("")
 	t.Logf("error log event: %s", logger.Buf.String())
 }
 
@@ -43,7 +43,7 @@ func TestLogEvent_Log(t *testing.T) {
 	logEventMsg := logger.Buf.String()
 	t.Log(logEventMsg)
 
-	var logEvent LogEvent
+	var logEvent apptest.LogEvent
 	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
 		t.Errorf("Invalid JSON log event: %v", err)
 	} else {
@@ -62,33 +62,6 @@ func TestLogEvent_Log(t *testing.T) {
 	BarEvent.Log(logger.Logger).Msg("")
 	logEventMsg = logger.Buf.String()
 	t.Log(logEventMsg)
-}
-
-type LogEvent struct {
-	Level     string  `json:"l"`
-	Timestamp int64   `json:"t"`
-	Message   string  `json:"m"`
-	App       AppDesc `json:"a"`
-	Event     string  `json:"n"`
-}
-
-func (e *LogEvent) Time() time.Time {
-	return time.Unix(e.Timestamp, 0)
-}
-
-func (e *LogEvent) MatchesDesc(desc *app.Desc) bool {
-	return e.App.ID == desc.ID.String() &&
-		e.App.Name == string(desc.Name) &&
-		e.App.Version == desc.Version.String() &&
-		e.App.ReleaseID == desc.ReleaseID.String()
-}
-
-type AppDesc struct {
-	ID         string `json:"i"`
-	ReleaseID  string `json:"r"`
-	Name       string `json:"n"`
-	Version    string `json:"v"`
-	InstanceID string `json:"x"`
 }
 
 var FooEvent = logging.Event{

@@ -41,6 +41,6 @@ func (c Timeouts) String() string {
 // - APPX12_STOP_TIMEOUT
 func LoadTimeouts() (Timeouts, error) {
 	var config Timeouts
-	err := envconfig.Process(ENV_PREFIX, &config)
+	err := envconfig.Process(EnvPrefix, &config)
 	return config, err
 }

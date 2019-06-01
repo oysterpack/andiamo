@@ -21,10 +21,6 @@ Applications follow [12-Factor App](https://12factor.net/) design guidelines.
 Features
 ========
 
-App Config
-----------
-- all app config is loaded from env vars (https://12factor.net/config)
-
 1. App start and stop timeouts are specified via env vars:
    - APPX12_START_TIMEOUT (default = 15s)
    - APPX12_STOP_TIMEOUT (default = 15s)

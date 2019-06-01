@@ -21,10 +21,6 @@ import (
 	"github.com/oklog/ulid"
 )
 
-// ENV_PREFIX is used as the environment variable name prefix to load config.
-// "APPX12" was chosen to represent 12-factor apps.
-const ENV_PREFIX = "APPX12"
-
 // ID is the unique application ID.
 type ID ulid.ULID
 
@@ -62,6 +58,7 @@ func (id *ReleaseID) Decode(value string) error {
 	return nil
 }
 
+// Version represents the app version
 type Version semver.Version
 
 // Decode implements the envconfig.Decoder interface
@@ -84,8 +81,3 @@ type InstanceID ulid.ULID
 func (id InstanceID) String() string {
 	return ulid.ULID(id).String()
 }
-
-// Package is used to hold a package path, e.g.
-//
-// const PACKAGE Package = "github.com/oysterpack/partire-k8s/pkg/app"
-type Package string

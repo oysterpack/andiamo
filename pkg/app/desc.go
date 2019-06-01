@@ -41,6 +41,6 @@ func (d *Desc) String() string {
 // - APPX12_VERSION
 // - APPX12_RELEASE_ID
 func LoadDesc() (desc Desc, err error) {
-	err = envconfig.Process(ENV_PREFIX, &desc)
+	err = envconfig.Process(EnvPrefix, &desc)
 	return
 }

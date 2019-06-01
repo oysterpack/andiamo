@@ -23,7 +23,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	applog "github.com/oysterpack/partire-k8s/pkg/app/logcfg"
+	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"log"
@@ -84,7 +84,7 @@ func LookupEnv(key Key) (string, bool) {
 
 // prefixes the specified key
 func prefix(key Key) string {
-	return fmt.Sprintf("%s_%s", app.ENV_PREFIX, strings.ToUpper(string(key)))
+	return fmt.Sprintf("%s_%s", app.EnvPrefix, strings.ToUpper(string(key)))
 }
 
 func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
@@ -140,15 +140,53 @@ func NewTestLogger(p app.Package) *TestLogger {
 	desc := InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
-	if err := applog.ConfigureZerolog(); err != nil {
+	if err := logcfg.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
 	// When a new zerolog.Logger is created
-	logger := applog.NewLogger(instanceID, desc)
+	logger := logcfg.NewLogger(instanceID, desc)
 	logger = logging.PackageLogger(logger, p)
 	// And the log output is captured in a strings.Builder
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)
 	logger = &logger2
 	return &TestLogger{logger, buf, desc, instanceID}
+}
+
+// LogEvent is used to unmarshal zerolog JSON log events
+type LogEvent struct {
+	Level        string  `json:"l"`
+	Timestamp    int64   `json:"t"`
+	Message      string  `json:"m"`
+	App          AppDesc `json:"a"`
+	Event        string  `json:"n"`
+	ErrorMessage string  `json:"e"`
+	Error        *Error  `json:"f"`
+}
+
+func (e *LogEvent) Time() time.Time {
+	return time.Unix(e.Timestamp, 0)
+}
+
+func (e *LogEvent) MatchesDesc(desc *app.Desc) bool {
+	return e.App.ID == desc.ID.String() &&
+		e.App.Name == string(desc.Name) &&
+		e.App.Version == desc.Version.String() &&
+		e.App.ReleaseID == desc.ReleaseID.String()
+}
+
+// AppDesc is used to unmarshal zerolog JSON log events
+type AppDesc struct {
+	ID         string `json:"i"`
+	ReleaseID  string `json:"r"`
+	Name       string `json:"n"`
+	Version    string `json:"v"`
+	InstanceID string `json:"x"`
+}
+
+type Error struct {
+	ID         string `json:"i"`
+	Name       string `json:"n"`
+	SrcID      string `json:"s"`
+	InstanceID string `json:"x"`
 }

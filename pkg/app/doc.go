@@ -15,13 +15,13 @@
  */
 
 /*
-Package `app` standardizes the base application model.
+Package app standardizes the base application model.
 [12-Factor App](https://12factor.net/) design guidelines are followed.
 
 Features
 ========
-`Desc`
-------
+`Desc` - can be loaded from env vars
+------------------------------------
 - APPX12_ID (required) -> `ID`
   - app identifier - specified as a [ULID](https://github.com/ulid/spec)
 - APPX12_NAME (required) -> `Name`

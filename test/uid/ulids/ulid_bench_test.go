@@ -26,8 +26,8 @@ import (
 	"crypto/rand"
 	"github.com/oklog/ulid"
 	"runtime"
+	"sync"
 	"testing"
-	"time"
 )
 
 func BenchmarkULIDChan(b *testing.B) {
@@ -43,7 +43,7 @@ func BenchmarkULIDChan(b *testing.B) {
 				select {
 				case <-ctx.Done():
 					return
-				case ulids <- ulid.MustNew(ulid.Timestamp(time.Now()), entropy):
+				case ulids <- ulid.MustNew(ulid.Now(), entropy):
 				}
 			}
 		}()
@@ -60,7 +60,7 @@ func BenchmarkNewULIDCrypto(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader)
+		ulid.MustNew(ulid.Now(), rand.Reader)
 	}
 }
 
@@ -69,6 +69,19 @@ func BenchmarkNewULIDMontonicCrypto(b *testing.B) {
 	entropy := ulid.Monotonic(rand.Reader, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ulid.MustNew(ulid.Timestamp(time.Now()), entropy)
+		ulid.MustNew(ulid.Now(), entropy)
+	}
+}
+
+var lock sync.Mutex
+
+func BenchmarkNewULIDMontonicCryptoMutexProtected(b *testing.B) {
+	b.ReportAllocs()
+	entropy := ulid.Monotonic(rand.Reader, 0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lock.Lock()
+		ulid.MustNew(ulid.Now(), entropy)
+		lock.Unlock()
 	}
 }
