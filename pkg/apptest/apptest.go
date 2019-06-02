@@ -155,13 +155,15 @@ func NewTestLogger(p app.Package) *TestLogger {
 
 // LogEvent is used to unmarshal zerolog JSON log events
 type LogEvent struct {
-	Level        string  `json:"l"`
-	Timestamp    int64   `json:"t"`
-	Message      string  `json:"m"`
-	App          AppDesc `json:"a"`
-	Event        string  `json:"n"`
-	ErrorMessage string  `json:"e"`
-	Error        *Error  `json:"f"`
+	Level        string       `json:"l"`
+	Timestamp    int64        `json:"t"`
+	Message      string       `json:"m"`
+	App          AppDesc      `json:"a"`
+	Event        string       `json:"n"`
+	ErrorMessage string       `json:"e"`
+	Error        *Error       `json:"f"`
+	Tags         []string     `json:"g"`
+	Stack        []Stackframe `json:"s"`
 }
 
 func (e *LogEvent) Time() time.Time {
@@ -185,8 +187,15 @@ type AppDesc struct {
 }
 
 type Error struct {
-	ID         string `json:"i"`
-	Name       string `json:"n"`
-	SrcID      string `json:"s"`
-	InstanceID string `json:"x"`
+	ID         string   `json:"i"`
+	Name       string   `json:"n"`
+	SrcID      string   `json:"s"`
+	InstanceID string   `json:"x"`
+	Tags       []string `json:"g"`
+}
+
+type Stackframe struct {
+	Func   string `json:"func"`
+	Line   string `json:"line"`
+	Source string `json:"source"`
 }

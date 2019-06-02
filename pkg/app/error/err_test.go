@@ -46,6 +46,21 @@ var (
 	// - by assigning a ULID, it will make it easy to locate where the error was created in the code, without a stack trace.
 	// - by seeing how many SrcID(s) are defined, tells us how many locations in the code could potentially trigger errors
 	TestErrorInvalidRequestErr = error.New(InvalidRequest, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+
+	DGraphQueryTimeout = &error.Desc{
+		ID:           ulid.MustParse("01DCC447HWNM5MP7D4Z0DKK0SQ"),
+		Name:         "DatabaseTimeout",
+		Message:      "query timeout",
+		Tags:         []string{DGraphTag.String(), DatabaseTag.String()},
+		IncludeStack: true,
+	}
+
+	TestErrorDGraphQueryTimeoutErr = error.New(DGraphQueryTimeout, "01DCC4JF4AAK63F6XYFFN8EJE1")
+)
+
+const (
+	DatabaseTag error.Tag = "db"
+	DGraphTag   error.Tag = "dgraph"
 )
 
 func TestError_New(t *testing.T) {
@@ -72,7 +87,7 @@ func TestError_Log(t *testing.T) {
 
 	// When the Error is logged
 	logger := apptest.NewTestLogger(pkg)
-	error.Log(logger.Logger, err).Msg("")
+	err.Log(logger.Logger).Msg("")
 	logEventMsg := logger.Buf.String()
 	t.Log(logEventMsg)
 
@@ -110,6 +125,37 @@ func TestError_Log(t *testing.T) {
 		if logEvent.Error.SrcID != err.SrcID.String() {
 			t.Error("error source ID did not match")
 		}
+
+		if len(logEvent.Tags) > 0 {
+			t.Error("log event should have not tags")
+		}
+
+		if len(logEvent.Stack) > 0 {
+			t.Error("stacktrace should not have been logged")
+		}
+	}
+
+	logger.Buf.Reset()
+	logEvent = apptest.LogEvent{}
+	err = TestErrorDGraphQueryTimeoutErr.New()
+	err.Log(logger.Logger).Msg("")
+	logEventMsg = logger.Buf.String()
+	t.Log(logEventMsg)
+	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+		t.Fatalf("Invalid JSON log event: %v", err)
+	}
+	if len(logEvent.Error.Tags) != len(DGraphQueryTimeout.Tags) {
+		t.Error("the number of logged tags does not match what is expected")
+	} else {
+		for i := 0; i < len(DGraphQueryTimeout.Tags); i++ {
+			if logEvent.Error.Tags[i] != DGraphQueryTimeout.Tags[i] {
+				t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], DGraphQueryTimeout.Tags[i])
+			}
+		}
+
+		if len(logEvent.Stack) == 0 {
+			t.Error("stacktrace should have been logged")
+		}
 	}
 }
 
@@ -123,7 +169,7 @@ func TestErr_CausedBy(t *testing.T) {
 
 	// When the Error is logged
 	logger := apptest.NewTestLogger(pkg)
-	error.Log(logger.Logger, err).Msg("")
+	err.Log(logger.Logger).Msg("")
 	logEventMsg := logger.Buf.String()
 	t.Log(logEventMsg)
 

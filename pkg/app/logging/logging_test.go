@@ -35,7 +35,7 @@ func TestLogError(t *testing.T) {
 	t.Logf("error log event: %s", logger.Buf.String())
 }
 
-func TestLogEvent_Log(t *testing.T) {
+func TestEvent_Log(t *testing.T) {
 	logger := apptest.NewTestLogger(PACKAGE)
 
 	// When a foo event is logged
@@ -56,17 +56,46 @@ func TestLogEvent_Log(t *testing.T) {
 		if logEvent.Event != FooEvent.Name {
 			t.Errorf("msg did not match")
 		}
+
+		// And tags are logged
+		if len(logEvent.Tags) != len(FooEvent.Tags) {
+			t.Errorf("the number of expected tags does not match: %v", len(logEvent.Tags))
+		}
+		for i := 0; i < len(FooEvent.Tags); i++ {
+			if logEvent.Tags[i] != FooEvent.Tags[i] {
+				t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], FooEvent.Tags[i])
+			}
+		}
 	}
 	logger.Buf.Reset()
 
 	BarEvent.Log(logger.Logger).Msg("")
 	logEventMsg = logger.Buf.String()
 	t.Log(logEventMsg)
+
+	logEvent = apptest.LogEvent{}
+	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+		t.Errorf("Invalid JSON log event: %v", err)
+	} else {
+		t.Logf("JSON log event: %#v", logEvent)
+		// Then bar event should have no tags logged
+
+		// And tags are logged
+		if len(logEvent.Tags) != 0 {
+			t.Errorf("there should be no tags logged for the BarEvent: %v", len(logEvent.Tags))
+		}
+	}
 }
+
+const (
+	DataTag   logging.Tag = "data"
+	DGraphTag logging.Tag = "dgraph"
+)
 
 var FooEvent = logging.Event{
 	Name:  "foo",
 	Level: zerolog.WarnLevel,
+	Tags:  []string{DataTag.String(), DGraphTag.String()},
 }
 var BarEvent = logging.Event{
 	Name:  "bar",

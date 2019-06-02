@@ -23,15 +23,28 @@ import "github.com/rs/zerolog"
 type Event struct {
 	Name string
 	zerolog.Level
+	Tags []string
+}
+
+// Tag is used to define tags as constants in a type safe manner
+type Tag string
+
+func (t Tag) String() string {
+	return string(t)
 }
 
 // Log starts a new log message.
 // - Event.Level is used as the message log level
 // - Event.Name is used for the `EVENT` log field value
+// - Event.Tags are logged, if not empty
 //
 // NOTE: You must call Msg on the returned event in order to send the event.
 func (l *Event) Log(logger *zerolog.Logger) *zerolog.Event {
-	return logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
+	event := logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
+	if len(l.Tags) > 0 {
+		event.Strs(string(TAGS), l.Tags)
+	}
+	return event
 }
 
 // standard common events

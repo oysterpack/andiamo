@@ -29,12 +29,13 @@ var (
 	newULID = ulidgen.MonotonicULIDGenerator()
 )
 
+// Err is used to define application errors - linking the error to a source code location
 type Err struct {
 	*Desc
 	SrcID ulid.ULID
 }
 
-// NewError constructs a new Error instance
+// New constructs a new Error instance
 func New(desc *Desc, srcULID string) *Err {
 	return &Err{
 		Desc:  desc,
@@ -42,6 +43,7 @@ func New(desc *Desc, srcULID string) *Err {
 	}
 }
 
+// New constructs a new error instance, which is assigned a unique InstanceID.
 func (e *Err) New() *ErrInstance {
 	return &ErrInstance{
 		Err:        e,
@@ -49,6 +51,7 @@ func (e *Err) New() *ErrInstance {
 	}
 }
 
+// CausedBy constructs a new error instance which wraps the error cause
 func (e *Err) CausedBy(cause error) *ErrInstance {
 	return &ErrInstance{
 		Err:        e,
@@ -57,16 +60,87 @@ func (e *Err) CausedBy(cause error) *ErrInstance {
 	}
 }
 
+// Desc is used to define an error
 type Desc struct {
-	ID      ulid.ULID
+	ID ulid.ULID
+	// Name is the user friendly error name - this should be unique within the application scope
 	Name    string
 	Message string
+	// Tags are used to classify errors, e.g., db, ui, timeout, authc, authz, io, client, server.
+	// - tags can be used to organize log events and make it easier to query for events
+	Tags []string
+	// IncludeStack indicates whether the stacktrace should be logged with the error
+	// NOTE: most of the time, the stacktrace does not need to be logged
+	IncludeStack bool
 }
 
+// Tag is used to define tags as constants in a type safe manner
+type Tag string
+
+func (t Tag) String() string {
+	return string(t)
+}
+
+// Common error tags
+// - many of which are modeled after HTTP status codes
+const (
+	// ClientErr means the error was caused by the client, e.g., client submitted an invalid request
+	ClientErr Tag = "client"
+	// ServerErr means the error was caused by the server, e.g., unexpected server side error, rpc call failed
+	ServerErr Tag = "server"
+	// RemoteErr means the error was caused remotely, e.g., database error, rpc error
+	RemoteErr Tag = "remote"
+
+	// AuthcErr indicates that authentication failed
+	AuthcErr Tag = "authc"
+	// AuthzErr indicates authorization failed
+	AuthzErr Tag = "authz"
+	// BadRequestErr indicates a request failed because it was invalid.
+	// This can be logged on the client and/or server side.
+	BadRequestErr Tag = "bad_req"
+	// ConflictErr indicates that the request conflicts with some other request.
+	// For example, when using optimistic version control.
+	ConflictErr Tag = "conflict"
+	// PreconditionFailedErr indicates the request failed because a precondition failed
+	PreconditionFailedErr Tag = "precondition_failed"
+	// MessageTooLargeErr indicates a message was received that exceeds the max message size supported
+	MessageTooLargeErr Tag = "msg_too_large"
+	// UnprocessableErr indicates that the server understands the content type of the request entity, and the syntax of
+	// the request entity is correct, but it was unable to process the contained instructions.
+	// - The client should not repeat this request without modification.
+	UnprocessableErr = "unprocessable"
+	// RateLimitError indicates the client has sent too many requests in a given amount of time ("rate limiting").
+	RateLimitErr Tag = "rate_limit"
+	// ResourceQuotaErr indicates that a resource quota constraint would have been violated
+	ResourceQuotaErr Tag = "resource_quota"
+	// TimeoutErr indicates a timeout has occurred.
+	// The error should include more context information:
+	// - what timed out
+	// - what is the timeout
+	TimeoutErr Tag = "timeout"
+
+	// NotImplementedErr indicates that the server does not support the functionality required to fulfill the request.
+	NotImplementedErr Tag = "not_implemented"
+	// ServiceUnavailableErr indicates that the server is not ready to handle the request.
+	ServiceUnavailableErr Tag = "unavailable"
+
+	// UIError indicates an error has occurred in the UI layer
+	UIErr Tag = "ui"
+	// IOError indicates some type of IO related error has occurred
+	IOErr Tag = "io"
+	// DatabaseErr indicates the error is database related
+	DatabaseErr Tag = "db"
+)
+
+// ErrInstance represents an application error instance.
+// All application errors should be wrapped within an ErrInstance.
 type ErrInstance struct {
 	*Err
+	// InstanceID is the unique error instance ID.
+	// use case: the InstanceID can be returned back to the client, which can be used to track down the specific error.
 	InstanceID ulid.ULID
-	Cause      error
+	// Cause if present, indicates what caused this error.
+	Cause error
 }
 
 // Error implements the Error interface
@@ -77,14 +151,24 @@ func (e *ErrInstance) Error() string {
 	return fmt.Sprintf("%s : %s", e.Err.Message, e.Cause.Error())
 }
 
-func Log(logger *zerolog.Logger, e *ErrInstance) *zerolog.Event {
-	return logger.Error().
-		Stack().
-		Err(errors.WithStack(e)).
-		Dict(string(logging.ERR), zerolog.Dict().
-			Str(string(logging.ERR_ID), e.ID.String()).
-			Str(string(logging.ERR_NAME), e.Name).
-			Str(string(logging.ERR_SRC_ID), e.SrcID.String()).
-			Str(string(logging.ERR_INSTANCE_ID), e.InstanceID.String()),
-		)
+// Log logs the error using the specified logger
+func (e *ErrInstance) Log(logger *zerolog.Logger) *zerolog.Event {
+	err := zerolog.Dict().
+		Str(string(logging.ERR_ID), e.ID.String()).
+		Str(string(logging.ERR_NAME), e.Name).
+		Str(string(logging.ERR_SRC_ID), e.SrcID.String()).
+		Str(string(logging.ERR_INSTANCE_ID), e.InstanceID.String())
+
+	if len(e.Tags) > 0 {
+		err = err.Strs(string(logging.TAGS), e.Tags)
+	}
+
+	event := logger.Error().Dict(string(logging.ERR), err)
+	if e.IncludeStack {
+		event.Stack().Err(errors.WithStack(e))
+	} else {
+		event.Err(e)
+	}
+
+	return event
 }

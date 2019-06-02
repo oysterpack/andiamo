@@ -36,6 +36,9 @@ const (
 	PACKAGE = Field("p")
 	// EVENT is used to specify the event name. All log events should specify the event name.
 	EVENT = Field("n")
+	// TAGS is used to tag log events.
+	// Tags can be used to further categorize or group related log events, e.g, trace id, application layer (frontend, backend, data, messaging)
+	TAGS = Field("g")
 
 	// standard field names
 	// ID
