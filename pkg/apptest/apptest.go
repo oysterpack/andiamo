@@ -37,7 +37,7 @@ type Key string
 
 const (
 	ID         = Key("ID")
-	NAME       = Key("NAME")
+	NAME       = Key("Name")
 	VERSION    = Key("VERSION")
 	RELEASE_ID = Key("RELEASE_ID")
 

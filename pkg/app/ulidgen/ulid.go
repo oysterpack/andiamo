@@ -23,7 +23,7 @@ import (
 	"sync"
 )
 
-// ULIDGenerator returns a function that generates ULID(s) that is safe for concurrent use.
+// MonotonicULIDGenerator returns a function that generates ULID(s) that is safe for concurrent use.
 // - panics if a ULID fails to be generated
 func MonotonicULIDGenerator() func() ulid.ULID {
 	var m sync.Mutex

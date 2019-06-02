@@ -154,16 +154,16 @@ func (e *ErrInstance) Error() string {
 // Log logs the error using the specified logger
 func (e *ErrInstance) Log(logger *zerolog.Logger) *zerolog.Event {
 	err := zerolog.Dict().
-		Str(string(logging.ERR_ID), e.ID.String()).
-		Str(string(logging.ERR_NAME), e.Name).
-		Str(string(logging.ERR_SRC_ID), e.SrcID.String()).
-		Str(string(logging.ERR_INSTANCE_ID), e.InstanceID.String())
+		Str(string(logging.ErrID), e.ID.String()).
+		Str(string(logging.ErrName), e.Name).
+		Str(string(logging.ErrSrcID), e.SrcID.String()).
+		Str(string(logging.ErrInstanceID), e.InstanceID.String())
 
 	if len(e.Tags) > 0 {
-		err = err.Strs(string(logging.TAGS), e.Tags)
+		err = err.Strs(string(logging.Tags), e.Tags)
 	}
 
-	event := logger.Error().Dict(string(logging.ERR), err)
+	event := logger.Error().Dict(string(logging.Err), err)
 	if e.IncludeStack {
 		event.Stack().Err(errors.WithStack(e))
 	} else {

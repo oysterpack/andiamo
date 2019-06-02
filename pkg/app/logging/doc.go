@@ -28,7 +28,7 @@ Package logging standardizes application logging - using zerolog as the logging 
 
 `PackageLogger()`
 -----------------
-- used to scope log events to a package, i.e., it adds the `PACKAGE` field to the log event
+- used to scope log events to a package, i.e., it adds the `Package` field to the log event
 
 */
 package logging

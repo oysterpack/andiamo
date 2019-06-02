@@ -36,9 +36,9 @@ type Config struct {
 }
 
 // Apply will apply the zerolog config settings
-func (l *Config) Apply() {
-	zerolog.SetGlobalLevel(zerolog.Level(l.GlobalLevel))
-	zerolog.DisableSampling(l.DisableSampling)
+func (c *Config) Apply() {
+	zerolog.SetGlobalLevel(zerolog.Level(c.GlobalLevel))
+	zerolog.DisableSampling(c.DisableSampling)
 }
 
 func (c *Config) String() string {
@@ -64,22 +64,22 @@ func (l Level) String() string {
 
 // ConfigureZerolog configures global zerolog settings.
 // - configures the standard logger field names defined by `Field`
-//   - TIMESTAMP
-//   - LEVEL
-//	 - MESSAGE
-//   - ERROR
-//   - STACK
+//   - Timestamp
+//   - Level
+//	 - Message
+//   - Error
+//   - Stack
 // - stack marshaller is set
 // - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 // - duration field unit is set to millisecond
 // - loads `Config` from the system env and applies it
 func ConfigureZerolog() error {
 	configureStandardLogFields := func() {
-		zerolog.TimestampFieldName = string(logging.TIMESTAMP)
-		zerolog.LevelFieldName = string(logging.LEVEL)
-		zerolog.MessageFieldName = string(logging.MESSAGE)
-		zerolog.ErrorFieldName = string(logging.ERROR)
-		zerolog.ErrorStackFieldName = string(logging.STACK)
+		zerolog.TimestampFieldName = string(logging.Timestamp)
+		zerolog.LevelFieldName = string(logging.Level)
+		zerolog.MessageFieldName = string(logging.Message)
+		zerolog.ErrorFieldName = string(logging.Error)
+		zerolog.ErrorStackFieldName = string(logging.Stack)
 	}
 
 	configureTimeRelatedFields := func() {

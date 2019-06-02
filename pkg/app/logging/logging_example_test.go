@@ -30,7 +30,7 @@ import (
 
 // This example demonstrates a couple of approaches to log events in a consistent and standardized manner.
 // Log events should be carefully vetted and logged via an expressive and type-safe library.
-func ExampleLogEvent() {
+func ExampleEvent() {
 	logger := newLogger()
 
 	appLog := NewAppLog(logger)

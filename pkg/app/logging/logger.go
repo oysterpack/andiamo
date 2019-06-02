@@ -24,7 +24,7 @@ import (
 // PackageLogger add the specified package as a field to the logger
 func PackageLogger(logger *zerolog.Logger, p app.Package) *zerolog.Logger {
 	pkgLogger := logger.With().
-		Str(string(PACKAGE), string(p)).
+		Str(string(Package), string(p)).
 		Logger()
 	return &pkgLogger
 }

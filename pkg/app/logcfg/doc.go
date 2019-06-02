@@ -15,7 +15,7 @@
  */
 
 /*
-Package `logcfg` standardizes configuring application logging.
+Package logcfg standardizes configuring application logging.
 
 [zerolog](https://github.com/rs/zerolog) is used as the logging framework because:
 - it provides structured JSON logging

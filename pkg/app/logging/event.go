@@ -35,14 +35,14 @@ func (t Tag) String() string {
 
 // Log starts a new log message.
 // - Event.Level is used as the message log level
-// - Event.Name is used for the `EVENT` log field value
+// - Event.Name is used for the `EventName` log field value
 // - Event.Tags are logged, if not empty
 //
 // NOTE: You must call Msg on the returned event in order to send the event.
 func (l *Event) Log(logger *zerolog.Logger) *zerolog.Event {
-	event := logger.WithLevel(l.Level).Str(string(EVENT), l.Name)
+	event := logger.WithLevel(l.Level).Str(string(EventName), l.Name)
 	if len(l.Tags) > 0 {
-		event.Strs(string(TAGS), l.Tags)
+		event.Strs(string(Tags), l.Tags)
 	}
 	return event
 }

@@ -15,7 +15,7 @@
  */
 
 /*
-Package `fxapp` standardizes how to compose applications using reusable modules leveraging ["go.uber.org/fx"](https://godoc.org/go.uber.org/fx)
+Package fx standardizes how to compose applications using reusable modules leveraging ["go.uber.org/fx"](https://godoc.org/go.uber.org/fx)
 Applications follow [12-Factor App](https://12factor.net/) design guidelines.
 
 Features

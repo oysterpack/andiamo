@@ -120,17 +120,17 @@ func TestConfigureZerolog(t *testing.T) {
 			t.Fatalf("logcfg.ConfigureZerolog() failed: %v", err)
 		}
 
-		if zerolog.TimestampFieldName != string(logging.TIMESTAMP) {
-			t.Errorf("zerolog.TimestampFieldName should be %q, but is %q", zerolog.TimestampFieldName, logging.TIMESTAMP)
+		if zerolog.TimestampFieldName != string(logging.Timestamp) {
+			t.Errorf("zerolog.TimestampFieldName should be %q, but is %q", zerolog.TimestampFieldName, logging.Timestamp)
 		}
-		if zerolog.LevelFieldName != string(logging.LEVEL) {
-			t.Errorf("zerolog.LevelFieldName should be %q, but is %q", zerolog.LevelFieldName, logging.LEVEL)
+		if zerolog.LevelFieldName != string(logging.Level) {
+			t.Errorf("zerolog.LevelFieldName should be %q, but is %q", zerolog.LevelFieldName, logging.Level)
 		}
-		if zerolog.MessageFieldName != string(logging.MESSAGE) {
-			t.Errorf("zerolog.MessageFieldName should be %q, but is %q", zerolog.MessageFieldName, logging.MESSAGE)
+		if zerolog.MessageFieldName != string(logging.Message) {
+			t.Errorf("zerolog.MessageFieldName should be %q, but is %q", zerolog.MessageFieldName, logging.Message)
 		}
-		if zerolog.ErrorFieldName != string(logging.ERROR) {
-			t.Errorf("zerolog.ErrorFieldName should be %q, but is %q", zerolog.ErrorFieldName, logging.ERROR)
+		if zerolog.ErrorFieldName != string(logging.Error) {
+			t.Errorf("zerolog.ErrorFieldName should be %q, but is %q", zerolog.ErrorFieldName, logging.Error)
 		}
 
 		if zerolog.TimeFieldFormat != zerolog.TimeFormatUnix {

@@ -41,12 +41,12 @@ import (
 func NewLogger(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 	logger := zerolog.New(os.Stderr).With().
 		Timestamp().
-		Dict(string(logging.APP), zerolog.Dict().
-			Str(string(logging.APP_ID), desc.ID.String()).
-			Str(string(logging.APP_RELEASE_ID), desc.ReleaseID.String()).
-			Str(string(logging.APP_NAME), string(desc.Name)).
-			Str(string(logging.APP_VERSION), desc.Version.String()).
-			Str(string(logging.APP_INSTANCE_ID), instanceID.String())).
+		Dict(string(logging.App), zerolog.Dict().
+			Str(string(logging.AppID), desc.ID.String()).
+			Str(string(logging.AppReleaseID), desc.ReleaseID.String()).
+			Str(string(logging.AppName), string(desc.Name)).
+			Str(string(logging.AppVersion), desc.Version.String()).
+			Str(string(logging.AppInstanceID), instanceID.String())).
 		Logger()
 
 	return &logger
