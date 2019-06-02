@@ -21,8 +21,11 @@ import "github.com/rs/zerolog"
 // Event is used to define application log events.
 // This enables application log events to be defined as code and documented.
 type Event struct {
+	// Name is required
 	Name string
+	// Level is required
 	zerolog.Level
+	// Tags are optional - but recommended to help organize and categorize events
 	Tags []string
 }
 

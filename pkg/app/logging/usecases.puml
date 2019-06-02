@@ -1,0 +1,34 @@
+@startuml
+actor :App : as APP
+
+usecase LOG_EVENT as "All log events are
+statically defined"
+
+usecase EVENT_TAGS as "Events can be tagged"
+
+usecase STD_EVENTS as "Standard log events
+---
+Start
+Running
+Stop
+Stopped"
+
+LOG_EVENT ..> STD_EVENTS
+
+usecase PACKAGE_LOGGER as "All log events contain a
+package field"
+
+note bottom of PACKAGE_LOGGER {
+The package field is the name of
+the go package that logged the event.
+}
+
+usecase STD_LOG_FIELDS as "Standard log fields
+are defined"
+
+APP --> LOG_EVENT
+APP --> STD_LOG_FIELDS
+
+STD_LOG_FIELDS ..> PACKAGE_LOGGER
+LOG_EVENT ..> EVENT_TAGS
+@enduml
