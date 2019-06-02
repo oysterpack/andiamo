@@ -84,10 +84,12 @@ type SignPrivateKey *[64]byte
 // SignedULID is a signed ULID
 type SignedULID []byte
 
+// SignULID signs the specified ULID
 func SignULID(id ulid.ULID, key SignPrivateKey) SignedULID {
 	return SignedULID(sign.Sign(nil, id[:], (*[64]byte)(key)))
 }
 
+// Open verifies the signed ULID using the specified public key
 func (su SignedULID) Open(key SignPublicKey) (id ulid.ULID, ok bool) {
 	msg, ok := sign.Open(nil, su[:], (*[32]byte)(key))
 	if ok {

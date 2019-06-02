@@ -55,7 +55,7 @@ func TestLogConfig(t *testing.T) {
 
 	t.Run("with LOG_GLOBAL_LEVEL warn", func(t *testing.T) {
 		// Given app.Config is loaded from the env
-		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "warn")
+		apptest.Setenv(apptest.LogGlobalLevel, "warn")
 		var config logcfg.Config
 		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
@@ -71,7 +71,7 @@ func TestLogConfig(t *testing.T) {
 
 	t.Run("with LOG_DISABLE_SAMPLING true", func(t *testing.T) {
 		// Given app.Config is loaded from the env
-		apptest.Setenv(apptest.LOG_DISABLE_SAMPLING, "true")
+		apptest.Setenv(apptest.LogDisableSampling, "true")
 		var config logcfg.Config
 		err := envconfig.Process(app.EnvPrefix, &config)
 		if err != nil {
@@ -150,7 +150,7 @@ func TestConfigureZerolog(t *testing.T) {
 
 	t.Run("with invalid log level", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
-		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "INVALID")
+		apptest.Setenv(apptest.LogGlobalLevel, "INVALID")
 		if err := logcfg.ConfigureZerolog(); err == nil {
 			t.Fatal("should have failed because INVALID log level was set in env")
 		} else {

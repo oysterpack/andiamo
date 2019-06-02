@@ -20,31 +20,33 @@ Package app standardizes the base application model.
 
 Features
 ========
-`Desc` - can be loaded from env vars
-------------------------------------
-- APPX12_ID (required) -> `ID`
-  - app identifier - specified as a [ULID](https://github.com/ulid/spec)
-- APPX12_NAME (required) -> `Name`
-  - app name within the given context. Within k8s, the name must be unique within a namespace context.
-- APPX12_VERSION (required) -> `Version`
-  - follows semver convention
-- APPX12_RELEASE_ID (required) -> `ReleaseID`
-  - app release ID - specified as a [ULID](https://github.com/ulid/spec)
 
-`InstanceID`
-------------
-- each app instance is assigned a unique InstanceID, which is used to associate log events, metrics, etc, to an app instance
+App Env Config
+--------------
+"APPX12" is used as the app env var name prefix.
 
-`Timeouts`
-----------
-- APPX12_START_TIMEOUT (default = 15s)
-- APPX12_STOP_TIMEOUT (default = 15s)
-
-- rationale: apps should start and stop as quickly as possible within an expected time. If the application takes longer
+- Desc
+  - APPX12_ID (required) -> `ID`
+    - app identifier - specified as a [ULID](https://github.com/ulid/spec)
+  - APPX12_NAME (required) -> `Name`
+    - app name within the given context. Within k8s, the name must be unique within a namespace context.
+  - APPX12_VERSION (required) -> `Version`
+    - follows semver convention
+  - APPX12_RELEASE_ID (required) -> `ReleaseID`
+    - app release ID - specified as a [ULID](https://github.com/ulid/spec)
+- Timeouts
+  - APPX12_START_TIMEOUT (default = 15s)
+  - APPX12_STOP_TIMEOUT (default = 15s)
+  - rationale: apps should start and stop as quickly as possible within an expected time. If the application takes longer
   than expected, then there is an issue that needs to be investigated.
 
-`Package`
----------
+
+Application Instance ID
+-----------------------
+- each app instance is assigned a unique InstanceID, which is used to associate log events, metrics, etc, to an app instance
+
+Package
+-------
 - use case: each package that logs events should add the package name to the log event context
 
 // TODO App Features:
@@ -59,8 +61,5 @@ Features
 - metrics
    - app_start_duration - how long did it take for the app to start
    - app_stop_duration - how long did it take for the app to stop
-- events
-   - app life cycle events
-   - error
 */
 package app

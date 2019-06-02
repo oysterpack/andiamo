@@ -1,0 +1,15 @@
+@startuml
+
+Class Desc {
+    ID        `required:"true"`
+    Name      `required:"true"`
+    Version   *Version `required:"true"`
+    ReleaseID `required:"true" split_words:"true"`
+}
+
+Class Timeouts {
+	StartTimeout time.Duration `default:"15s" split_words:"true"`
+	StopTimeout time.Duration `default:"15s" split_words:"true"`
+}
+
+@enduml

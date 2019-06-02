@@ -82,81 +82,92 @@ func TestError_New(t *testing.T) {
 }
 
 func TestError_Log(t *testing.T) {
-	// Given an Error
-	err := TestErrorInvalidRequestErr.New()
 
-	// When the Error is logged
-	logger := apptest.NewTestLogger(pkg)
-	err.Log(logger.Logger).Msg("")
-	logEventMsg := logger.Buf.String()
-	t.Log(logEventMsg)
+	t.Run("no tags - with stacktrace", func(t *testing.T) {
+		// Given an Error
+		err := TestErrorInvalidRequestErr.New()
+		// When the Error is logged
+		logger := apptest.NewTestLogger(pkg)
+		err.Log(logger.Logger).Msg("")
+		logEventMsg := logger.Buf.String()
+		t.Log(logEventMsg)
 
-	var logEvent apptest.LogEvent
-	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-		t.Fatalf("Invalid JSON log event: %v", err)
-	}
-
-	t.Logf("JSON log event: %#v", logEvent)
-	// Then the log level will be ErrorLevel
-	if logEvent.Level != zerolog.ErrorLevel.String() {
-		t.Error("log level did not match")
-	}
-
-	// And the error message will match
-	if logEvent.ErrorMessage != InvalidRequest.Message {
-		t.Error("error message did not match")
-	}
-
-	if logEvent.Error == nil {
-		t.Error("error details were not logged")
-	} else {
-		if logEvent.Error.ID != err.Desc.ID.String() {
-			t.Error("error ID did not match")
+		var logEvent apptest.LogEvent
+		if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+			t.Fatalf("Invalid JSON log event: %v", err)
 		}
 
-		if logEvent.Error.InstanceID != err.InstanceID.String() {
-			t.Errorf("error InstanceID did not match: %v != %v", logEvent.Error.InstanceID, err.InstanceID.String())
+		t.Logf("JSON log event: %#v", logEvent)
+		// Then the log level will be ErrorLevel
+		if logEvent.Level != zerolog.ErrorLevel.String() {
+			t.Error("log level did not match")
 		}
 
-		if logEvent.Error.Name != err.Desc.Name {
-			t.Error("error Name did not match")
+		// And the error message will match
+		if logEvent.ErrorMessage != InvalidRequest.Message {
+			t.Error("error message did not match")
 		}
 
-		if logEvent.Error.SrcID != err.SrcID.String() {
-			t.Error("error source ID did not match")
-		}
+		if logEvent.Error == nil {
+			t.Error("error details were not logged")
+		} else {
+			if logEvent.Error.ID != err.Desc.ID.String() {
+				t.Error("error ID did not match")
+			}
 
-		if len(logEvent.Tags) > 0 {
-			t.Error("log event should have not tags")
-		}
+			if logEvent.Error.InstanceID != err.InstanceID.String() {
+				t.Errorf("error InstanceID did not match: %v != %v", logEvent.Error.InstanceID, err.InstanceID.String())
+			}
 
-		if len(logEvent.Stack) > 0 {
-			t.Error("stacktrace should not have been logged")
-		}
-	}
+			if logEvent.Error.Name != err.Desc.Name {
+				t.Error("error Name did not match")
+			}
 
-	logger.Buf.Reset()
-	logEvent = apptest.LogEvent{}
-	err = TestErrorDGraphQueryTimeoutErr.New()
-	err.Log(logger.Logger).Msg("")
-	logEventMsg = logger.Buf.String()
-	t.Log(logEventMsg)
-	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-		t.Fatalf("Invalid JSON log event: %v", err)
-	}
-	if len(logEvent.Error.Tags) != len(DGraphQueryTimeout.Tags) {
-		t.Error("the number of logged tags does not match what is expected")
-	} else {
-		for i := 0; i < len(DGraphQueryTimeout.Tags); i++ {
-			if logEvent.Error.Tags[i] != DGraphQueryTimeout.Tags[i] {
-				t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], DGraphQueryTimeout.Tags[i])
+			if logEvent.Error.SrcID != err.SrcID.String() {
+				t.Error("error source ID did not match")
+			}
+
+			if len(logEvent.Tags) > 0 {
+				t.Error("log event should have not tags")
+			}
+
+			if len(logEvent.Stack) > 0 {
+				t.Error("stacktrace should not have been logged")
 			}
 		}
+	})
 
-		if len(logEvent.Stack) == 0 {
-			t.Error("stacktrace should have been logged")
+	t.Run("with tags - with no stacktrace", func(t *testing.T) {
+		// Given an Error
+		err := TestErrorDGraphQueryTimeoutErr.New()
+
+		// When the Error is logged
+		logger := apptest.NewTestLogger(pkg)
+		err.Log(logger.Logger).Msg("")
+		logEventMsg := logger.Buf.String()
+		t.Log(logEventMsg)
+
+		var logEvent apptest.LogEvent
+		if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
+			t.Fatalf("Invalid JSON log event: %v", err)
 		}
-	}
+		if len(logEvent.Error.Tags) != len(DGraphQueryTimeout.Tags) {
+			t.Error("the number of logged tags does not match what is expected")
+		} else {
+			// Then error tags should be logged
+			for i := 0; i < len(DGraphQueryTimeout.Tags); i++ {
+				if logEvent.Error.Tags[i] != DGraphQueryTimeout.Tags[i] {
+					t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], DGraphQueryTimeout.Tags[i])
+				}
+			}
+
+			// And there should be no stacktrace logged
+			if len(logEvent.Stack) == 0 {
+				t.Error("stacktrace should have been logged")
+			}
+		}
+	})
+
 }
 
 func TestErr_CausedBy(t *testing.T) {

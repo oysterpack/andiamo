@@ -29,7 +29,7 @@ func TestName(t *testing.T) {
 	t.Log(name)
 }
 
-var ULID_ZERO ulid.ULID
+var ULIDZero ulid.ULID
 
 func TestULIDZeroValue(t *testing.T) {
 	t.Parallel()
@@ -37,13 +37,13 @@ func TestULIDZeroValue(t *testing.T) {
 	var zero ulid.ULID
 	t.Logf("ULID zero value: %v", zero)
 
-	if zero != ULID_ZERO {
-		t.Errorf("zero == ULID_ZERO assertion failed: %v != %v", zero, ULID_ZERO)
+	if zero != ULIDZero {
+		t.Errorf("zero == ULIDZero assertion failed: %v != %v", zero, ULIDZero)
 	}
 
 	uid := ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader)
-	if uid == ULID_ZERO {
-		t.Errorf("ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader) != ULID_ZERO assertion failed: %v != %v", uid, ULID_ZERO)
+	if uid == ULIDZero {
+		t.Errorf("ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader) != ULIDZero assertion failed: %v != %v", uid, ULIDZero)
 	}
 }
 

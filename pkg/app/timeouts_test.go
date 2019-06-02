@@ -41,7 +41,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 
 	t.Run("start timeout is set to 30 secs", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
-		apptest.Setenv(apptest.START_TIMEOUT, "30s")
+		apptest.Setenv(apptest.StartTimeout, "30s")
 		config, err := app.LoadTimeouts()
 		if err != nil {
 			t.Fatalf("app.LoadTimeouts(): %v", err)
@@ -56,7 +56,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 
 	t.Run("stop timeout is set to 30 secs", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
-		apptest.Setenv(apptest.STOP_TIMEOUT, "30s")
+		apptest.Setenv(apptest.StopTimeout, "30s")
 		config, err := app.LoadTimeouts()
 		if err != nil {
 			t.Fatalf("app.LoadTimeouts(): %v", err)

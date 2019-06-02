@@ -81,8 +81,8 @@ func TestNewApp(t *testing.T) {
 	})
 
 	t.Run("using overidden app start and stop timeouts", func(t *testing.T) {
-		apptest.Setenv(apptest.START_TIMEOUT, "30s")
-		apptest.Setenv(apptest.STOP_TIMEOUT, "60s")
+		apptest.Setenv(apptest.StartTimeout, "30s")
+		apptest.Setenv(apptest.StopTimeout, "60s")
 		fxapp := New()
 		if fxapp.StartTimeout() != 30*time.Second {
 			t.Error("StartTimeout did not match the default")
@@ -102,7 +102,7 @@ func TestNewApp(t *testing.T) {
 
 	t.Run("using invalid app start/stop timeouts", func(t *testing.T) {
 		apptest.InitEnvForDesc()
-		apptest.Setenv(apptest.START_TIMEOUT, "--")
+		apptest.Setenv(apptest.StartTimeout, "--")
 		defer func() {
 			if err := recover(); err == nil {
 				t.Error("fx.New() should have because the app start timeout was misconfigured")
@@ -115,7 +115,7 @@ func TestNewApp(t *testing.T) {
 
 	t.Run("using invalid log config", func(t *testing.T) {
 		apptest.InitEnvForDesc()
-		apptest.Setenv(apptest.LOG_GLOBAL_LEVEL, "--")
+		apptest.Setenv(apptest.LogGlobalLevel, "--")
 		defer func() {
 			if err := recover(); err == nil {
 				t.Error("fx.New() should have because the app global log level was misconfigured")

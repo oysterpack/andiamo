@@ -48,9 +48,9 @@ func TestLoadDescFromEnv(t *testing.T) {
 		name := app.Name("foobar")
 
 		apptest.Setenv(apptest.ID, id.String())
-		apptest.Setenv(apptest.NAME, string(name))
-		apptest.Setenv(apptest.RELEASE_ID, releaseID.String())
-		apptest.Setenv(apptest.VERSION, version.String())
+		apptest.Setenv(apptest.Name, string(name))
+		apptest.Setenv(apptest.ReleaseID, releaseID.String())
+		apptest.Setenv(apptest.Version, version.String())
 
 		// When the Desc is loaded from the env
 		desc, err := app.LoadDesc()
@@ -97,7 +97,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 		}
 
 		name := app.Name("foobar")
-		apptest.Setenv(apptest.NAME, string(name))
+		apptest.Setenv(apptest.Name, string(name))
 		_, err = app.LoadDesc()
 		if err == nil {
 			t.Error("app.Desc should have failed to load because required env vars were not defined")
@@ -106,7 +106,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 		}
 
 		version := semver.MustParse("0.0.1")
-		apptest.Setenv(apptest.VERSION, version.String())
+		apptest.Setenv(apptest.Version, version.String())
 		_, err = app.LoadDesc()
 		if err == nil {
 			t.Error("app.Desc should have failed to load because required env vars were not defined")
@@ -122,9 +122,9 @@ func TestLoadDescFromEnv(t *testing.T) {
 		name := app.Name("foobar")
 
 		apptest.Setenv(apptest.ID, id.String())
-		apptest.Setenv(apptest.NAME, string(name))
-		apptest.Setenv(apptest.RELEASE_ID, releaseID.String())
-		apptest.Setenv(apptest.VERSION, version.String())
+		apptest.Setenv(apptest.Name, string(name))
+		apptest.Setenv(apptest.ReleaseID, releaseID.String())
+		apptest.Setenv(apptest.Version, version.String())
 
 		// Given we are starting from a valid config state
 		_, err := app.LoadDesc()
@@ -145,7 +145,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 		apptest.Setenv(apptest.ID, id.String())
 
 		// Given ReleaseID is invalid
-		apptest.Setenv(apptest.RELEASE_ID, "---")
+		apptest.Setenv(apptest.ReleaseID, "---")
 		_, err = app.LoadDesc()
 		if err == nil {
 			t.Error("app.Desc should have failed to load because releaseID should be invalid")
@@ -161,9 +161,9 @@ func TestLoadDescFromEnv(t *testing.T) {
 		name := app.Name("foobar")
 
 		apptest.Setenv(apptest.ID, id.String())
-		apptest.Setenv(apptest.NAME, string(name))
-		apptest.Setenv(apptest.RELEASE_ID, releaseID.String())
-		apptest.Setenv(apptest.VERSION, version.String())
+		apptest.Setenv(apptest.Name, string(name))
+		apptest.Setenv(apptest.ReleaseID, releaseID.String())
+		apptest.Setenv(apptest.Version, version.String())
 
 		// Given we are starting from a valid config state
 		_, err := app.LoadDesc()
@@ -172,7 +172,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 		}
 
 		// Given Version is invalid
-		apptest.Setenv(apptest.VERSION, "---")
+		apptest.Setenv(apptest.Version, "---")
 		// When the Desc is loaded from the env
 		_, err = app.LoadDesc()
 		if err == nil {

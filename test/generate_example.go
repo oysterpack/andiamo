@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+// Package test is used as a sandbox area
 //go:generate -command list ls -larth
 package test
 
-//go:generate list
 // Foo is used for testing purposes
+//go:generate list
 type Foo struct {
 	name string
 }

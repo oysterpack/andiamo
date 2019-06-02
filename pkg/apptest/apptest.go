@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// apptest package is used to support testing
+// Package apptest is used to support testing
 package apptest
 
 import (
@@ -33,19 +33,21 @@ import (
 	"time"
 )
 
+// Key represents env var config property names - with out the envconfig name prefix
 type Key string
 
+// envconfig keys
 const (
-	ID         = Key("ID")
-	NAME       = Key("Name")
-	VERSION    = Key("VERSION")
-	RELEASE_ID = Key("RELEASE_ID")
+	ID        = Key("ID")
+	Name      = Key("NAME")
+	Version   = Key("VERSION")
+	ReleaseID = Key("RELEASE_ID")
 
-	START_TIMEOUT = Key("START_TIMEOUT")
-	STOP_TIMEOUT  = Key("STOP_TIMEOUT")
+	StartTimeout = Key("START_TIMEOUT")
+	StopTimeout  = Key("STOP_TIMEOUT")
 
-	LOG_GLOBAL_LEVEL     = Key("LOG_GLOBAL_LEVEL")
-	LOG_DISABLE_SAMPLING = Key("LOG_DISABLE_SAMPLING")
+	LogGlobalLevel     = Key("LOG_GLOBAL_LEVEL")
+	LogDisableSampling = Key("LOG_DISABLE_SAMPLING")
 )
 
 // Setenv prefixes the key with "APPX12" and then sets the value of the environment variable named by the prefixed key.
@@ -62,20 +64,21 @@ func Unsetenv(key Key) {
 	}
 }
 
+// ClearAppEnvSettings clears the app specific env vars
 func ClearAppEnvSettings() {
 	Unsetenv(ID)
-	Unsetenv(VERSION)
-	Unsetenv(NAME)
-	Unsetenv(RELEASE_ID)
+	Unsetenv(Version)
+	Unsetenv(Name)
+	Unsetenv(ReleaseID)
 
-	Unsetenv(START_TIMEOUT)
-	Unsetenv(STOP_TIMEOUT)
+	Unsetenv(StartTimeout)
+	Unsetenv(StopTimeout)
 
-	Unsetenv(LOG_GLOBAL_LEVEL)
-	Unsetenv(LOG_DISABLE_SAMPLING)
+	Unsetenv(LogGlobalLevel)
+	Unsetenv(LogDisableSampling)
 }
 
-// Getenv prefixes the key with "APP12X" and then retrieves the value of the environment variable named by the prefixed key.
+// LookupEnv prefixes the key with "APP12X" and then retrieves the value of the environment variable named by the prefixed key.
 // If the variable is present in the environment the value (which may be empty) is returned and the boolean is true.
 // Otherwise the returned value will be empty and the boolean will be false.
 func LookupEnv(key Key) (string, bool) {
@@ -87,6 +90,7 @@ func prefix(key Key) string {
 	return fmt.Sprintf("%s_%s", app.EnvPrefix, strings.ToUpper(string(key)))
 }
 
+// CheckDescsAreEqual checks that the descs match - logging errors for any mis-matches
 func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
 	// And its properties match what was specified in the env
 	if desc.ID != expected.ID {
@@ -103,8 +107,12 @@ func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
 	}
 }
 
+// InitEnvForDesc initializes the env for testing and returns an app.Desc that has been loaded from the env.
+// - app name = "foobar"
+// - app version = 0.0.1
+// - sets the env vars to be able to load the app.Desc from it
 func InitEnvForDesc() app.Desc {
-	const APP_NAME = app.Name("foobar")
+	const AppName = app.Name("foobar")
 	var appVer = semver.MustParse("0.0.1")
 
 	ClearAppEnvSettings()
@@ -113,14 +121,14 @@ func InitEnvForDesc() app.Desc {
 	releaseID := ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader)
 
 	Setenv(ID, id.String())
-	Setenv(NAME, string(APP_NAME))
-	Setenv(RELEASE_ID, releaseID.String())
-	Setenv(VERSION, appVer.String())
+	Setenv(Name, string(AppName))
+	Setenv(ReleaseID, releaseID.String())
+	Setenv(Version, appVer.String())
 
 	ver := app.Version(*appVer)
 	return app.Desc{
 		ID:        app.ID(id),
-		Name:      APP_NAME,
+		Name:      AppName,
 		Version:   &ver,
 		ReleaseID: app.ReleaseID(releaseID),
 	}
@@ -166,10 +174,12 @@ type LogEvent struct {
 	Stack        []Stackframe `json:"s"`
 }
 
+// Time converts the log event event UNIX time into a time.Time
 func (e *LogEvent) Time() time.Time {
 	return time.Unix(e.Timestamp, 0)
 }
 
+// MatchesDesc returns true if the specified Desc matches.
 func (e *LogEvent) MatchesDesc(desc *app.Desc) bool {
 	return e.App.ID == desc.ID.String() &&
 		e.App.Name == string(desc.Name) &&
@@ -177,7 +187,7 @@ func (e *LogEvent) MatchesDesc(desc *app.Desc) bool {
 		e.App.ReleaseID == desc.ReleaseID.String()
 }
 
-// AppDesc is used to unmarshal zerolog JSON log events
+// AppDesc is used to unmarshal zerolog JSON log events.
 type AppDesc struct {
 	ID         string `json:"i"`
 	ReleaseID  string `json:"r"`
@@ -186,6 +196,7 @@ type AppDesc struct {
 	InstanceID string `json:"x"`
 }
 
+// Error represents the error details that were logged.
 type Error struct {
 	ID         string   `json:"i"`
 	Name       string   `json:"n"`
@@ -194,6 +205,7 @@ type Error struct {
 	Tags       []string `json:"g"`
 }
 
+// Stackframe represents a stack frame that is logged.
 type Stackframe struct {
 	Func   string `json:"func"`
 	Line   string `json:"line"`
