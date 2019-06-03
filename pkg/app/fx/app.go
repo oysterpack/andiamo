@@ -44,19 +44,24 @@ func New(options ...fx.Option) *fx.App {
 	if err != nil {
 		log.Panicf("app.LoadTimeouts() failed: %v", err)
 	}
-	options = append(options, fx.StartTimeout(config.StartTimeout))
-	options = append(options, fx.StopTimeout(config.StopTimeout))
+
+	appOptions := []fx.Option{
+		fx.StartTimeout(config.StartTimeout),
+		fx.StopTimeout(config.StopTimeout),
+		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
+	}
 
 	desc := loadDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
-	options = append(options, fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger) {
+	appOptions = append(appOptions, fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger) {
 		return desc, instanceID, logger
 	}))
-	options = append(options, fx.Logger(logger))
-	options = append(options, fx.Invoke(registerLifecycleEventLoggerHook))
+	appOptions = append(appOptions, fx.Logger(logger))
+	appOptions = append(appOptions, options...)
+	appOptions = append(appOptions, fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook))
 
-	return fx.New(options...)
+	return fx.New(appOptions...)
 }
 
 // panics if the Desc fails to load
@@ -79,16 +84,31 @@ func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 	return logger
 }
 
-func registerLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
+func registerStartStoppedLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
 	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
 	appLogger := logging.PackageLogger(logger, PACKAGE)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			logging.Start.Log(appLogger).Msg("")
+			Start.Log(appLogger).Msg("")
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			logging.Stop.Log(appLogger).Msg("")
+			Stopped.Log(appLogger).Msg("")
+			return nil
+		},
+	})
+}
+
+func registerRunningStoppingLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
+	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
+	appLogger := logging.PackageLogger(logger, PACKAGE)
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			Running.Log(appLogger).Msg("")
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			Stop.Log(appLogger).Msg("")
 			return nil
 		},
 	})

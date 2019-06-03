@@ -51,6 +51,22 @@ func ExampleEvent() {
 
 // Application log events
 var (
+	appEventTags = []string{"app"}
+
+	// Start signals that something is being started.
+	Start = logging.Event{
+		Name:  "start",
+		Level: zerolog.NoLevel,
+		Tags:  appEventTags,
+	}
+
+	// Stop signals that something is being stopped.
+	Stop = logging.Event{
+		Name:  "stop",
+		Level: zerolog.NoLevel,
+		Tags:  appEventTags,
+	}
+
 	Timeout = logging.Event{
 		Name:  "timeout",
 		Level: zerolog.WarnLevel,
@@ -69,12 +85,12 @@ func NewAppLog(logger *zerolog.Logger) AppLog {
 
 // Start logs an event when the app is started
 func (l *AppLog) Started() {
-	logging.Start.Log(l.Logger).Msg("")
+	Start.Log(l.Logger).Msg("")
 }
 
 // Start logs an event when the app is stopped
 func (l *AppLog) Stopped() {
-	logging.Stop.Log(l.Logger).Msg("")
+	Stop.Log(l.Logger).Msg("")
 }
 
 // LogTimeoutEvent is used to log timeout events

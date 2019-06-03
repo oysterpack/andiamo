@@ -29,6 +29,23 @@ type Event struct {
 	Tags []string
 }
 
+// NewEvent constructs a new Event
+func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
+	var tagSlice []string
+	if len(tags) > 0 {
+		tagSlice = make([]string, len(tags))
+		for i, tag := range tags {
+			tagSlice[i] = tag.String()
+		}
+	}
+
+	return Event{
+		Name:  name,
+		Level: level,
+		Tags:  tagSlice,
+	}
+}
+
 // Tag is used to define tags as constants in a type safe manner
 type Tag string
 
@@ -49,31 +66,3 @@ func (l *Event) Log(logger *zerolog.Logger) *zerolog.Event {
 	}
 	return event
 }
-
-// standard common events
-// - NOTE: they are logged with no level to ensure they are always logged, i.e., regardless of the global log level
-var (
-	// Start signals that something is being started.
-	Start = Event{
-		Name:  "start",
-		Level: zerolog.NoLevel,
-	}
-
-	// Running signals that something is running.
-	Running = Event{
-		Name:  "running",
-		Level: zerolog.NoLevel,
-	}
-
-	// Stop signals that something is being stopped.
-	Stop = Event{
-		Name:  "stop",
-		Level: zerolog.NoLevel,
-	}
-
-	// Stop signals that something has stopped.
-	Stopped = Event{
-		Name:  "stopped",
-		Level: zerolog.NoLevel,
-	}
-)

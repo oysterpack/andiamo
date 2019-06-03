@@ -92,12 +92,7 @@ const (
 	DGraphTag logging.Tag = "dgraph"
 )
 
-var FooEvent = logging.Event{
-	Name:  "foo",
-	Level: zerolog.WarnLevel,
-	Tags:  []string{DataTag.String(), DGraphTag.String()},
-}
-var BarEvent = logging.Event{
-	Name:  "bar",
-	Level: zerolog.ErrorLevel,
-}
+var (
+	FooEvent = logging.NewEvent("foo", zerolog.WarnLevel, DataTag, DGraphTag)
+	BarEvent = logging.NewEvent("bar", zerolog.ErrorLevel)
+)

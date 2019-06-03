@@ -19,47 +19,45 @@ Package app standardizes the base application model.
 [12-Factor App](https://12factor.net/) design guidelines are followed.
 
 Features
-========
 
-App Env Config
---------------
-"APPX12" is used as the app env var name prefix.
+	App Env Config
+	==============
+	"APPX12" is used as the app env var name prefix.
 
-- Desc
-  - APPX12_ID (required) -> `ID`
-    - app identifier - specified as a [ULID](https://github.com/ulid/spec)
-  - APPX12_NAME (required) -> `Name`
-    - app name within the given context. Within k8s, the name must be unique within a namespace context.
-  - APPX12_VERSION (required) -> `Version`
-    - follows semver convention
-  - APPX12_RELEASE_ID (required) -> `ReleaseID`
-    - app release ID - specified as a [ULID](https://github.com/ulid/spec)
-- Timeouts
-  - APPX12_START_TIMEOUT (default = 15s)
-  - APPX12_STOP_TIMEOUT (default = 15s)
-  - rationale: apps should start and stop as quickly as possible within an expected time. If the application takes longer
-  than expected, then there is an issue that needs to be investigated.
+	- Desc
+	  - APPX12_ID (required) -> `ID`
+		- app identifier - specified as a [ULID](https://github.com/ulid/spec)
+	  - APPX12_NAME (required) -> `Name`
+		- app name within the given context. Within k8s, the name must be unique within a namespace context.
+	  - APPX12_VERSION (required) -> `Version`
+		- follows semver convention
+	  - APPX12_RELEASE_ID (required) -> `ReleaseID`
+		- app release ID - specified as a [ULID](https://github.com/ulid/spec)
+	- Timeouts
+	  - APPX12_START_TIMEOUT (default = 15s)
+	  - APPX12_STOP_TIMEOUT (default = 15s)
+	  - rationale: apps should start and stop as quickly as possible within an expected time. If the application takes longer
+	    than expected, then there is an issue that needs to be investigated.
 
+	Application Instance ID
+	=======================
+	- each app instance is assigned a unique InstanceID, which is used to associate log events, metrics, etc, to an app instance
 
-Application Instance ID
------------------------
-- each app instance is assigned a unique InstanceID, which is used to associate log events, metrics, etc, to an app instance
-
-Package
--------
-- use case: each package that logs events should add the package name to the log event context
+	Package
+	=======
+	- use case: each package that logs events should add the package name to the log event context
 
 // TODO App Features:
-- Application life cycle events are logged
-   - app.new
-   - app.starting
-   - app.started
-   - app.stopping
-   - app.stopped
-   - app.error
-- Application dependency graph is logged in [DOT](https://graphviz.gitlab.io/_pages/doc/info/lang.html) format
-- metrics
-   - app_start_duration - how long did it take for the app to start
-   - app_stop_duration - how long did it take for the app to stop
+	- Application life cycle events are logged
+	   - app.new
+	   - app.starting
+	   - app.started
+	   - app.stopping
+	   - app.stopped
+	   - app.error
+	- Application dependency graph is logged in [DOT](https://graphviz.gitlab.io/_pages/doc/info/lang.html) format
+	- metrics
+	   - app_start_duration - how long did it take for the app to start
+	   - app_stop_duration - how long did it take for the app to stop
 */
 package app

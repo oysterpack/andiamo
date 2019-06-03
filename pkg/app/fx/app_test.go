@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -47,7 +48,7 @@ func TestNewApp(t *testing.T) {
 		fxapp := New(
 			fx.Populate(&desc),
 			fx.Populate(&instanceID),
-			fx.Invoke(UseLogger),
+			fx.Invoke(LogTestEvents),
 		)
 		if fxapp.StartTimeout() != 15*time.Second {
 			t.Error("StartTimeout did not match the default")
@@ -127,11 +128,22 @@ func TestNewApp(t *testing.T) {
 	})
 }
 
-func UseLogger(logger *zerolog.Logger, desc app.Desc, instanceID app.InstanceID) {
-	logger.Info().
-		Str("instance_id", instanceID.String()).
-		Str("desc", desc.String()).
-		Msg("app is running")
+type empty struct{}
+
+func LogTestEvents(logger *zerolog.Logger, desc app.Desc, instanceID app.InstanceID, lc fx.Lifecycle) {
+	logger = logging.PackageLogger(logger, app.GetPackage(empty{}))
+	foo := logging.NewEvent("LogTestEvents", zerolog.InfoLevel)
+
+	lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			foo.Log(logger).Msg("OnStart")
+			return nil
+		},
+		OnStop: func(_ context.Context) error {
+			foo.Log(logger).Msg("OnStop")
+			return nil
+		},
+	})
 
 	log.Printf("logging using go std log")
 }
@@ -146,4 +158,22 @@ func TestLoadDesc(t *testing.T) {
 	}()
 	apptest.ClearAppEnvSettings()
 	loadDesc()
+}
+
+func TestAppLifecylceEvents(t *testing.T) {
+	// Given that the app log is captured
+
+	// When the app is started
+
+	// Then it logs the Start event as the first lofecycle OnStart hook
+
+	// And then after all other OnStart hooks are run, the Running event is logged
+
+	// When the app is stopped
+
+	// Then the Stop event is logged as the first OnStop hook
+
+	// Then the Stopped event is logged as the jast OnStop hook
+
+	t.Error("TODO")
 }

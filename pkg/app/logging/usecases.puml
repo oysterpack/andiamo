@@ -6,14 +6,6 @@ statically defined"
 
 usecase EVENT_TAGS as "Events can be tagged"
 
-usecase STD_EVENTS as "Standard log events
----
-Start
-Running
-Stop
-Stopped"
-
-LOG_EVENT ..> STD_EVENTS
 
 usecase PACKAGE_LOGGER as "All log events contain a
 package field"
