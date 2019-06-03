@@ -42,6 +42,12 @@ func MonotonicULIDGenerator() func() ulid.ULID {
 // - panics if a ULID fails to be generated
 func RandomULIDGenerator() func() ulid.ULID {
 	return func() ulid.ULID {
-		return ulid.MustNew(ulid.Now(), rand.Reader)
+		return MustNew()
 	}
+}
+
+// MustNew generates a new crypto/rand based ULID.
+// The function will panic if the ULID fails to generate.
+func MustNew() ulid.ULID {
+	return ulid.MustNew(ulid.Now(), rand.Reader)
 }
