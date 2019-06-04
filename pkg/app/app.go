@@ -19,10 +19,16 @@ package app
 import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
+	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 )
 
 // ID is the unique application ID.
 type ID ulid.ULID
+
+// NewID constructs a new ID
+func NewID() ID {
+	return ID(ulidgen.MustNew())
+}
 
 // Decode implements the envconfig.Decoder interface
 func (id *ID) Decode(value string) error {
@@ -43,6 +49,11 @@ type Name string
 
 // ReleaseID is the application release ID.
 type ReleaseID ulid.ULID
+
+// NewReleaseID constructs a new ReleaseID
+func NewReleaseID() ReleaseID {
+	return ReleaseID(ulidgen.MustNew())
+}
 
 func (id ReleaseID) String() string {
 	return ulid.ULID(id).String()
@@ -77,6 +88,11 @@ func (v *Version) String() string {
 
 // InstanceID is the unique app instance ID
 type InstanceID ulid.ULID
+
+// NewInstanceID constructs a new InstanceID
+func NewInstanceID() InstanceID {
+	return InstanceID(ulidgen.MustNew())
+}
 
 func (id InstanceID) String() string {
 	return ulid.ULID(id).String()

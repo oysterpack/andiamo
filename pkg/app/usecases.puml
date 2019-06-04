@@ -1,41 +1,38 @@
 @startuml
 actor :App : as APP
 
-usecase APP_TIMEOUTS << envconfig >> as "Application start and stop timeouts
-are loaded from env vars"
+usecase APP_ID <<envconfig>> as "App has an ID"
 
-note bottom of APP_TIMEOUTS {
-APPX12_START_TIMEOUT
-APPX12_STOP_TIMEOUT
-}
+usecase APP_NAME <<envconfig>> as "App has a name"
 
+usecase APP_VERSION <<envconfig>> as "App has a version"
 
-usecase DEPENDENCY_INJECTION << Provide >> as "Dependency injection"
-usecase PROVIDE_APP_DESC << Provide >> as "app.Desc is provided"
+usecase APP_RELEASE_ID <<envconfig>> as "App has a release ID"
 
-note top of PROVIDE_APP_DESC {
-      <<envconfig>>
-The application descriptor
-is loaded from env vars
----
-APPX12_ID
-APPX12_NAME
-APPX12_VERSION
-APPX12_RELEASE_ID
-}
+usecase APP_INSTANCE_ID as "Each running app instance
+has a unique instance ID"
 
-usecase PROVIDE_APP_INSTANCE_ID << Provide >> as "app.InstanceID is provided"
+usecase APP_ENVCONFIG <<envconfig>> as "App env vars are
+prefixed with APPX12"
 
-note top of PROVIDE_APP_INSTANCE_ID  {
-Each app instance is assigned a
-unique instance ID upon starting up
-}
+usecase APP_START_TIMEOUT <<envconfig>> as "App has a start timeout"
 
-DEPENDENCY_INJECTION .up.> PROVIDE_APP_DESC
-DEPENDENCY_INJECTION .up.> PROVIDE_APP_INSTANCE_ID
-APP_INSTANCE_ID <.up. PROVIDE_APP_INSTANCE_ID
+usecase APP_STOP_TIMEOUT <<envconfig>> as "App has a stop timeout"
 
-APP -up-> DEPENDENCY_INJECTION
-APP --> APP_TIMEOUTS
+note as DEFAULT_TIMEOUT
+Default timeout = 15s
+end note
+
+APP_START_TIMEOUT .up. DEFAULT_TIMEOUT
+APP_STOP_TIMEOUT .up. DEFAULT_TIMEOUT
+
+APP --> APP_ID
+APP --> APP_NAME
+APP --> APP_VERSION
+APP --> APP_RELEASE_ID
+APP -left-> APP_INSTANCE_ID
+APP -> APP_ENVCONFIG
+APP -up-> APP_START_TIMEOUT
+APP -up-> APP_STOP_TIMEOUT
 
 @enduml

@@ -2,6 +2,7 @@
 - [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
 - [12-Factor App](https://12factor.net/)
 - [How to write a Git commit message](https://chris.beams.io/posts/git-commit/)
+- Uncle Bob martin
 
 # Go Tools
 - running tests with code coverage

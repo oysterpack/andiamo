@@ -33,9 +33,28 @@ func TestLogError(t *testing.T) {
 	// in order for the stack to be logged, Stack() needs to be called before Err()
 	logger.Error().Stack().Err(errors.New("BOOM!!!")).Msg("")
 	t.Logf("error log event: %s", logger.Buf.String())
+
+	var logEvent apptest.LogEvent
+	e := json.Unmarshal([]byte(logger.Buf.String()), &logEvent)
+	if e != nil {
+		t.Fatalf("Failed to unmarshal log event as JSON: %v", e)
+	}
+	if len(logEvent.Stack) == 0 {
+		t.Error("The stacktrace should have been logged")
+	}
 }
 
 func TestEvent_Log(t *testing.T) {
+	const (
+		DataTag   logging.Tag = "data"
+		DGraphTag logging.Tag = "dgraph"
+	)
+
+	var (
+		FooEvent = logging.NewEvent("foo", zerolog.WarnLevel, DataTag, DGraphTag)
+		BarEvent = logging.NewEvent("bar", zerolog.ErrorLevel)
+	)
+
 	logger := apptest.NewTestLogger(PACKAGE)
 
 	// When a foo event is logged
@@ -86,13 +105,3 @@ func TestEvent_Log(t *testing.T) {
 		}
 	}
 }
-
-const (
-	DataTag   logging.Tag = "data"
-	DGraphTag logging.Tag = "dgraph"
-)
-
-var (
-	FooEvent = logging.NewEvent("foo", zerolog.WarnLevel, DataTag, DGraphTag)
-	BarEvent = logging.NewEvent("bar", zerolog.ErrorLevel)
-)

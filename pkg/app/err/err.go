@@ -29,9 +29,14 @@ var (
 	newULID = ulidgen.MonotonicULIDGenerator()
 )
 
-// Err is used to define application errors - linking the error to a source code location via the ULID.
-// The idea is that most of the time, error stack traces are not required. Getting the stack trace at runtime is expensive.
+// Err is used to define application error instances. It links an error to a source code location via a ULID.
+// Most of the time, error stack traces are not required. Getting the stack trace at runtime is expensive.
 // Thus, most of the time, just knowing where in the code the error originated from is sufficient.
+// Each log event should include the package. Combining the Err.SrcID with the log event package lets us differentiate
+// between multiple different errors of the same type that are produced from the same package but from different source
+// code locations. This is an interesting metric to monitor.
+//
+// Err is used to construct new err.Instance(s)
 type Err struct {
 	*Desc
 	SrcID ulid.ULID
@@ -53,7 +58,7 @@ func (e *Err) New() *Instance {
 	}
 }
 
-// CausedBy constructs a new error instance which wraps the error cause
+// CausedBy constructs a new error instance which wraps the error cause.
 func (e *Err) CausedBy(cause error) *Instance {
 	return &Instance{
 		Err:        e,

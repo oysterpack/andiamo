@@ -29,7 +29,7 @@ type Event struct {
 	Tags []string
 }
 
-// NewEvent constructs a new Event
+// NewEvent constructs a new Event.
 func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
 	var tagSlice []string
 	if len(tags) > 0 {
@@ -45,7 +45,7 @@ func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
 	}
 }
 
-// Tag is used to define tags as constants in a type safe manner
+// Tag is used to define tags as constants in a type safe manner.
 type Tag string
 
 func (t Tag) String() string {

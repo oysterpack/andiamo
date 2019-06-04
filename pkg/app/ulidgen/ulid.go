@@ -23,8 +23,9 @@ import (
 	"sync"
 )
 
-// MonotonicULIDGenerator returns a function that generates ULID(s) that is safe for concurrent use.
-// - panics if a ULID fails to be generated
+// MonotonicULIDGenerator returns a function that generates ULID(s) in strictly increasing order.
+//   - is safe for concurrent use.
+//   - panics if a ULID fails to be generated
 func MonotonicULIDGenerator() func() ulid.ULID {
 	var m sync.Mutex
 	entropy := ulid.Monotonic(rand.Reader, 0)
@@ -38,8 +39,8 @@ func MonotonicULIDGenerator() func() ulid.ULID {
 }
 
 // RandomULIDGenerator returns a function that generates a cryptographically random ULID
-// - this is ~5x slower than MonotonicULIDGenerator functions
-// - panics if a ULID fails to be generated
+//   - this is ~5x slower than MonotonicULIDGenerator functions
+//   - panics if a ULID fails to be generated
 func RandomULIDGenerator() func() ulid.ULID {
 	return func() ulid.ULID {
 		return MustNew()
@@ -47,7 +48,7 @@ func RandomULIDGenerator() func() ulid.ULID {
 }
 
 // MustNew generates a new crypto/rand based ULID.
-// The function will panic if the ULID fails to generate.
+//   - panics if a ULID fails to be generated
 func MustNew() ulid.ULID {
 	return ulid.MustNew(ulid.Now(), rand.Reader)
 }

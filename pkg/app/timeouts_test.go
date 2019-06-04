@@ -24,7 +24,8 @@ import (
 )
 
 func TestLoadConfigFromEnv(t *testing.T) {
-	defaultTimeout := 15 * time.Second
+	const DefaultTimeout = 15 * time.Second
+
 	t.Run("when env not set, then defaults are used", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
 		config, err := app.LoadTimeouts()
@@ -32,9 +33,9 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			t.Fatalf("app.LoadTimeouts(): %v", err)
 		}
 		t.Logf("%s", config)
-		if config.StartTimeout != defaultTimeout {
+		if config.StartTimeout != DefaultTimeout {
 			t.Errorf("StartTimeout did not match the default: %v", config.StartTimeout)
-		} else if config.StopTimeout != defaultTimeout {
+		} else if config.StopTimeout != DefaultTimeout {
 			t.Errorf("StopTimeout did not match the default: %v", config.StartTimeout)
 		}
 	})
@@ -49,7 +50,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		t.Logf("%s", config)
 		if config.StartTimeout != 30*time.Second {
 			t.Errorf("StartTimeout did not match 30s: %v", config.StartTimeout)
-		} else if config.StopTimeout != defaultTimeout {
+		} else if config.StopTimeout != DefaultTimeout {
 			t.Errorf("StopTimeout did not match the default: %v", config.StartTimeout)
 		}
 	})
@@ -62,7 +63,7 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			t.Fatalf("app.LoadTimeouts(): %v", err)
 		}
 		t.Logf("%s", config)
-		if config.StartTimeout != defaultTimeout {
+		if config.StartTimeout != DefaultTimeout {
 			t.Errorf("StartTimeout did not match the default: %v", config.StartTimeout)
 		} else if config.StopTimeout != 30*time.Second {
 			t.Errorf("StopTimeout did not match 30s: %v", config.StartTimeout)

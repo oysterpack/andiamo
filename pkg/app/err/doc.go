@@ -15,11 +15,11 @@
  */
 
 /*
-Package err standardizes how errors are created and logged.
+Package err standardizes how errors are defined, created, and logged.
 
-The following error attributes cannot be defined statically, and must be determined based on application operational behavior:
-- severity - the severity depends on customer impact, or system impact
--
+Desc is used to define the types of errors.
+Err is used to define the the number of source code locations that can produce an error as defined by a Desc.
+Instance represents and actual error instance and is assigned a unique instance ID. The Instance knows how to log itself.
 
 */
 package err

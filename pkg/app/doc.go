@@ -48,13 +48,6 @@ Features
 	- use case: each package that logs events should add the package name to the log event context
 
 // TODO App Features:
-	- Application life cycle events are logged
-	   - app.new
-	   - app.starting
-	   - app.started
-	   - app.stopping
-	   - app.stopped
-	   - app.error
 	- Application dependency graph is logged in [DOT](https://graphviz.gitlab.io/_pages/doc/info/lang.html) format
 	- metrics
 	   - app_start_duration - how long did it take for the app to start

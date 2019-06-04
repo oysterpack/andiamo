@@ -6,7 +6,6 @@ statically defined"
 
 usecase EVENT_TAGS as "Events can be tagged"
 
-
 usecase PACKAGE_LOGGER as "All log events contain a
 package field"
 

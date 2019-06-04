@@ -28,12 +28,12 @@ import (
 )
 
 func TestMonotonicULIDGenerator(t *testing.T) {
+	t.Parallel()
 	ulids := make(map[ulid.ULID]bool)
-
 	newULID := ulidgen.MonotonicULIDGenerator()
-
 	for i := 0; i < 100; i++ {
 		uid := newULID()
+		t.Log(uid)
 		if ulids[uid] {
 			t.Fatal("duplicate ULID found")
 		}
@@ -42,12 +42,24 @@ func TestMonotonicULIDGenerator(t *testing.T) {
 }
 
 func TestRandomULIDGenerator(t *testing.T) {
+	t.Parallel()
 	ulids := make(map[ulid.ULID]bool)
-
 	newULID := ulidgen.RandomULIDGenerator()
-
 	for i := 0; i < 100; i++ {
 		uid := newULID()
+		t.Log(uid)
+		if ulids[uid] {
+			t.Fatal("duplicate ULID found")
+		}
+		ulids[uid] = true
+	}
+}
+
+func TestMustNew(t *testing.T) {
+	t.Parallel()
+	ulids := make(map[ulid.ULID]bool)
+	for i := 0; i < 100; i++ {
+		uid := ulidgen.MustNew()
 		if ulids[uid] {
 			t.Fatal("duplicate ULID found")
 		}

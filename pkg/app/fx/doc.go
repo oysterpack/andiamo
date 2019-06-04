@@ -19,7 +19,6 @@ Package fx standardizes how to compose applications using reusable modules lever
 Applications follow [12-Factor App](https://12factor.net/) design guidelines.
 
 Features
-========
 
 1. App start and stop timeouts are specified via env vars:
    - APPX12_START_TIMEOUT (default = 15s)
@@ -38,7 +37,7 @@ Features
      - app release ID - specified as a [ULID](https://github.com/ulid/spec)
 
 App Logging
------------
+
 [zerolog](https://github.com/rs/zerolog) is used as the logging framework.
 
 1. *zerolog.Logger is made available within the fx.App context
@@ -59,21 +58,13 @@ App Logging
    - they are logged with no log level to ensure they are always logged, regardless of the global log level setting
 
 App Context Injections
-----------------------
+
 1. `app.InstanceID`
     - each `fx.App` instance is assigned a unique `app.InstanceID` ULID
 2. `app.Desc`
 3. `*zerolog.Logger`
 
 // TODO App Features:
-- zap logger is provided within the fx.App context
-- Application life cycle events are logged
-   - app.new
-   - app.starting
-   - app.started
-   - app.stopping
-   - app.stopped
-   - app.error
 - Application dependency graph is logged in [DOT](https://graphviz.gitlab.io/_pages/doc/info/lang.html) format
 - metrics
    - app_start_duration - how long did it take for the app to start

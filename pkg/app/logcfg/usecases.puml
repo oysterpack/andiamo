@@ -3,7 +3,8 @@ actor :App : as APP
 
 
 usecase APP_LOGGING as "zerolog is used for logging"
-usecase ZEROLOG_CONFIG << envconfig >> as "zerolog config is loaded
+usecase ZEROLOG_CONFIG << envconfig >> as "
+zerolog config is loaded
 from env vars"
 
 note bottom of ZEROLOG_CONFIG {
@@ -11,25 +12,30 @@ APPX12_LOG_GLOBAL_LEVEL
 APPX12_LOG_DISABLE_SAMPLING
 }
 
-usecase LOG_APP_DESC as "Standard fields are logged
-with each event"
+usecase LOG_APP_DESC as "
+Base logger injects
+standard fields into
+each event"
 
 note bottom of LOG_APP_DESC {
 - app.Desc
 - app.InstanceID
-- app.Package
 }
 
-usecase LOG_TIMESTAMP as "Log event timestamps are
+usecase LOG_TIMESTAMP as "
+Log event timestamps are
 logged in UNIX time"
 
-usecase LOG_DURATION as "Log event time.Duration fields
+usecase LOG_DURATION as "
+Log event time.Duration fields
 are logged in millisecs"
 
-usecase LOG_ERROR_STACK_MARSHALLER as "Error stack marshalling
+usecase LOG_ERROR_STACK_MARSHALLER as "
+Error stack marshalling
 is supported"
 
-usecase GO_LOGGING as "zerolog is used as go
+usecase GO_LOGGING as "
+zerolog is used as go
 standard logger output"
 
 

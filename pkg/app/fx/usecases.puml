@@ -24,7 +24,6 @@ with each event"
 note bottom of LOG_APP_DESC {
 - app.Desc
 - app.InstanceID
-- app.Package
 }
 
 usecase LOG_TIMESTAMP as "Log event timestamps are
@@ -88,8 +87,6 @@ usecase APP_STOP_SIGNALS as "Listens for stop signals
 SIGINT
 SIGTERM
 "
-
-LOG_EVENT ..> STD_EVENTS
 
 APP_LOGGING .up.> GO_LOGGING
 APP_LOGGING .up.> ZEROLOG_CONFIG

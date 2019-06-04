@@ -1,0 +1,5 @@
+@startuml
+usecase MONONTONIC_ULID_GEN as "Generate ULID monotonically"
+
+usecase SECURE_RAND_ULID_GET as "Generate ULID"
+@enduml

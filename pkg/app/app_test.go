@@ -14,59 +14,56 @@
  * limitations under the License.
  */
 
-package app
+package app_test
 
 import (
-	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
+	"github.com/oysterpack/partire-k8s/pkg/app"
 	"testing"
 )
 
+// ID implements the Stringer interface
 func TestID_String(t *testing.T) {
-	id, err := ulid.Parse("01DC7RT5S3HF8G25TBT44J083Z")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	appID := app.NewID()
+	id := ulid.ULID(appID)
 
-	appID := ID(id)
-
-	if "01DC7RT5S3HF8G25TBT44J083Z" != appID.String() {
+	t.Logf("%s", appID)
+	if id.String() != appID.String() {
 		t.Errorf("ID did not match ULID: %s", id)
 	}
 }
 
 func TestReleaseID_String(t *testing.T) {
-	id, err := ulid.Parse("01DC7RT5S3HF8G25TBT44J083Z")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	releaseID := app.NewReleaseID()
+	id := ulid.ULID(releaseID)
 
-	appID := ReleaseID(id)
-
-	if "01DC7RT5S3HF8G25TBT44J083Z" != appID.String() {
+	t.Logf("%s", releaseID)
+	if id.String() != releaseID.String() {
 		t.Errorf("ID did not match ULID: %s", id)
 	}
 }
 
 func TestInstanceID_String(t *testing.T) {
-	id, err := ulid.Parse("01DC7RT5S3HF8G25TBT44J083Z")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	instanceID := app.NewInstanceID()
+	id := ulid.ULID(instanceID)
 
-	appID := InstanceID(id)
-
-	if "01DC7RT5S3HF8G25TBT44J083Z" != appID.String() {
+	t.Logf("%s", instanceID)
+	if id.String() != instanceID.String() {
 		t.Errorf("ID did not match ULID: %s", id)
 	}
 }
 
 func TestVersion_String(t *testing.T) {
-	v := semver.MustParse("1.2.3")
-	appVer := Version(*v)
+	t.Parallel()
+	var appVer app.Version
+	if e := appVer.Decode("1.2.3"); e != nil {
+		t.Errorf("Failed to decode version: %v", e)
+	}
 
 	if appVer.String() != "1.2.3" {
 		t.Errorf("Version did not match: %s", &appVer)
 	}
-
 }

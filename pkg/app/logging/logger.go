@@ -21,7 +21,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// PackageLogger add the specified package as a field to the logger
+// PackageLogger adds the specified package as a field to the logger. Having the package on the log event helps to
+// identify where log events are coming from, i.e., which packages are logging the events.
 func PackageLogger(logger *zerolog.Logger, p app.Package) *zerolog.Logger {
 	pkgLogger := logger.With().
 		Str(string(Package), string(p)).
