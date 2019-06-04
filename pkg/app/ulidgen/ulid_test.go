@@ -17,12 +17,14 @@
 package ulidgen_test
 
 import (
-	"crypto/rand"
+	crand "crypto/rand"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
+	"math/rand"
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestMonotonicULIDGenerator(t *testing.T) {
@@ -53,26 +55,34 @@ func TestRandomULIDGenerator(t *testing.T) {
 	}
 }
 
+// Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz
+//
 // Single Threaded
 // ---------------
-// BenchmarkULIDGenerator/monotonic_baseline-8                     10000000               145 ns/op
-// BenchmarkULIDGenerator/monotonic_mutex_protected-8              10000000               159 ns/op
-// BenchmarkULIDGenerator/monotonic_chan_based-8                    3000000               477 ns/op
-// BenchmarkULIDGenerator/random_mutex_protected-8                  2000000               756 ns/op
+// BenchmarkULIDGenerator/monotonic_baseline_using_rand-8          10000000               136 ns/op
+// BenchmarkULIDGenerator/monotonic_baseline_using_crypto/rand-8   10000000               144 ns/op
+// BenchmarkULIDGenerator/MonotonicULIDGenerator-8                 10000000               154 ns/op
+// BenchmarkULIDGenerator/MonotonicULIDGeneratorChan-8              3000000               464 ns/op
+// BenchmarkULIDGenerator/RandomULIDGenerator-8                     2000000               756 ns/op
 //
 // Parallel
 // --------
-// BenchmarkMonotonicULIDGeneratorParallel-8                        3000000               432 ns/op
-// BenchmarkMonotonicULIDGeneratorChanParallel-8                    5000000               353 ns/op
-// BenchmarkRandomULIDGeneratorParallel-8                           3000000               448 ns/op
+// BenchmarkMonotonicMathRandULIDGeneratorParallel-8                3000000               413 ns/op
+// BenchmarkMonotonicULIDGeneratorParallel-8                        3000000               412 ns/op
+// BenchmarkMonotonicULIDGeneratorChanParallel-8                    5000000               357 ns/op
+// BenchmarkRandomULIDGeneratorParallel-8                           3000000               449 ns/op
+//
+// BenchmarkULIDMustParse-8                                        50000000                26.4 ns/op
 //
 // summary
 // -------
+// - crypto/rand adds minimal overhead vs math/rand (~8 ns)
 // - under highly concurrent parallel load, the chan based monotonic generator performs best - no locking
 // - when minimal thread concurrent generation is expected, the mutex sync version is the best performing
+// - parsing ULID is fast
 func BenchmarkULIDGenerator(b *testing.B) {
-	b.Run("monotonic baseline", func(b *testing.B) {
-		entropy := ulid.Monotonic(rand.Reader, 0)
+	b.Run("monotonic baseline using rand", func(b *testing.B) {
+		entropy := ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0)
 		newULID := func() ulid.ULID {
 			return ulid.MustNew(ulid.Now(), entropy)
 		}
@@ -82,7 +92,18 @@ func BenchmarkULIDGenerator(b *testing.B) {
 		}
 	})
 
-	b.Run("monotonic mutex protected", func(b *testing.B) {
+	b.Run("monotonic baseline using crypto/rand", func(b *testing.B) {
+		entropy := ulid.Monotonic(crand.Reader, 0)
+		newULID := func() ulid.ULID {
+			return ulid.MustNew(ulid.Now(), entropy)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			newULID()
+		}
+	})
+
+	b.Run("MonotonicULIDGenerator", func(b *testing.B) {
 		newULID := ulidgen.MonotonicULIDGenerator()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -90,7 +111,7 @@ func BenchmarkULIDGenerator(b *testing.B) {
 		}
 	})
 
-	b.Run("monotonic chan based", func(b *testing.B) {
+	b.Run("MonotonicULIDGeneratorChan", func(b *testing.B) {
 		newULID := MonotonicULIDGeneratorChan()
 		<-newULID
 		b.ResetTimer()
@@ -99,10 +120,27 @@ func BenchmarkULIDGenerator(b *testing.B) {
 		}
 	})
 
-	b.Run("random mutex protected", func(b *testing.B) {
+	b.Run("RandomULIDGenerator", func(b *testing.B) {
 		newULID := ulidgen.RandomULIDGenerator()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
+			newULID()
+		}
+	})
+}
+
+func BenchmarkMonotonicMathRandULIDGeneratorParallel(b *testing.B) {
+	entropy := ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0)
+	var m sync.Mutex
+	newULID := func() ulid.ULID {
+		m.Lock()
+		u := ulid.MustNew(ulid.Now(), entropy)
+		m.Unlock()
+		return u
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			newULID()
 		}
 	})
@@ -146,7 +184,7 @@ func MonotonicULIDGeneratorChan() <-chan ulid.ULID {
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
-			entropy := ulid.Monotonic(rand.Reader, 0)
+			entropy := ulid.Monotonic(crand.Reader, 0)
 			wg.Done()
 			for {
 				c <- ulid.MustNew(ulid.Now(), entropy)
@@ -155,4 +193,12 @@ func MonotonicULIDGeneratorChan() <-chan ulid.ULID {
 	}
 	wg.Wait()
 	return c
+}
+
+func BenchmarkULIDMustParse(b *testing.B) {
+	ulidStr := ulidgen.MustNew().String()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ulid.MustParse(ulidStr)
+	}
 }

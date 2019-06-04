@@ -38,7 +38,6 @@ func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
 			tagSlice[i] = tag.String()
 		}
 	}
-
 	return Event{
 		Name:  name,
 		Level: level,

@@ -287,7 +287,7 @@ func checkLogEvents(t *testing.T, logFilePath string, logFile, stderr *os.File, 
 }
 
 var (
-	TestErr  = err.NewDesc("01DCF9FYQMKKM6MA3RAYZWEVTR", "TestError", "test error", err.ExcludeStack)
+	TestErr  = err.NewDesc("01DCF9FYQMKKM6MA3RAYZWEVTR", "TestError", "test error")
 	TestErr1 = err.New(TestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
 )
 

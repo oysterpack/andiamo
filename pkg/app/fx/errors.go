@@ -24,11 +24,11 @@ var (
 	// This is only used to wrap non-standard errors, i.e., whose type is not *err.Instance
 	//
 	// - the error stack is included to help track down where the error came from
-	InvokeErr = err.NewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed", err.IncludeStack)
+	InvokeErr = err.NewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed").WithStacktrace()
 
 	// AppStartErr indicates the app failed to start
-	AppStartErr = err.NewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start", err.ExcludeStack)
+	AppStartErr = err.NewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start")
 
 	// AppStopErr indicates that the app failed to stop cleanly
-	AppStopErr = err.NewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStartErr", "app failed to stop cleanly", err.ExcludeStack)
+	AppStopErr = err.NewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStartErr", "app failed to stop cleanly")
 )

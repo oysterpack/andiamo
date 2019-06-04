@@ -26,6 +26,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -159,6 +160,23 @@ func NewTestLogger(p app.Package) *TestLogger {
 	logger2 := logger.Output(buf)
 	logger = &logger2
 	return &TestLogger{logger, buf, desc, instanceID}
+}
+
+// NewDiscardLogger discards the log output by writing to /dev/null
+func NewDiscardLogger(p app.Package) *zerolog.Logger {
+	// Given an app.Desc and app.InstanceID
+	desc := InitEnvForDesc()
+	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
+	// And zerolog is configured
+	if err := logcfg.ConfigureZerolog(); err != nil {
+		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
+	}
+	// When a new zerolog.Logger is created
+	logger := logcfg.NewLogger(instanceID, desc)
+	logger = logging.PackageLogger(logger, p)
+	// And the log output is captured in a strings.Builder
+	discardLogger := logger.Output(ioutil.Discard)
+	return &discardLogger
 }
 
 // LogEvent is used to unmarshal zerolog JSON log events

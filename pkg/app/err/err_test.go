@@ -36,22 +36,14 @@ var (
 
 // error descriptors are defined in the code
 var (
-	InvalidRequest = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request", err.ExcludeStack)
+	InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
 
-	// SrcID is used to identify the error source, i.e. where in the source did the error originate from.
-	// - by assigning a ULID, it will make it easy to locate where the error was created in the code, without a stack trace.
-	// - by seeing how many SrcID(s) are defined, tells us how many locations in the code could potentially trigger errors
-	TestErrorInvalidRequestErr = err.New(InvalidRequest, "01DC9JRXD98HS9BEXJ1MBXWWM8")
-
-	DGraphQueryTimeout = err.NewDesc(
+	DGraphQueryTimeoutErr = err.NewDesc(
 		"01DCC447HWNM5MP7D4Z0DKK0SQ",
 		"DatabaseTimeout",
 		"query timeout",
-		err.IncludeStack,
 		DGraphTag, DatabaseTag,
-	)
-
-	TestErrorDGraphQueryTimeoutErr = err.New(DGraphQueryTimeout, "01DCC4JF4AAK63F6XYFFN8EJE1")
+	).WithStacktrace()
 )
 
 const (
@@ -61,13 +53,13 @@ const (
 
 func TestError_New(t *testing.T) {
 	// When a new Error is created
-	e := TestErrorInvalidRequestErr.New()
+	e := err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8").New()
 	t.Logf("e: %+v", e)
 	// Then the error.Desc is referenced by the Error
 	if e.Desc == nil {
 		t.Error("Desc is required")
 	}
-	if e.Desc.ID != InvalidRequest.ID {
+	if e.Desc.ID != InvalidRequestErr.ID {
 		t.Error("Desc.ID did not match")
 	}
 	// And the Error is assigned a unique InstanceID
@@ -81,7 +73,7 @@ func TestError_Log(t *testing.T) {
 
 	t.Run("no tags - with stacktrace", func(t *testing.T) {
 		// Given an Error
-		e := TestErrorInvalidRequestErr.New()
+		e := err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695").New()
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
 		e.Log(logger.Logger).Msg("")
@@ -98,7 +90,7 @@ func TestError_Log(t *testing.T) {
 
 	t.Run("with tags - with no stacktrace", func(t *testing.T) {
 		// Given an Error
-		e := TestErrorDGraphQueryTimeoutErr.New()
+		e := err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1").New()
 
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
@@ -115,16 +107,16 @@ func TestError_Log(t *testing.T) {
 }
 
 func checkDGraphQueryTimeErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, _ *err.Instance) {
-	if len(DGraphQueryTimeout.Tags) != 2 {
-		t.Fatalf("tags were not added when constructing the ErrorDesc: %+v", DGraphQueryTimeout)
+	if len(DGraphQueryTimeoutErr.Tags) != 2 {
+		t.Fatalf("tags were not added when constructing the ErrorDesc: %+v", DGraphQueryTimeoutErr)
 	}
-	if len(logEvent.Error.Tags) != len(DGraphQueryTimeout.Tags) {
+	if len(logEvent.Error.Tags) != len(DGraphQueryTimeoutErr.Tags) {
 		t.Error("the number of logged tags does not match what is expected")
 	} else {
 		// Then error tags should be logged
-		for i := 0; i < len(DGraphQueryTimeout.Tags); i++ {
-			if logEvent.Error.Tags[i] != DGraphQueryTimeout.Tags[i] {
-				t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], DGraphQueryTimeout.Tags[i])
+		for i := 0; i < len(DGraphQueryTimeoutErr.Tags); i++ {
+			if logEvent.Error.Tags[i] != DGraphQueryTimeoutErr.Tags[i] {
+				t.Errorf("tag did not match: %v != %v", logEvent.Tags[i], DGraphQueryTimeoutErr.Tags[i])
 			}
 		}
 
@@ -142,7 +134,7 @@ func checkInvalidRequestErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, er
 	}
 
 	// And the error message will match
-	if logEvent.ErrorMessage != InvalidRequest.Message {
+	if logEvent.ErrorMessage != InvalidRequestErr.Message {
 		t.Error("error message did not match")
 	}
 
@@ -177,7 +169,7 @@ func checkInvalidRequestErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, er
 
 func TestErr_CausedBy(t *testing.T) {
 	cause := errors.New("e root cause")
-	e := TestErrorInvalidRequestErr.CausedBy(cause)
+	e := err.New(InvalidRequestErr, "01DCGXQJ70CBPCJCYMP9N15ZB1").CausedBy(cause)
 	errCause := e.Cause
 	if errCause.Error() != cause.Error() {
 		t.Fatal("error message did not match")
@@ -194,7 +186,40 @@ func TestErr_CausedBy(t *testing.T) {
 		t.Fatalf("Invalid JSON log event: %v", e)
 	}
 
-	if logEvent.ErrorMessage != fmt.Sprintf("%s : %s", TestErrorInvalidRequestErr.Message, cause.Error()) {
+	if logEvent.ErrorMessage != fmt.Sprintf("%s : %s", InvalidRequestErr.Message, cause.Error()) {
 		t.Error("error message did not match")
 	}
+	if logEvent.Error.SrcID != e.SrcID.String() {
+		t.Error("error source ID did not match")
+	}
+}
+
+// BenchmarkInstance_Log/with_no_stack_trace-8              3000000               555 ns/op               0 B/op          0 allocs/op
+// BenchmarkInstance_Log/with_stack_trace-8                  100000             23241 ns/op            5529 B/op        108 allocs/op
+//
+// Logging the stacktrace is very expensive. Thus, collect the stacktrace only when needed.
+func BenchmarkInstance_Log(b *testing.B) {
+
+	ErrWithNoStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error")
+	ErrWithStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error").WithStacktrace()
+
+	logger := apptest.NewDiscardLogger(pkg)
+
+	b.Run("with no stack trace", func(b *testing.B) {
+		e := err.New(ErrWithNoStackTrace, "01DCGYD9N4CWBT6A55E5XW5TRT")
+		errInstance := e.New()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			errInstance.Log(logger).Msg("")
+		}
+	})
+
+	b.Run("with stack trace", func(b *testing.B) {
+		e := err.New(ErrWithStackTrace, "01DCGYD9N4CWBT6A55E5XW5TRT")
+		errInstance := e.New()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			errInstance.Log(logger).Msg("")
+		}
+	})
 }

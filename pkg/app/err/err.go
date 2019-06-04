@@ -29,7 +29,9 @@ var (
 	newULID = ulidgen.MonotonicULIDGenerator()
 )
 
-// Err is used to define application errors - linking the error to a source code location
+// Err is used to define application errors - linking the error to a source code location via the ULID.
+// The idea is that most of the time, error stack traces are not required. Getting the stack trace at runtime is expensive.
+// Thus, most of the time, just knowing where in the code the error originated from is sufficient.
 type Err struct {
 	*Desc
 	SrcID ulid.ULID
@@ -74,17 +76,9 @@ type Desc struct {
 	IncludeStack bool
 }
 
-// meant to be used when defining err.Desc via err.NewDesc() to make the code more readable and self-documenting
-const (
-	// IncludeStack indicates the error stacktrace should be included
-	IncludeStack = true
-	// ExcludeStack indicates the error stacktrace should not be included
-	ExcludeStack = false
-)
-
 // NewDesc constructs a new Desc
 // - panics if `id` is not a valid ULID
-func NewDesc(id, name, message string, stack bool, tags ...Tag) *Desc {
+func NewDesc(id, name, message string, tags ...Tag) *Desc {
 	var tagSlice []string
 	if len(tags) > 0 {
 		tagSlice = make([]string, len(tags))
@@ -93,12 +87,20 @@ func NewDesc(id, name, message string, stack bool, tags ...Tag) *Desc {
 		}
 	}
 	return &Desc{
-		ID:           ulid.MustParse(id),
-		Name:         name,
-		Message:      message,
-		IncludeStack: stack,
-		Tags:         tagSlice,
+		ID:      ulid.MustParse(id),
+		Name:    name,
+		Message: message,
+		Tags:    tagSlice,
 	}
+}
+
+// WithStacktrace indicates that the error stacktrace will be logged.
+//
+// NOTE: logging the error stacktrace is very expensive. Most of the time, it is not needed. Errors are linked to a
+// source code location via a ULID - see Err
+func (d *Desc) WithStacktrace() *Desc {
+	d.IncludeStack = true
+	return d
 }
 
 // Tag is used to define tags as constants in a type safe manner
