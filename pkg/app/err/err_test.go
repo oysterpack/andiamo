@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package error_test
+package err_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/error"
+	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -36,47 +36,43 @@ var (
 
 // error descriptors are defined in the code
 var (
-	InvalidRequest = &error.Desc{
-		ID:      ulid.MustParse("01DC9HDP0X3R60GWDZZY18CVB8"),
-		Name:    "InvalidRequest",
-		Message: "Invalid request",
-	}
+	InvalidRequest = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request", err.ExcludeStack)
 
 	// SrcID is used to identify the error source, i.e. where in the source did the error originate from.
 	// - by assigning a ULID, it will make it easy to locate where the error was created in the code, without a stack trace.
 	// - by seeing how many SrcID(s) are defined, tells us how many locations in the code could potentially trigger errors
-	TestErrorInvalidRequestErr = error.New(InvalidRequest, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+	TestErrorInvalidRequestErr = err.New(InvalidRequest, "01DC9JRXD98HS9BEXJ1MBXWWM8")
 
-	DGraphQueryTimeout = &error.Desc{
-		ID:           ulid.MustParse("01DCC447HWNM5MP7D4Z0DKK0SQ"),
-		Name:         "DatabaseTimeout",
-		Message:      "query timeout",
-		Tags:         []string{DGraphTag.String(), DatabaseTag.String()},
-		IncludeStack: true,
-	}
+	DGraphQueryTimeout = err.NewDesc(
+		"01DCC447HWNM5MP7D4Z0DKK0SQ",
+		"DatabaseTimeout",
+		"query timeout",
+		err.IncludeStack,
+		DGraphTag, DatabaseTag,
+	)
 
-	TestErrorDGraphQueryTimeoutErr = error.New(DGraphQueryTimeout, "01DCC4JF4AAK63F6XYFFN8EJE1")
+	TestErrorDGraphQueryTimeoutErr = err.New(DGraphQueryTimeout, "01DCC4JF4AAK63F6XYFFN8EJE1")
 )
 
 const (
-	DatabaseTag error.Tag = "db"
-	DGraphTag   error.Tag = "dgraph"
+	DatabaseTag err.Tag = "db"
+	DGraphTag   err.Tag = "dgraph"
 )
 
 func TestError_New(t *testing.T) {
 	// When a new Error is created
-	err := TestErrorInvalidRequestErr.New()
-	t.Logf("err: %+v", err)
+	e := TestErrorInvalidRequestErr.New()
+	t.Logf("e: %+v", e)
 	// Then the error.Desc is referenced by the Error
-	if err.Desc == nil {
+	if e.Desc == nil {
 		t.Error("Desc is required")
 	}
-	if err.Desc.ID != InvalidRequest.ID {
+	if e.Desc.ID != InvalidRequest.ID {
 		t.Error("Desc.ID did not match")
 	}
 	// And the Error is assigned a unique InstanceID
 	zeroULID := ulid.ULID{}
-	if err.InstanceID == zeroULID {
+	if e.InstanceID == zeroULID {
 		t.Error("InstanceID is required")
 	}
 }
@@ -85,40 +81,43 @@ func TestError_Log(t *testing.T) {
 
 	t.Run("no tags - with stacktrace", func(t *testing.T) {
 		// Given an Error
-		err := TestErrorInvalidRequestErr.New()
+		e := TestErrorInvalidRequestErr.New()
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
-		err.Log(logger.Logger).Msg("")
+		e.Log(logger.Logger).Msg("")
 		logEventMsg := logger.Buf.String()
 		t.Log(logEventMsg)
 
 		var logEvent apptest.LogEvent
-		if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-			t.Fatalf("Invalid JSON log event: %v", err)
+		if e := json.Unmarshal([]byte(logEventMsg), &logEvent); e != nil {
+			t.Fatalf("Invalid JSON log event: %v", e)
 		}
 		t.Logf("JSON log event: %#v", logEvent)
-		checkInvalidRequestErrLogEvent(t, &logEvent, err)
+		checkInvalidRequestErrLogEvent(t, &logEvent, e)
 	})
 
 	t.Run("with tags - with no stacktrace", func(t *testing.T) {
 		// Given an Error
-		err := TestErrorDGraphQueryTimeoutErr.New()
+		e := TestErrorDGraphQueryTimeoutErr.New()
 
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
-		err.Log(logger.Logger).Msg("")
+		e.Log(logger.Logger).Msg("")
 		logEventMsg := logger.Buf.String()
 		t.Log(logEventMsg)
 
 		var logEvent apptest.LogEvent
-		if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-			t.Fatalf("Invalid JSON log event: %v", err)
+		if e := json.Unmarshal([]byte(logEventMsg), &logEvent); e != nil {
+			t.Fatalf("Invalid JSON log event: %v", e)
 		}
-		checkDGraphQueryTimeErrLogEvent(t, &logEvent, err)
+		checkDGraphQueryTimeErrLogEvent(t, &logEvent, e)
 	})
 }
 
-func checkDGraphQueryTimeErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, err *error.ErrInstance) {
+func checkDGraphQueryTimeErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, _ *err.Instance) {
+	if len(DGraphQueryTimeout.Tags) != 2 {
+		t.Fatalf("tags were not added when constructing the ErrorDesc: %+v", DGraphQueryTimeout)
+	}
 	if len(logEvent.Error.Tags) != len(DGraphQueryTimeout.Tags) {
 		t.Error("the number of logged tags does not match what is expected")
 	} else {
@@ -136,7 +135,7 @@ func checkDGraphQueryTimeErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, e
 	}
 }
 
-func checkInvalidRequestErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, err *error.ErrInstance) {
+func checkInvalidRequestErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, err *err.Instance) {
 	// Then the log level will be ErrorLevel
 	if logEvent.Level != zerolog.ErrorLevel.String() {
 		t.Error("log level did not match")
@@ -177,22 +176,22 @@ func checkInvalidRequestErrLogEvent(t *testing.T, logEvent *apptest.LogEvent, er
 }
 
 func TestErr_CausedBy(t *testing.T) {
-	cause := errors.New("err root cause")
-	err := TestErrorInvalidRequestErr.CausedBy(cause)
-	errCause := err.Cause
+	cause := errors.New("e root cause")
+	e := TestErrorInvalidRequestErr.CausedBy(cause)
+	errCause := e.Cause
 	if errCause.Error() != cause.Error() {
 		t.Fatal("error message did not match")
 	}
 
 	// When the Error is logged
 	logger := apptest.NewTestLogger(pkg)
-	err.Log(logger.Logger).Msg("")
+	e.Log(logger.Logger).Msg("")
 	logEventMsg := logger.Buf.String()
 	t.Log(logEventMsg)
 
 	var logEvent apptest.LogEvent
-	if err := json.Unmarshal([]byte(logEventMsg), &logEvent); err != nil {
-		t.Fatalf("Invalid JSON log event: %v", err)
+	if e := json.Unmarshal([]byte(logEventMsg), &logEvent); e != nil {
+		t.Fatalf("Invalid JSON log event: %v", e)
 	}
 
 	if logEvent.ErrorMessage != fmt.Sprintf("%s : %s", TestErrorInvalidRequestErr.Message, cause.Error()) {

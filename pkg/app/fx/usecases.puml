@@ -75,6 +75,14 @@ Running
 Stop
 Stopped"
 
+usecase LOG_APP_INVOKE_ERRORS as "App func invocation errors
+are logged"
+
+usecase LOG_APP_START_STOP_ERRORS as "App start/stop
+errors are logged"
+
+usecase LOG_STOP_SIGNAL_EVENT as "App stop os.Signal is logged"
+
 usecase APP_STOP_SIGNALS as "Listens for stop signals
 ---
 SIGINT
@@ -88,7 +96,11 @@ APP_LOGGING .up.> ZEROLOG_CONFIG
 APP_LOGGING ..> LOG_APP_DESC
 APP_LOGGING ...> LOG_TIMESTAMP
 APP_LOGGING ...> LOG_DURATION
+APP_LOGGING ....> LOG_APP_INVOKE_ERRORS
+APP_LOGGING ....> LOG_APP_START_STOP_ERRORS
+APP_LOGGING ....> LOG_STOP_SIGNAL_EVENT
 APP_LOGGING ... LOG_ERROR_STACK_MARSHALLER
+
 
 APP -up-> DEPENDENCY_INJECTION
 APP --> APP_TIMEOUTS

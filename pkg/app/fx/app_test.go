@@ -20,8 +20,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
@@ -63,12 +66,12 @@ func TestNewApp(t *testing.T) {
 		}
 
 		// Then it starts with no errors
-		if err := fxapp.Start(context.Background()); err != nil {
-			t.Fatal(err)
+		if e := fxapp.Start(context.Background()); e != nil {
+			t.Fatal(e)
 		}
 		defer func() {
-			if err := fxapp.Stop(context.Background()); err != nil {
-				t.Errorf("fxapp.Stop error: %v", err)
+			if e := fxapp.Stop(context.Background()); e != nil {
+				t.Errorf("fxapp.Stop error: %v", e)
 			}
 		}()
 
@@ -96,12 +99,12 @@ func TestNewApp(t *testing.T) {
 		if fxapp.StopTimeout() != 60*time.Second {
 			t.Error("StopTimeout did not match the default")
 		}
-		if err := fxapp.Start(context.Background()); err != nil {
-			panic(err)
+		if e := fxapp.Start(context.Background()); e != nil {
+			panic(e)
 		}
 		defer func() {
-			if err := fxapp.Stop(context.Background()); err != nil {
-				t.Errorf("fxapp.Stop error: %v", err)
+			if e := fxapp.Stop(context.Background()); e != nil {
+				t.Errorf("fxapp.Stop error: %v", e)
 			}
 		}()
 	})
@@ -110,10 +113,10 @@ func TestNewApp(t *testing.T) {
 		apptest.InitEnvForDesc()
 		apptest.Setenv(apptest.StartTimeout, "--")
 		defer func() {
-			if err := recover(); err == nil {
+			if e := recover(); e == nil {
 				t.Error("fx.New() should have because the app start timeout was misconfigured")
 			} else {
-				t.Logf("as expected, fx.New() failed because of: %v", err)
+				t.Logf("as expected, fx.New() failed because of: %v", e)
 			}
 		}()
 		New()
@@ -123,10 +126,10 @@ func TestNewApp(t *testing.T) {
 		apptest.InitEnvForDesc()
 		apptest.Setenv(apptest.LogGlobalLevel, "--")
 		defer func() {
-			if err := recover(); err == nil {
+			if e := recover(); e == nil {
 				t.Error("fx.New() should have because the app global log level was misconfigured")
 			} else {
-				t.Logf("as expected, fx.New() failed because of: %v", err)
+				t.Logf("as expected, fx.New() failed because of: %v", e)
 			}
 		}()
 		New()
@@ -161,18 +164,27 @@ func LogTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 
 func TestLoadDesc(t *testing.T) {
 	defer func() {
-		if err := recover(); err == nil {
+		if e := recover(); e == nil {
 			t.Fatal("loading Desc should have failed and triggered a panic")
 		} else {
-			t.Logf("panic is expected: %v", err)
+			t.Logf("panic is expected: %v", e)
 		}
 	}()
 	apptest.ClearAppEnvSettings()
 	loadDesc()
 }
 
+// Feature: The app logs lifecycle events at the appropriate times.
+//
+// Given that the app log is captured
+// When the app is started
+// Then it logs the Start event as the first lifecycle OnStart hook
+// And then after all other OnStart hooks are run, the Running event is logged
+// When the app is stopped
+// Then the Stop event is logged as the first OnStop hook
+// Then the Stopped event is logged as the last OnStop hook
 func TestAppLifecycleEvents(t *testing.T) {
-	checkLifecycleEvents := func(logFile io.Reader) {
+	checkLifecycleEvents := func(t *testing.T, logFile io.Reader) {
 		events := make([]string, 0, 6)
 		scanner := bufio.NewScanner(logFile)
 		for scanner.Scan() {
@@ -180,9 +192,9 @@ func TestAppLifecycleEvents(t *testing.T) {
 			t.Log(logEventJSON)
 
 			var logEvent apptest.LogEvent
-			err := json.Unmarshal([]byte(logEventJSON), &logEvent)
-			if err != nil {
-				t.Fatal(err)
+			e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+			if e != nil {
+				t.Fatal(e)
 			}
 
 			switch logEvent.Event {
@@ -227,50 +239,412 @@ func TestAppLifecycleEvents(t *testing.T) {
 	stderrBackup := os.Stderr
 	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
 	t.Logf("log file: %v", logFilePath)
-	logFile, err := os.Create(logFilePath)
-	if err != nil {
-		t.Fatalf("failed to create log file: %v", err)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
 	}
 	os.Stderr = logFile
-	defer func() {
-		os.Stderr = stderrBackup
-		if err := logFile.Close(); err != nil {
-			t.Fatalf("failed to close log file: %v", err)
-		}
-		logFile, err := os.Open(logFilePath)
-		if err != nil {
-			t.Fatalf("failed to open the log file for reading: %v", err)
-		}
-		checkLifecycleEvents(logFile)
-		if err := logFile.Close(); err != nil {
-			t.Fatalf("failed to close log file: %v", err)
-		}
-
-		if err := os.Remove(logFilePath); err != nil {
-			t.Logf("failed to delete log file: %v", err)
-		}
-	}()
+	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkLifecycleEvents)
 
 	// Given that the app log is captured
 	apptest.InitEnvForDesc()
 	fxapp := New(fx.Invoke(LogTestEvents))
 
 	// When the app is started
-	if err := fxapp.Start(context.Background()); err != nil {
-		t.Fatal(err)
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Fatal(e)
 	}
 
-	// Then it logs the Start event as the first lofecycle OnStart hook
-
+	// Then it logs the Start event as the first lifecycle OnStart hook
 	// And then after all other OnStart hooks are run, the Running event is logged
-
 	// When the app is stopped
-	if err := fxapp.Stop(context.Background()); err != nil {
-		t.Errorf("fxapp.Stop error: %v", err)
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Errorf("fxapp.Stop error: %v", e)
 	}
 
 	// Then the Stop event is logged as the first OnStop hook
+	// Then the Stopped event is logged as the last OnStop hook
+}
 
-	// Then the Stopped event is logged as the jast OnStop hook
+func checkLogEvents(t *testing.T, logFilePath string, logFile, stderr *os.File, checker func(t *testing.T, logFile io.Reader)) {
+	// restore stderr
+	os.Stderr = stderr
+	// close the log file to ensure it is flushed to disk
+	if e := logFile.Close(); e != nil {
+		t.Fatalf("failed to close log file: %v", e)
+	}
+	logFile, e := os.Open(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to open the log file for reading: %v", e)
+	}
+	checker(t, logFile)
+	if e := logFile.Close(); e != nil {
+		t.Fatalf("failed to close log file: %v", e)
+	}
+	if e := os.Remove(logFilePath); e != nil {
+		t.Logf("failed to delete log file: %v", e)
+	}
+}
 
+var (
+	TestErr  = err.NewDesc("01DCF9FYQMKKM6MA3RAYZWEVTR", "TestError", "test error", err.ExcludeStack)
+	TestErr1 = err.New(TestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+)
+
+// Feature: Errors produced by app functions that are invoked by fx will be logged automatically
+//
+// Scenario: invoked func return an error of type *err.Instance
+//
+// Given that the app log is captured
+// When the app is started
+// Then the app will fail to start because the invoked test function fails
+// And the error will be logged
+func TestAppInvokeErrorHandling(t *testing.T) {
+	checkErrorEvents := func(t *testing.T, logFile io.Reader) {
+		scanner := bufio.NewScanner(logFile)
+		errorLogged := false
+		for scanner.Scan() {
+			logEventJSON := scanner.Text()
+			t.Log(logEventJSON)
+
+			var logEvent apptest.LogEvent
+			e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+			if e != nil {
+				t.Fatal(e)
+			}
+
+			if logEvent.Level == zerolog.ErrorLevel.String() {
+				if logEvent.Error.ID == TestErr.ID.String() {
+					errorLogged = true
+				}
+			}
+		}
+
+		if !errorLogged {
+			t.Error("Error was not logged")
+		}
+	}
+
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	// Given that the app log is captured
+
+	// redirect Stderr to a log file
+	// redirect Stderr to a log file
+	stderrBackup := os.Stderr
+	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
+	t.Logf("log file: %v", logFilePath)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
+	}
+	os.Stderr = logFile
+	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+
+	// When the app is created with a function that fails and returns an error when invoked
+	apptest.InitEnvForDesc()
+	fxapp := New(fx.Invoke(func() error {
+		t.Log("test func has been invoked ...")
+		return TestErr1.New()
+	}))
+
+	if fxapp.Start(context.Background()) == nil {
+		t.Fatal("Expected the app to fail to start up")
+	}
+	t.Logf("as expected, app failed to start: %v", e)
+}
+
+// Feature: Errors produced by app functions that are invoked by fx will be logged automatically
+//
+// Scenario: invoked func return an error that is a non-standard type, i.e. not of type *err.Instance
+//
+// Given that the app log is captured
+// When the app is started
+// Then the app will fail to start because the invoked test function fails
+// And the error will be logged
+func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
+	checkErrorEvents := func(t *testing.T, logFile io.Reader) {
+		scanner := bufio.NewScanner(logFile)
+		errorLogged := false
+		for scanner.Scan() {
+			logEventJSON := scanner.Text()
+			t.Log(logEventJSON)
+
+			var logEvent apptest.LogEvent
+			e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+			if e != nil {
+				t.Fatal(e)
+			}
+
+			if logEvent.Level == zerolog.ErrorLevel.String() {
+				if logEvent.Error.ID == InvokeErr.ID.String() {
+					errorLogged = true
+				}
+			}
+		}
+
+		if !errorLogged {
+			t.Error("Error was not logged")
+		}
+	}
+
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	// Given that the app log is captured
+
+	// redirect Stderr to a log file
+	// redirect Stderr to a log file
+	stderrBackup := os.Stderr
+	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
+	t.Logf("log file: %v", logFilePath)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
+	}
+	os.Stderr = logFile
+	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+
+	// When the app is created with a function that fails and returns an error when invoked
+	apptest.InitEnvForDesc()
+	fxapp := New(fx.Invoke(func() error {
+		t.Log("test func has been invoked ...")
+		return errors.New("non standard error")
+	}))
+
+	e = fxapp.Start(context.Background())
+	if e == nil {
+		t.Fatal("Expected the app to fail to start up")
+	}
+	t.Logf("as expected, app failed to start: %v", e)
+}
+
+// Feature: Errors produced by app functions that are invoked by fx will be logged automatically
+//
+// Scenario: hook OnStart handler results in an error of type *err.Instance
+//
+// Given that the app log is captured
+// When the app is started
+// Then the app will fail to start because a hook OnStart function returns an error
+// And the error will be logged
+func TestAppHookOnStartErrorHandling(t *testing.T) {
+	checkErrorEvents := func(t *testing.T, logFile io.Reader) {
+		scanner := bufio.NewScanner(logFile)
+		errorLogged := false
+		for scanner.Scan() {
+			logEventJSON := scanner.Text()
+			t.Log(logEventJSON)
+
+			var logEvent apptest.LogEvent
+			e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+			if e != nil {
+				t.Fatal(e)
+			}
+
+			if logEvent.Level == zerolog.ErrorLevel.String() {
+				if logEvent.Error.ID == AppStartErr.ID.String() {
+					errorLogged = true
+				}
+			}
+		}
+
+		if !errorLogged {
+			t.Error("Error was not logged")
+		}
+	}
+
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	// Given that the app log is captured
+
+	// redirect Stderr to a log file
+	// redirect Stderr to a log file
+	stderrBackup := os.Stderr
+	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
+	t.Logf("log file: %v", logFilePath)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
+	}
+	os.Stderr = logFile
+	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+
+	// When the app is created with a function that fails and returns an error when invoked
+	apptest.InitEnvForDesc()
+	fxapp := New(fx.Invoke(func(lc fx.Lifecycle) error {
+		t.Log("test func has been invoked ...")
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				t.Log("OnStart is about to fail ...")
+				return TestErr1.New()
+			},
+		})
+		return nil
+	}))
+
+	e = fxapp.Run()
+	if e == nil {
+		t.Fatal("Expected the app to fail to start up")
+	}
+	t.Logf("as expected, app failed to start: %v", e)
+}
+
+// Feature: Errors produced by app functions that are invoked by fx will be logged automatically
+//
+// Scenario: hook OnStart handler results in an error of type *err.Instance
+//
+// Given that the app log is captured
+// When the app is signalled to stop
+// Then the app will fail to stop cleanly because a hook OnStop function returns an error
+// And the error will be logged
+func TestAppHookOnStopErrorHandling(t *testing.T) {
+	checkErrorEvents := func(t *testing.T, logFile io.Reader) {
+		scanner := bufio.NewScanner(logFile)
+		errorLogged := false
+		for scanner.Scan() {
+			logEventJSON := scanner.Text()
+			t.Log(logEventJSON)
+
+			var logEvent apptest.LogEvent
+			e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+			if e != nil {
+				t.Fatal(e)
+			}
+
+			if logEvent.Level == zerolog.ErrorLevel.String() {
+				if logEvent.Error.ID == AppStopErr.ID.String() {
+					errorLogged = true
+				}
+			}
+		}
+
+		if !errorLogged {
+			t.Error("Error was not logged")
+		}
+	}
+
+	// reset the std logger when the test is done
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	// Given that the app log is captured
+
+	// redirect Stderr to a log file
+	// redirect Stderr to a log file
+	stderrBackup := os.Stderr
+	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
+	t.Logf("log file: %v", logFilePath)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
+	}
+	os.Stderr = logFile
+	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+
+	apptest.InitEnvForDesc()
+	fxapp := New(
+		// When the app is configured with an OnStop hook that will fail
+		fx.Invoke(func(lc fx.Lifecycle) error {
+			t.Log("test func has been invoked ...")
+			lc.Append(fx.Hook{
+				OnStop: func(context.Context) error {
+					t.Log("OnStop is about to fail ...")
+					return TestErr1.New()
+				},
+			})
+			return nil
+		}),
+		// And the app will stop itself right after it starts
+		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					fmt.Println("App will be shutdown ...")
+					if e := shutdowner.Shutdown(); e != nil {
+						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+					}
+					fmt.Println("App has been signalled to shutdown ...")
+					return nil
+				},
+			})
+
+		}),
+	)
+
+	errChan := make(chan error)
+	go func() {
+		e := fxapp.Run()
+		if e != nil {
+			errChan <- e
+		}
+		close(errChan)
+	}()
+	// wait for the app to stop
+	e = <-errChan
+	if e == nil {
+		t.Fatal("Expected the app to fail to start up")
+	}
+	t.Logf("as expected, app failed to start: %v", e)
+}
+
+// Feature: App will run until it is signalled to shutdown
+//
+// Scenario: the app will signal itself to shutdown as soon as it starts up
+//
+// When the app starts, it shuts itself down
+// Then the app shuts down cleanly
+func TestApp_Run(t *testing.T) {
+	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	apptest.InitEnvForDesc()
+	fxapp := New(
+		// And the app will stop itself right after it starts
+		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					fmt.Println("App will be shutdown ...")
+					if e := shutdowner.Shutdown(); e != nil {
+						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+					}
+					fmt.Println("App has been signalled to shutdown ...")
+					return nil
+				},
+			})
+
+		}),
+	)
+
+	errChan := make(chan error)
+	go func() {
+		e := fxapp.Run()
+		if e != nil {
+			errChan <- e
+		}
+		close(errChan)
+	}()
+	// wait for the app to stop
+	if e := <-errChan; e != nil {
+		t.Errorf("App run failed: %v", e)
+	}
 }

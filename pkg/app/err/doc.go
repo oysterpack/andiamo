@@ -15,11 +15,11 @@
  */
 
 /*
-Package error standardizes how errors are created and logged.
+Package err standardizes how errors are created and logged.
 
 The following error attributes cannot be defined statically, and must be determined based on application operational behavior:
 - severity - the severity depends on customer impact, or system impact
 -
 
 */
-package error
+package err

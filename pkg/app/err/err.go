@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package error
+package err
 
 import (
 	"fmt"
@@ -44,16 +44,16 @@ func New(desc *Desc, srcULID string) *Err {
 }
 
 // New constructs a new error instance, which is assigned a unique InstanceID.
-func (e *Err) New() *ErrInstance {
-	return &ErrInstance{
+func (e *Err) New() *Instance {
+	return &Instance{
 		Err:        e,
 		InstanceID: newULID(),
 	}
 }
 
 // CausedBy constructs a new error instance which wraps the error cause
-func (e *Err) CausedBy(cause error) *ErrInstance {
-	return &ErrInstance{
+func (e *Err) CausedBy(cause error) *Instance {
+	return &Instance{
 		Err:        e,
 		InstanceID: newULID(),
 		Cause:      cause,
@@ -72,6 +72,33 @@ type Desc struct {
 	// IncludeStack indicates whether the stacktrace should be logged with the error
 	// NOTE: most of the time, the stacktrace does not need to be logged
 	IncludeStack bool
+}
+
+// meant to be used when defining err.Desc via err.NewDesc() to make the code more readable and self-documenting
+const (
+	// IncludeStack indicates the error stacktrace should be included
+	IncludeStack = true
+	// ExcludeStack indicates the error stacktrace should not be included
+	ExcludeStack = false
+)
+
+// NewDesc constructs a new Desc
+// - panics if `id` is not a valid ULID
+func NewDesc(id, name, message string, stack bool, tags ...Tag) *Desc {
+	var tagSlice []string
+	if len(tags) > 0 {
+		tagSlice = make([]string, len(tags))
+		for i, tag := range tags {
+			tagSlice[i] = tag.String()
+		}
+	}
+	return &Desc{
+		ID:           ulid.MustParse(id),
+		Name:         name,
+		Message:      message,
+		IncludeStack: stack,
+		Tags:         tagSlice,
+	}
 }
 
 // Tag is used to define tags as constants in a type safe manner
@@ -132,9 +159,9 @@ const (
 	DatabaseErr Tag = "db"
 )
 
-// ErrInstance represents an application error instance.
-// All application errors should be wrapped within an ErrInstance.
-type ErrInstance struct {
+// Instance represents an application error instance.
+// All application errors should be wrapped within an Instance.
+type Instance struct {
 	*Err
 	// InstanceID is the unique error instance ID.
 	// use case: the InstanceID can be returned back to the client, which can be used to track down the specific error.
@@ -144,7 +171,7 @@ type ErrInstance struct {
 }
 
 // Error implements the Error interface
-func (e *ErrInstance) Error() string {
+func (e *Instance) Error() string {
 	if e.Cause == nil {
 		return e.Err.Message
 	}
@@ -152,7 +179,7 @@ func (e *ErrInstance) Error() string {
 }
 
 // Log logs the error using the specified logger
-func (e *ErrInstance) Log(logger *zerolog.Logger) *zerolog.Event {
+func (e *Instance) Log(logger *zerolog.Logger) *zerolog.Event {
 	err := zerolog.Dict().
 		Str(string(logging.ErrID), e.ID.String()).
 		Str(string(logging.ErrName), e.Name).
