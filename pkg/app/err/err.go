@@ -67,6 +67,10 @@ func (e *Err) CausedBy(cause error) *Instance {
 	}
 }
 
+func (e *Err) String() string {
+	return fmt.Sprintf("%v", *e)
+}
+
 // Desc is used to define an error
 type Desc struct {
 	ID ulid.ULID
@@ -106,6 +110,10 @@ func NewDesc(id, name, message string, tags ...Tag) *Desc {
 func (d *Desc) WithStacktrace() *Desc {
 	d.IncludeStack = true
 	return d
+}
+
+func (d *Desc) String() string {
+	return fmt.Sprintf("%v", *d)
 }
 
 // Tag is used to define tags as constants in a type safe manner

@@ -59,19 +59,17 @@ App Logging
 
 App Context Injections
 
-1. `app.InstanceID`
+1. app.InstanceID
     - each `fx.App` instance is assigned a unique `app.InstanceID` ULID
-2. `app.Desc`
-3. `*zerolog.Logger`
+2. app.Desc
+3. *zerolog.Logger
+4. *err.Registry
 
 // TODO App Features:
 - Application dependency graph is logged in [DOT](https://graphviz.gitlab.io/_pages/doc/info/lang.html) format
 - metrics
    - app_start_duration - how long did it take for the app to start
    - app_stop_duration - how long did it take for the app to stop
-- events
-   - app life cycle events
-   - error
 
 */
 package fx

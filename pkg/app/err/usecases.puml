@@ -1,5 +1,11 @@
 @startuml
+skinparam usecase {
+	BackgroundColor<< NEW >> DarkSeaGreen
+	BorderColor<< NEW >> YellowGreen
+}
+
 actor :App : as APP
+actor :Error Registry :as ERROR_REGISTRY <<Service>>
 
 usecase STD_ERRORS as "All errors are
 statically defined"
@@ -30,4 +36,22 @@ ERR_TAGS ..> STD_TAGS
 
 APP --> STD_ERRORS
 APP --> ERR_INSTANCE
+
+APP .up.> ERROR_REGISTRY
+
+usecase REGISTER_ERR as "Errors can be registered"
+
+usecase LIST_ERR_DESCS as "
+Registered error descriptors
+can be retrieved"
+
+usecase LIST_ERRS as "
+Registered errors can
+be retrieved
+"
+
+ERROR_REGISTRY -up-> REGISTER_ERR
+ERROR_REGISTRY -up-> LIST_ERR_DESCS
+ERROR_REGISTRY -up-> LIST_ERRS
+
 @enduml

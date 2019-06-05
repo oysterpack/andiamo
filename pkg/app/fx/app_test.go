@@ -623,11 +623,9 @@ func TestApp_Run(t *testing.T) {
 		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
-					fmt.Println("App will be shutdown ...")
 					if e := shutdowner.Shutdown(); e != nil {
 						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
 					}
-					fmt.Println("App has been signalled to shutdown ...")
 					return nil
 				},
 			})
@@ -645,6 +643,42 @@ func TestApp_Run(t *testing.T) {
 	}()
 	// wait for the app to stop
 	if e := <-errChan; e != nil {
-		t.Errorf("App run failed: %v", e)
+		t.Errorf("App failed to run: %v", e)
 	}
+}
+
+func TestErrRegistryIsProvided(t *testing.T) {
+	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	apptest.InitEnvForDesc()
+	fxapp := New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
+		// when the app starts, shut it down
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				if e := shutdowner.Shutdown(); e != nil {
+					t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+				}
+				return nil
+			},
+		})
+	}))
+	errChan := make(chan error)
+	go func() {
+		e := fxapp.Run()
+		if e != nil {
+			errChan <- e
+		}
+		close(errChan)
+	}()
+	// wait for the app to stop
+	if e := <-errChan; e != nil {
+		t.Errorf("App failed to run: %v", e)
+	}
+
 }

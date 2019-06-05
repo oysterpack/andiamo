@@ -77,15 +77,16 @@ func (a *App) Run() error {
 
 // New constructs a new fx.App.
 // It is configured with the following options:
-// - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
-// - constructor functions for:
-//   - Desc - loaded from the env - see `LoadDesc()`
-//   - InstanceID
-//   - *zerolog.Logger
-//     - is used as the fx.App logger, which logs all fx.App log events using debug level
-//     - is used as the go std logger
-// - lifecycle hook is registered to log app.Start and app.Stop log events
-// - fx.ErrorHandler is registered to log invoke errors
+//   - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
+//   - constructor functions for:
+//     - Desc - loaded from the env - see `LoadDesc()`
+//     - InstanceID
+//     - *zerolog.Logger
+//       - is used as the fx.App logger, which logs all fx.App log events using debug level
+//       - is used as the go std logger
+//     - *err.Registry
+//   - lifecycle hook is registered to log app.Start and app.Stop log events
+//   - fx.ErrorHandler is registered to log invoke errors
 func New(options ...fx.Option) *App {
 	config, e := app.LoadTimeouts()
 	if e != nil {
@@ -101,8 +102,8 @@ func New(options ...fx.Option) *App {
 	desc := loadDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
-	appOptions = append(appOptions, fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger) {
-		return desc, instanceID, logger
+	appOptions = append(appOptions, fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger, *err.Registry) {
+		return desc, instanceID, logger, err.NewRegistry()
 	}))
 	appOptions = append(appOptions, fx.Logger(logger))
 	errHandler := &errLogger{logger}

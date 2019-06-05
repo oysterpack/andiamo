@@ -1,4 +1,9 @@
 @startuml
+skinparam usecase {
+	BackgroundColor<< NEW >> DarkSeaGreen
+	BorderColor<< NEW >> YellowGreen
+}
+
 actor :App : as APP
 
 usecase APP_TIMEOUTS << envconfig >> as "Application start and stop timeouts
@@ -39,7 +44,7 @@ usecase GO_LOGGING as "zerolog is used as go
 standard logger output"
 
 usecase DEPENDENCY_INJECTION << Provide >> as "Dependency injection"
-usecase PROVIDE_APP_DESC << Provide >> as "app.Desc is provided"
+usecase PROVIDE_APP_DESC << Provide >> as "app.Desc"
 
 note top of PROVIDE_APP_DESC {
       <<envconfig>>
@@ -52,19 +57,21 @@ APPX12_VERSION
 APPX12_RELEASE_ID
 }
 
-usecase PROVIDE_APP_INSTANCE_ID << Provide >> as "app.InstanceID is provided"
+usecase PROVIDE_APP_INSTANCE_ID << Provide >> as "app.InstanceID"
 
 note top of PROVIDE_APP_INSTANCE_ID  {
 Each app instance is assigned a
 unique instance ID upon starting up
 }
 
-usecase PROVIDE_LOGGER << Provide >> as "*zerolog.Logger is provided"
+usecase PROVIDE_LOGGER << Provide >> as "*zerolog.Logger"
+
+usecase PROVIDE_ERR_REGISTRY << Provide >> as "*err.Registry"
 
 DEPENDENCY_INJECTION .up.> PROVIDE_APP_DESC
 DEPENDENCY_INJECTION .up.> PROVIDE_APP_INSTANCE_ID
 DEPENDENCY_INJECTION .up.> PROVIDE_LOGGER
-APP_INSTANCE_ID <.up. PROVIDE_APP_INSTANCE_ID
+DEPENDENCY_INJECTION .up.> PROVIDE_ERR_REGISTRY
 
 usecase LOG_APP_LIFECYCLE_EVENTS as "App lifecycle
 events are logged

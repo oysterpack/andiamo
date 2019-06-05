@@ -22,6 +22,7 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
+	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -38,12 +39,17 @@ var (
 var (
 	InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
 
+	InvalidRequestErr1 = err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+	InvalidRequestErr2 = err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695")
+
 	DGraphQueryTimeoutErr = err.NewDesc(
 		"01DCC447HWNM5MP7D4Z0DKK0SQ",
 		"DatabaseTimeout",
 		"query timeout",
 		DGraphTag, DatabaseTag,
 	).WithStacktrace()
+
+	DGraphQueryTimeoutErr1 = err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1")
 )
 
 const (
@@ -53,7 +59,7 @@ const (
 
 func TestError_New(t *testing.T) {
 	// When a new Error is created
-	e := err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8").New()
+	e := InvalidRequestErr1.New()
 	t.Logf("e: %+v", e)
 	// Then the error.Desc is referenced by the Error
 	if e.Desc == nil {
@@ -73,7 +79,7 @@ func TestError_Log(t *testing.T) {
 
 	t.Run("no tags - with stacktrace", func(t *testing.T) {
 		// Given an Error
-		e := err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695").New()
+		e := InvalidRequestErr2.New()
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
 		e.Log(logger.Logger).Msg("")
@@ -90,7 +96,7 @@ func TestError_Log(t *testing.T) {
 
 	t.Run("with tags - with no stacktrace", func(t *testing.T) {
 		// Given an Error
-		e := err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1").New()
+		e := DGraphQueryTimeoutErr1.New()
 
 		// When the Error is logged
 		logger := apptest.NewTestLogger(pkg)
@@ -194,32 +200,91 @@ func TestErr_CausedBy(t *testing.T) {
 	}
 }
 
-// BenchmarkInstance_Log/with_no_stack_trace-8              3000000               555 ns/op               0 B/op          0 allocs/op
-// BenchmarkInstance_Log/with_stack_trace-8                  100000             23241 ns/op            5529 B/op        108 allocs/op
-//
-// Logging the stacktrace is very expensive. Thus, collect the stacktrace only when needed.
-func BenchmarkInstance_Log(b *testing.B) {
+func TestRegistry_Register(t *testing.T) {
+	t.Parallel()
 
-	ErrWithNoStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error")
-	ErrWithStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error").WithStacktrace()
+	registry := err.NewRegistry()
 
-	logger := apptest.NewDiscardLogger(pkg)
+	if e := registry.Register(
+		InvalidRequestErr1,
+		InvalidRequestErr2,
+		DGraphQueryTimeoutErr1,
+	); e != nil {
+		t.Error(e)
+	}
 
-	b.Run("with no stack trace", func(b *testing.B) {
-		e := err.New(ErrWithNoStackTrace, "01DCGYD9N4CWBT6A55E5XW5TRT")
-		errInstance := e.New()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			errInstance.Log(logger).Msg("")
+	t.Run("register conflicting Err", func(t *testing.T) {
+		// Given an Err is already registered
+
+		// When we try to register a new Err that reuses the same Err.SrcID that is already registered but with a different Desc.ID
+		e := registry.Register(err.New(DGraphQueryTimeoutErr1.Desc, InvalidRequestErr2.SrcID.String()))
+		// Then an the Err registration fails
+		if e == nil {
+			t.Error("Err registration should have failed because InvalidRequestErr2 is already registered, but with a different Desc.ID")
+		} else {
+			switch e := e.(type) {
+			case *err.Instance:
+				t.Logf("%v", e)
+			default:
+				t.Errorf("unexpected error type: %T: %[1]1v", e)
+			}
 		}
 	})
 
-	b.Run("with stack trace", func(b *testing.B) {
-		e := err.New(ErrWithStackTrace, "01DCGYD9N4CWBT6A55E5XW5TRT")
-		errInstance := e.New()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			errInstance.Log(logger).Msg("")
+	t.Run("register the same error again", func(t *testing.T) {
+		InvalidRequestErr3 := err.New(InvalidRequestErr2.Desc, ulidgen.MustNew().String())
+
+		registeredErrCount := registry.Size()
+
+		// When the same error is registered
+		e := registry.Register(InvalidRequestErr1,
+			InvalidRequestErr2,
+			InvalidRequestErr3,
+			DGraphQueryTimeoutErr1)
+		// Then it succeeds as a noop
+		if e != nil {
+			t.Error(e)
+		} else {
+			expectedCount := registeredErrCount + 1
+			t.Log(registry.Errs())
+			if len(registry.Errs()) != expectedCount {
+				t.Errorf("registered error count (%v) should be %d", registry.Size(), expectedCount)
+			}
+			if !registry.Registered(InvalidRequestErr3.SrcID) {
+				t.Errorf("InvalidRequestErr3 is not registered - registered Errs = %v", registry.Errs())
+			}
+		}
+	})
+}
+
+func TestRegistry_Read(t *testing.T) {
+	t.Parallel()
+
+	registry := err.NewRegistry()
+
+	if e := registry.Register(
+		InvalidRequestErr1,
+		InvalidRequestErr2,
+		DGraphQueryTimeoutErr1,
+	); e != nil {
+		t.Error(e)
+	}
+
+	t.Run("get all Descs", func(t *testing.T) {
+		descs := registry.Descs()
+		t.Log(descs)
+		// err.ErrRegistryConflict is automatically registered
+		if len(descs) != 3 {
+			t.Errorf("expected 2 Descs, but got back: %v", len(descs))
+		}
+		if descs[err.ErrRegistryConflict.ID] != err.ErrRegistryConflict {
+			t.Error("err.ErrRegistryConflict should be registered")
+		}
+		if descs[InvalidRequestErr1.ID] != InvalidRequestErr {
+			t.Error("InvalidRequestErr should be registered")
+		}
+		if descs[DGraphQueryTimeoutErr1.ID] != DGraphQueryTimeoutErr {
+			t.Error("DGraphQueryTimeoutErr should be registered")
 		}
 	})
 }
