@@ -95,12 +95,12 @@ func TestRegistry_Read(t *testing.T) {
 	t.Run("get all Descs", func(t *testing.T) {
 		descs := registry.Descs()
 		t.Log(descs)
-		// err.ErrRegistryConflict is automatically registered
+		// err.RegistryConflictErrClass is automatically registered
 		if len(descs) != 3 {
 			t.Errorf("expected 2 Descs, but got back: %v", len(descs))
 		}
-		if descs[err.ErrRegistryConflict.ID] != err.ErrRegistryConflict {
-			t.Error("err.ErrRegistryConflict should be registered")
+		if descs[err.RegistryConflictErrClass.ID] != err.RegistryConflictErrClass {
+			t.Error("err.RegistryConflictErrClass should be registered")
 		}
 		if descs[InvalidRequestErr1.ID] != InvalidRequestErr {
 			t.Error("InvalidRequestErr should be registered")

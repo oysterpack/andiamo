@@ -23,8 +23,8 @@ import (
 
 // Registry related errors
 var (
-	ErrRegistryConflict           = NewDesc("01DCMMN0342H9FBMVHZ4MGWS2J", "ErrRegistryConflict", "an Err with the same SrcID but different Desc.ID is already registered")
-	ErrRegistryConflictOnRegister = New(ErrRegistryConflict, "01DCMMT8M89SE1JX3SGNXZZMST")
+	RegistryConflictErrClass = NewDesc("01DCMMN0342H9FBMVHZ4MGWS2J", "RegistryConflict", "an Err with the same SrcID but different Desc.ID is already registered")
+	RegistryConflictErr      = New(RegistryConflictErrClass, "01DCMMT8M89SE1JX3SGNXZZMST")
 )
 
 // Registry is used to register application errors. It is good to know what types of application errors can occur upfront.
@@ -34,12 +34,12 @@ type Registry struct {
 	errs map[ulid.ULID]*Err
 }
 
-// NewRegistry is the registry constructor. It automatically registers ErrRegistryConflictOnRegister.
+// NewRegistry is the registry constructor. It automatically registers RegistryConflictErr.
 func NewRegistry() *Registry {
 	registry := &Registry{
 		errs: make(map[ulid.ULID]*Err),
 	}
-	registry.Register(ErrRegistryConflictOnRegister)
+	registry.Register(RegistryConflictErr)
 	return registry
 }
 
@@ -52,7 +52,7 @@ func (r *Registry) Register(errs ...*Err) error {
 	for _, e := range errs {
 		if registeredErr := r.errs[e.SrcID]; registeredErr != nil {
 			if registeredErr.ID != e.ID {
-				return ErrRegistryConflictOnRegister.New()
+				return RegistryConflictErr.New()
 			}
 		} else {
 			r.errs[e.SrcID] = e
