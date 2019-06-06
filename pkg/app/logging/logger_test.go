@@ -27,20 +27,23 @@ import (
 
 const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/log_test"
 
-func TestLogErrorWithStacktrace(t *testing.T) {
+func TestPackageLogger(t *testing.T) {
 	logger := apptest.NewTestLogger(PACKAGE)
-	// in order for the stack to be logged, Stack() needs to be called before Err()
-	logger.Error().Stack().Err(errors.New("BOOM!!!")).Msg("")
-	t.Logf("error log event: %s", logger.Buf.String())
 
-	var logEvent apptest.LogEvent
-	e := json.Unmarshal([]byte(logger.Buf.String()), &logEvent)
-	if e != nil {
-		t.Fatalf("Failed to unmarshal log event as JSON: %v", e)
-	}
-	if len(logEvent.Stack) == 0 {
-		t.Error("The stacktrace should have been logged")
-	}
+	t.Run("log error with stacktrace", func(t *testing.T) {
+		// in order for the stack to be logged, Stack() needs to be called before Err()
+		logger.Error().Stack().Err(errors.New("BOOM!!!")).Msg("")
+		t.Logf("error log event: %s", logger.Buf.String())
+
+		var logEvent apptest.LogEvent
+		e := json.Unmarshal([]byte(logger.Buf.String()), &logEvent)
+		if e != nil {
+			t.Fatalf("Failed to unmarshal log event as JSON: %v", e)
+		}
+		if len(logEvent.Stack) == 0 {
+			t.Error("The stacktrace should have been logged")
+		}
+	})
 }
 
 func TestComponentLogger(t *testing.T) {

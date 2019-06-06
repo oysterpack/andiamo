@@ -16,7 +16,9 @@
 
 package logging
 
-import "sync"
+import (
+	"sync"
+)
 
 // EventRegistry is used to register application events
 type EventRegistry struct {
