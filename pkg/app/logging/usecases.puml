@@ -1,5 +1,10 @@
 @startuml
+skinparam usecase {
+	BackgroundColor<< NEW >> DarkSeaGreen
+	BorderColor<< NEW >> YellowGreen
+}
 actor :App : as APP
+actor :Event Registry :as EVENT_REGISTRY <<Service>>
 
 usecase LOG_EVENT as "All log events are
 statically defined"
@@ -19,7 +24,18 @@ are defined"
 
 APP --> LOG_EVENT
 APP --> STD_LOG_FIELDS
+APP .up.> EVENT_REGISTRY
 
 STD_LOG_FIELDS ..> PACKAGE_LOGGER
 LOG_EVENT ..> EVENT_TAGS
+
+usecase REGISTER_EVENT << NEW >> as "Register event"
+
+usecase LIST_EVENTS << NEW >> as "
+Get registered
+events"
+
+EVENT_REGISTRY -up-> REGISTER_EVENT
+EVENT_REGISTRY -up-> LIST_EVENTS
+
 @enduml

@@ -382,7 +382,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == InvokeErr.ID.String() {
+				if logEvent.Error.ID == InvokeErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -451,7 +451,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == AppStartErr.ID.String() {
+				if logEvent.Error.ID == AppStartErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -526,7 +526,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == AppStopErr.ID.String() {
+				if logEvent.Error.ID == AppStopErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -658,6 +658,15 @@ func TestErrRegistryIsProvided(t *testing.T) {
 	apptest.InitEnvForDesc()
 	fxapp := New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
+
+		// all of the standard app errors should be registered
+		errs := []*err.Err{InvokeErr, AppStartErr, AppStopErr}
+		for _, e := range errs {
+			if !errRegistry.Registered(e.SrcID) {
+				t.Errorf("error is not registered: %v", e)
+			}
+		}
+
 		// when the app starts, shut it down
 		lc.Append(fx.Hook{
 			OnStart: func(context.Context) error {
@@ -681,4 +690,48 @@ func TestErrRegistryIsProvided(t *testing.T) {
 		t.Errorf("App failed to run: %v", e)
 	}
 
+}
+
+func TestEventRegistryIsProvided(t *testing.T) {
+	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	apptest.InitEnvForDesc()
+	fxapp := New(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+		logger.Info().Msgf("registered events: %v", registry.Events())
+
+		// all of the standard app events should be registered
+		events := []logging.Event{Start, Running, Stop, Stopped, StopSignal}
+		for _, e := range events {
+			if !registry.Registered(e) {
+				t.Errorf("event is not registered: %v", e)
+			}
+		}
+
+		// when the app starts, shut it down
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				if e := shutdowner.Shutdown(); e != nil {
+					t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+				}
+				return nil
+			},
+		})
+	}))
+	errChan := make(chan error)
+	go func() {
+		e := fxapp.Run()
+		if e != nil {
+			errChan <- e
+		}
+		close(errChan)
+	}()
+	// wait for the app to stop
+	if e := <-errChan; e != nil {
+		t.Errorf("App failed to run: %v", e)
+	}
 }

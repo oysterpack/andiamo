@@ -54,7 +54,7 @@ func (a *App) Run() error {
 	stopChan := a.App.Done()
 
 	if e := a.Start(startCtx); e != nil {
-		appStartErr := err.New(AppStartErr, "01DCFMZ5KHESA1E20C7DHMGS9Y").CausedBy(e)
+		appStartErr := AppStartErr.CausedBy(e)
 		appStartErr.Log(a.logger).Msg("")
 		return appStartErr
 	}
@@ -67,7 +67,7 @@ func (a *App) Run() error {
 	defer cancel()
 
 	if e := a.Stop(stopCtx); e != nil {
-		appStopErr := err.New(AppStopErr, "01DCFPFAFFDPKVF5GPYEYJ8Y8C").CausedBy(e)
+		appStopErr := AppStopErr.CausedBy(e)
 		appStopErr.Log(a.logger).Msg("")
 		return appStopErr
 	}
@@ -102,9 +102,13 @@ func New(options ...fx.Option) *App {
 	desc := loadDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
-	appOptions = append(appOptions, fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger, *err.Registry) {
-		return desc, instanceID, logger, err.NewRegistry()
-	}))
+	appOptions = append(appOptions,
+		fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger) {
+			return desc, instanceID, logger
+		},
+			newErrorRegistry,
+			newEventRegistry,
+		))
 	appOptions = append(appOptions, fx.Logger(logger))
 	errHandler := &errLogger{logger}
 	appOptions = append(appOptions, fx.ErrorHook(errHandler))
@@ -115,6 +119,21 @@ func New(options ...fx.Option) *App {
 		App:    fx.New(appOptions...),
 		logger: logger,
 	}
+}
+
+func newEventRegistry() *logging.EventRegistry {
+	registry := logging.NewEventRegistry()
+	registry.Register(Start, Running, Stop, Stopped, StopSignal)
+	return registry
+}
+
+func newErrorRegistry() (*err.Registry, error) {
+	registry := err.NewRegistry()
+	if e := registry.Register(InvokeErr, AppStartErr, AppStopErr); e != nil {
+		// should never happen - if it does, then it means it is a bug
+		return nil, e
+	}
+	return registry, nil
 }
 
 // panics if the Desc fails to load
@@ -181,6 +200,6 @@ func logError(logger *zerolog.Logger, e error) {
 	case *err.Instance:
 		e.Log(logger).Msg("")
 	default:
-		err.New(InvokeErr, "01DCFB4PKEBPEBQNWH7SMDXNAZ").CausedBy(e).Log(logger).Msg("")
+		InvokeErr.CausedBy(e).Log(logger).Msg("")
 	}
 }

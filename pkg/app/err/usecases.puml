@@ -39,16 +39,13 @@ APP --> ERR_INSTANCE
 
 APP .up.> ERROR_REGISTRY
 
-usecase REGISTER_ERR as "Errors can be registered"
+usecase REGISTER_ERR as "Register error"
 
 usecase LIST_ERR_DESCS as "
-Registered error descriptors
-can be retrieved"
+Get registered error
+descriptors"
 
-usecase LIST_ERRS as "
-Registered errors can
-be retrieved
-"
+usecase LIST_ERRS as "Get registered errors"
 
 ERROR_REGISTRY -up-> REGISTER_ERR
 ERROR_REGISTRY -up-> LIST_ERR_DESCS

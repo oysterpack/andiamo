@@ -18,17 +18,26 @@ package fx
 
 import "github.com/oysterpack/partire-k8s/pkg/app/err"
 
-// App related errors
+// App related error descriptors
 var (
-	// InvokeErr indicates that a function that was invoked by the app failed.
+	// InvokeErrClass indicates that a function that was invoked by the app failed.
 	// This is only used to wrap non-standard errors, i.e., whose type is not *err.Instance
 	//
 	// - the error stack is included to help track down where the error came from
-	InvokeErr = err.NewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed").WithStacktrace()
+	InvokeErrClass = err.NewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed").WithStacktrace()
 
-	// AppStartErr indicates the app failed to start
-	AppStartErr = err.NewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start")
+	// AppStartErrClass indicates the app failed to start
+	AppStartErrClass = err.NewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start")
 
-	// AppStopErr indicates that the app failed to stop cleanly
-	AppStopErr = err.NewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStartErr", "app failed to stop cleanly")
+	// AppStopErrClass indicates that the app failed to stop cleanly
+	AppStopErrClass = err.NewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStopErr", "app failed to stop cleanly")
+)
+
+// App related errors
+var (
+	InvokeErr = err.New(InvokeErrClass, "01DCFB4PKEBPEBQNWH7SMDXNAZ")
+
+	AppStartErr = err.New(AppStartErrClass, "01DCFMZ5KHESA1E20C7DHMGS9Y")
+
+	AppStopErr = err.New(AppStopErrClass, "01DCFPFAFFDPKVF5GPYEYJ8Y8C")
 )

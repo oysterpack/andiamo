@@ -185,6 +185,7 @@ type LogEvent struct {
 	Timestamp    int64        `json:"t"`
 	Message      string       `json:"m"`
 	App          AppDesc      `json:"a"`
+	Component    string       `json:"c"`
 	Event        string       `json:"n"`
 	ErrorMessage string       `json:"e"`
 	Error        *Error       `json:"f"`
