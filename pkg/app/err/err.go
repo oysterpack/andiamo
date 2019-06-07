@@ -29,53 +29,17 @@ var (
 	newULID = ulidgen.MonotonicULIDGenerator()
 )
 
-// Err is used to define application error instances. It links an error to a source code location via a ULID.
-// Most of the time, error stack traces are not required. Getting the stack trace at runtime is expensive.
-// Thus, most of the time, just knowing where in the code the error originated from is sufficient.
-// Each log event should include the package. Combining the Err.SrcID with the log event package lets us differentiate
-// between multiple different errors of the same type that are produced from the same package but from different source
-// code locations. This is an interesting metric to monitor.
-//
-// Err is used to construct new err.Instance(s)
-type Err struct {
-	*Desc
-	SrcID ulid.ULID
-}
-
-// New constructs a new Error instance
-func New(desc *Desc, srcULID string) *Err {
-	return &Err{
-		Desc:  desc,
-		SrcID: ulid.MustParse(srcULID),
-	}
-}
-
-// New constructs a new error instance, which is assigned a unique InstanceID.
-func (e *Err) New() *Instance {
-	return &Instance{
-		Err:        e,
-		InstanceID: newULID(),
-	}
-}
-
-// CausedBy constructs a new error instance which wraps the error cause.
-func (e *Err) CausedBy(cause error) *Instance {
-	return &Instance{
-		Err:        e,
-		InstanceID: newULID(),
-		Cause:      cause,
-	}
-}
-
-func (e *Err) String() string {
-	return fmt.Sprintf("%v", *e)
-}
-
 // Desc is used to define an error
 type Desc struct {
+	// ID is the globally unique error ID
 	ID ulid.ULID
-	// Name is the user friendly error name - this should be unique within the application scope
-	Name    string
+	// Name is the short human readable error name.
+	// It should follow go const naming conventions - camel-case with the first letter uppercase.
+	//
+	// The name should be unique within its scope, i.e., application  or component scope. The scope is determined when the
+	// error is logged. If it has a component field, then it is scoped to a component - otherwise it is scoped to the application.
+	Name string
+	// Message describes the error.
 	Message string
 	// Tags are used to classify errors, e.g., db, ui, timeout, authc, authz, io, client, server.
 	// - tags can be used to organize log events and make it easier to query for events
@@ -173,6 +137,48 @@ const (
 	// DatabaseErr indicates the error is database related
 	DatabaseErr Tag = "db"
 )
+
+// Err is used to define application error instances. It links an error to a source code location via a ULID.
+// Most of the time, error stack traces are not required. Getting the stack trace at runtime is expensive.
+// Thus, most of the time, just knowing where in the code the error originated from is sufficient.
+// Each log event should include the package. Combining the Err.SrcID with the log event package lets us differentiate
+// between multiple different errors of the same type that are produced from the same package but from different source
+// code locations. This is an interesting metric to monitor.
+//
+// Err is used to construct new err.Instance(s)
+type Err struct {
+	*Desc
+	SrcID ulid.ULID
+}
+
+// New constructs a new Error instance
+func New(desc *Desc, srcULID string) *Err {
+	return &Err{
+		Desc:  desc,
+		SrcID: ulid.MustParse(srcULID),
+	}
+}
+
+// New constructs a new error instance, which is assigned a unique InstanceID.
+func (e *Err) New() *Instance {
+	return &Instance{
+		Err:        e,
+		InstanceID: newULID(),
+	}
+}
+
+// CausedBy constructs a new error instance which wraps the error cause.
+func (e *Err) CausedBy(cause error) *Instance {
+	return &Instance{
+		Err:        e,
+		InstanceID: newULID(),
+		Cause:      cause,
+	}
+}
+
+func (e *Err) String() string {
+	return fmt.Sprintf("%v", *e)
+}
 
 // Instance represents an application error instance.
 // All application errors should be wrapped within an Instance.

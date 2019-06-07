@@ -86,7 +86,7 @@ func (r *Registry) Size() int {
 	return len(r.errs)
 }
 
-// Descs returns the number of registered error Desc(s)
+// Descs returns all registered error Desc(s)
 func (r *Registry) Descs() map[ulid.ULID]*Desc {
 	r.m.RLock()
 	defer r.m.RUnlock()
@@ -95,4 +95,17 @@ func (r *Registry) Descs() map[ulid.ULID]*Desc {
 		descs[e.ID] = e.Desc
 	}
 	return descs
+}
+
+// Filter returns all errors that match the filter
+func (r *Registry) Filter(filter func(*Err) bool) []*Err {
+	r.m.RLock()
+	defer r.m.RUnlock()
+	var errs []*Err
+	for _, e := range r.errs {
+		if filter(e) {
+			errs = append(errs, e)
+		}
+	}
+	return errs
 }

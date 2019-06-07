@@ -66,3 +66,16 @@ func (r *EventRegistry) Events() []Event {
 	copy(events, r.events)
 	return events
 }
+
+// Filter returns all Events that match the specified filter
+func (r *EventRegistry) Filter(filter func(event Event) bool) []Event {
+	r.m.RLock()
+	defer r.m.RUnlock()
+	var events []Event
+	for _, event := range r.events {
+		if filter(event) {
+			events = append(events, event)
+		}
+	}
+	return events
+}

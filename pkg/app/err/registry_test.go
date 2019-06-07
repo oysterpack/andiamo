@@ -17,6 +17,7 @@
 package err_test
 
 import (
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"testing"
@@ -24,6 +25,32 @@ import (
 
 func TestRegistry_Register(t *testing.T) {
 	t.Parallel()
+
+	// error tags
+	const (
+		DatabaseTag err.Tag = "db"
+		DGraphTag   err.Tag = "dgraph"
+	)
+
+	// error descriptors
+	var (
+		InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
+
+		DGraphQueryTimeoutErr = err.NewDesc(
+			"01DCC447HWNM5MP7D4Z0DKK0SQ",
+			"DatabaseTimeout",
+			"query timeout",
+			DGraphTag, DatabaseTag,
+		).WithStacktrace()
+	)
+
+	// errors
+	var (
+		InvalidRequestErr1 = err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+		InvalidRequestErr2 = err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695")
+
+		DGraphQueryTimeoutErr1 = err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1")
+	)
 
 	registry := err.NewRegistry()
 
@@ -82,6 +109,32 @@ func TestRegistry_Register(t *testing.T) {
 func TestRegistry_Read(t *testing.T) {
 	t.Parallel()
 
+	// error tags
+	const (
+		DatabaseTag err.Tag = "db"
+		DGraphTag   err.Tag = "dgraph"
+	)
+
+	// error descriptors
+	var (
+		InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
+
+		DGraphQueryTimeoutErr = err.NewDesc(
+			"01DCC447HWNM5MP7D4Z0DKK0SQ",
+			"DatabaseTimeout",
+			"query timeout",
+			DGraphTag, DatabaseTag,
+		).WithStacktrace()
+	)
+
+	// errors
+	var (
+		InvalidRequestErr1 = err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+		InvalidRequestErr2 = err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695")
+
+		DGraphQueryTimeoutErr1 = err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1")
+	)
+
 	registry := err.NewRegistry()
 
 	if e := registry.Register(
@@ -108,5 +161,31 @@ func TestRegistry_Read(t *testing.T) {
 		if descs[DGraphQueryTimeoutErr1.ID] != DGraphQueryTimeoutErr {
 			t.Error("DGraphQueryTimeoutErr should be registered")
 		}
+	})
+
+	t.Run("filter errors by Desc.ID", func(t *testing.T) {
+		findByDescID := func(id ulid.ULID) func(*err.Err) bool {
+			return func(err *err.Err) bool {
+				return err.ID == id
+			}
+		}
+
+		errs := registry.Filter(findByDescID(InvalidRequestErr.ID))
+		if len(errs) != 2 {
+			t.Errorf("2 InvalidRequestErr errors should be registered: %v", errs)
+		}
+
+		errs = registry.Filter(findByDescID(DGraphQueryTimeoutErr.ID))
+		if len(errs) != 1 {
+			t.Errorf("1 DGraphQueryTimeoutErr errors should be registered: %v", errs)
+		}
+
+		// When trying to search for errors using an unregistered ID
+		errs = registry.Filter(findByDescID(ulidgen.MustNew()))
+		// Then none should be returned
+		if len(errs) != 0 {
+			t.Errorf("none should have been found: %v", errs)
+		}
+
 	})
 }

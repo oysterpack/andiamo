@@ -64,7 +64,33 @@ func TestEventRegistry(t *testing.T) {
 				t.Errorf("event was not found in the registry: %v", event)
 			}
 		}
-
 	}
+}
 
+func TestEventRegistry_Filter(t *testing.T) {
+	const (
+		TagA logging.Tag = "a"
+		TagB logging.Tag = "b"
+	)
+
+	var (
+		FooBarEvent = logging.NewEvent("foobar", zerolog.InfoLevel, TagA)
+		FooEvent    = logging.NewEvent("foo", zerolog.WarnLevel, TagA, TagB)
+		BarEvent    = logging.NewEvent("bar", zerolog.ErrorLevel)
+	)
+
+	registry := logging.NewEventRegistry()
+	registry.Register(FooEvent, BarEvent, FooBarEvent)
+
+	events := registry.Filter(func(event logging.Event) bool {
+		return event.Level >= zerolog.WarnLevel
+	})
+	if len(events) != 2 {
+		t.Errorf("expected 2 events to be returned: %v", events)
+	}
+	for _, event := range events {
+		if event.Level < zerolog.WarnLevel {
+			t.Errorf("Unexpected event was returned: %v", event)
+		}
+	}
 }

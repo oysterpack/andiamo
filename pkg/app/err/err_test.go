@@ -34,12 +34,15 @@ var (
 	pkg = app.GetPackage(empty{})
 )
 
-// error descriptors are defined in the code
+// error tags
+const (
+	DatabaseTag err.Tag = "db"
+	DGraphTag   err.Tag = "dgraph"
+)
+
+// error descriptors
 var (
 	InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
-
-	InvalidRequestErr1 = err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
-	InvalidRequestErr2 = err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695")
 
 	DGraphQueryTimeoutErr = err.NewDesc(
 		"01DCC447HWNM5MP7D4Z0DKK0SQ",
@@ -47,13 +50,14 @@ var (
 		"query timeout",
 		DGraphTag, DatabaseTag,
 	).WithStacktrace()
-
-	DGraphQueryTimeoutErr1 = err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1")
 )
 
-const (
-	DatabaseTag err.Tag = "db"
-	DGraphTag   err.Tag = "dgraph"
+// errors
+var (
+	InvalidRequestErr1 = err.New(InvalidRequestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
+	InvalidRequestErr2 = err.New(InvalidRequestErr, "01DCGXN8ZE1WT0NBDNVYRN2695")
+
+	DGraphQueryTimeoutErr1 = err.New(DGraphQueryTimeoutErr, "01DCC4JF4AAK63F6XYFFN8EJE1")
 )
 
 func TestError_New(t *testing.T) {
@@ -197,4 +201,20 @@ func TestErr_CausedBy(t *testing.T) {
 	if logEvent.Error.SrcID != e.SrcID.String() {
 		t.Error("error source ID did not match")
 	}
+}
+
+//  The take away lesson is that slices share underlying memory. Be careful on how slices are shared.
+// In general, it's better off to not share them.
+func TestSliceReference(t *testing.T) {
+	s1 := make([]int, 0, 10)
+	s1 = append(s1, 1, 2, 3)
+	s2 := s1
+
+	s2 = append(s2, 5)
+	t.Logf("s1: %v", s1) // s1: [1 2 3]
+	t.Logf("s2: %v", s2) // s2: [1 2 3 5]
+	// at this point, s1 and s2 both reference the same slice - currently s2[4] = 5, but writing to s1 will change it
+	s1 = append(s1, 4, 5, 6)
+	t.Logf("s1: %v", s1) // s1: [1 2 3 4 5 6]
+	t.Logf("s2: %v", s2) // s2: [1 2 3 4]
 }
