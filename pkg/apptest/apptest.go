@@ -143,23 +143,29 @@ type TestLogger struct {
 	app.InstanceID
 }
 
-// NewTestLogger constructs a new TestLogger instance.
+// NewTestLogger constructs a new TestLogger instance for the specified package.
 func NewTestLogger(p app.Package) *TestLogger {
-	// Given an app.Desc and app.InstanceID
+	return NewAppTestLogger().WithPackage(p)
+}
+
+// NewAppTestLogger constructs a new TestLogger instance.
+func NewAppTestLogger() *TestLogger {
 	desc := InitEnvForDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
 	}
-	// When a new zerolog.Logger is created
 	logger := logcfg.NewLogger(instanceID, desc)
-	logger = logging.PackageLogger(logger, p)
-	// And the log output is captured in a strings.Builder
 	buf := new(strings.Builder)
 	logger2 := logger.Output(buf)
 	logger = &logger2
 	return &TestLogger{logger, buf, desc, instanceID}
+}
+
+// WithPackage adds the package to the logger context
+func (l *TestLogger) WithPackage(p app.Package) *TestLogger {
+	l.Logger = logging.PackageLogger(l.Logger, p)
+	return l
 }
 
 // NewDiscardLogger discards the log output by writing to /dev/null
@@ -185,6 +191,7 @@ type LogEvent struct {
 	Timestamp    int64        `json:"t"`
 	Message      string       `json:"m"`
 	App          AppDesc      `json:"a"`
+	Package      string       `json:"p"`
 	Component    string       `json:"c"`
 	Event        string       `json:"n"`
 	ErrorMessage string       `json:"e"`

@@ -1,0 +1,49 @@
+@startuml
+skinparam usecase {
+	BackgroundColor<< NEW >> DarkSeaGreen
+	BorderColor<< NEW >> YellowGreen
+}
+
+actor App
+actor Comp
+actor Registry
+
+App ...> Comp
+App ..> Registry
+Registry  ..>Comp
+
+usecase COMP_ID as "
+Comp ID is unique
+"
+
+usecase COMP_NAME as "
+Comp name is
+unique per app
+"
+
+usecase COMP_VER as "Comp is versioned"
+usecase COMP_PKG as "Comp belongs to package"
+usecase COMP_LOGGER << NEW >> as "Get Comp logger"
+
+Comp --> COMP_ID
+Comp --> COMP_NAME
+Comp --> COMP_VER
+Comp --> COMP_PKG
+Comp --> COMP_LOGGER
+
+usecase REGISTER_COMP as "Register comp"
+
+usecase GET_COMP_BY_ID as "Look up by ID"
+
+usecase GET_COMP_BY_NAME as "Look up by name"
+
+usecase GET_ALL_COMPS as "
+Get all
+registered comps"
+
+Registry --> REGISTER_COMP
+Registry --> GET_COMP_BY_ID
+Registry --> GET_COMP_BY_NAME
+Registry --> GET_ALL_COMPS
+
+@enduml
