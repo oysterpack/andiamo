@@ -19,8 +19,8 @@ package comp_test
 import (
 	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
-	"github.com/oysterpack/partire-k8s/pkg/comp"
 	"testing"
 )
 
@@ -34,8 +34,8 @@ func TestRegistry_Register(t *testing.T) {
 	t.Run("register comp", func(t *testing.T) {
 		registry := comp.NewRegistry()
 		// Given a component is registered
-		foo := comp.MustNew("01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1", Package)
-		bar := comp.MustNew("01DCQ6ZSVE7D7G6VRVDAECJJWF", "bar", "0.0.1", Package)
+		foo := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
+		bar := NewComp(t, "01DCQ6ZSVE7D7G6VRVDAECJJWF", "bar", "0.0.1")
 		for _, c := range []*comp.Comp{foo, bar} {
 			if e := registry.Register(c); e != nil {
 				t.Fatalf("Failed to register component: %v", e)
@@ -67,7 +67,7 @@ func TestRegistry_Register(t *testing.T) {
 
 	t.Run("registering comp using ID that is already registered", func(t *testing.T) {
 		registry := comp.NewRegistry()
-		c := comp.MustNew("01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1", Package)
+		c := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
 		if e := registry.Register(c); e != nil {
 			t.Fatalf("Failed to register component: %v", e)
 		}
@@ -81,12 +81,12 @@ func TestRegistry_Register(t *testing.T) {
 	t.Run("registering comp using a name that is already registered", func(t *testing.T) {
 		registry := comp.NewRegistry()
 		// Given a comp is registered
-		c1 := comp.MustNew(ulidgen.MustNew().String(), "foo", "0.0.1", Package)
+		c1 := NewComp(t, ulidgen.MustNew().String(), "foo", "0.0.1")
 		if e := registry.Register(c1); e != nil {
 			t.Fatalf("Failed to register component: %v", e)
 		}
 		// When a comp is trying to be registered using a name that is already registered
-		c2 := comp.MustNew(ulidgen.MustNew().String(), c1.Name, "0.0.1", Package)
+		c2 := NewComp(t, ulidgen.MustNew().String(), c1.Name, "0.0.1")
 		if e := registry.Register(c2); e == nil {
 			t.Errorf("registration should have failed: %v", registry.FindByID(c1.ID))
 		} else {
@@ -94,7 +94,7 @@ func TestRegistry_Register(t *testing.T) {
 			t.Log(e)
 		}
 		// When a unique comp is registered
-		c3 := comp.MustNew(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "0.0.1", Package)
+		c3 := NewComp(t, ulidgen.MustNew().String(), ulidgen.MustNew().String(), "0.0.1")
 		// Then it will successfully register
 		if e := registry.Register(c3); e != nil {
 			t.Fatalf("Failed to register component: %v", e)
@@ -136,7 +136,7 @@ func TestRegistry_Comps(t *testing.T) {
 	const count = 5
 	registeredComps := make([]*comp.Comp, 0, count)
 	for i := 0; i < count; i++ {
-		c := comp.MustNew(ulidgen.MustNew().String(), fmt.Sprintf("c%d", i), "0.0.1", Package)
+		c := NewComp(t, ulidgen.MustNew().String(), fmt.Sprintf("c%d", i), "0.0.1")
 		if e := registry.Register(c); e != nil {
 			t.Fatalf("failed to register component: %v : %v : %v", e, c, registry.Comps())
 		}

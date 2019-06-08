@@ -35,6 +35,8 @@ type Bar struct {
 	foos []*Foo
 }
 
+type NewFoo func() *Foo
+
 func NewFoo1() *Foo {
 	return &Foo{value: "Foo1"}
 }
@@ -60,10 +62,15 @@ func NewFoos() fx.Option {
 }
 
 func TestFxSimple(t *testing.T) {
+	var (
+		newFoo1 NewFoo = NewFoo1
+		newFoo2 NewFoo = NewFoo2
+	)
+
 	app := fxtest.New(t,
 		fx.Provide(
-			fx.Annotated{Group: "Foo", Target: NewFoo1},
-			fx.Annotated{Group: "Foo", Target: NewFoo2},
+			fx.Annotated{Group: "Foo", Target: newFoo1},
+			fx.Annotated{Group: "Foo", Target: newFoo2},
 			NewBar,
 		),
 		fx.Invoke(func(bar *Bar, graph fx.DotGraph) {

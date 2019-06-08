@@ -1,0 +1,25 @@
+@startuml
+actor Comp
+
+usecase OPTION_DESC as "Declare options"
+
+usecase OPTION_BINDING as "
+Bind option implementations
+to the option declarations"
+
+note as OPTION_PLUGIN_NOTE
+Enables options
+to be plugged in
+end note
+
+note as COMP_INTERFACE_NOTE
+Defines the component interface
+end note
+
+OPTION_DESC .. COMP_INTERFACE_NOTE
+OPTION_BINDING .. OPTION_PLUGIN_NOTE
+
+Comp --> OPTION_DESC
+Comp --> OPTION_BINDING
+
+@enduml

@@ -18,29 +18,16 @@ package comp
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver"
-	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
+	"go.uber.org/fx"
 )
 
 // Comp represents an application component.
 type Comp struct {
-	ID   ulid.ULID
-	Name string
-	*semver.Version
-	app.Package
-}
-
-// MustNew constructs a new FindByID instance.
-func MustNew(id, name, version string, p app.Package) *Comp {
-	return &Comp{
-		ID:      ulid.MustParse(id),
-		Name:    name,
-		Version: semver.MustParse(version),
-		Package: p,
-	}
+	Desc
+	Options []option.Option
 }
 
 func (c *Comp) String() string {
@@ -52,4 +39,13 @@ func (c *Comp) String() string {
 // NOTE: if the logger already has the package or component fields, then they will be duplicated.
 func (c *Comp) Logger(l *zerolog.Logger) *zerolog.Logger {
 	return logging.ComponentLogger(logging.PackageLogger(l, c.Package), c.Name)
+}
+
+// AppOptions returns component's application options
+func (c *Comp) AppOptions() []fx.Option {
+	options := make([]fx.Option, len(c.Options))
+	for i, opt := range c.Options {
+		options[i] = opt.Option
+	}
+	return options
 }

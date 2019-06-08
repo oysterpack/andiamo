@@ -47,8 +47,11 @@ descriptors"
 
 usecase LIST_ERRS as "Get registered errors"
 
+usecase FILTER_ERRS as "Filter errors"
+
 ERROR_REGISTRY -up-> REGISTER_ERR
 ERROR_REGISTRY -up-> LIST_ERR_DESCS
 ERROR_REGISTRY -up-> LIST_ERRS
+ERROR_REGISTRY -up-> FILTER_ERRS
 
 @enduml
