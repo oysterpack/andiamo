@@ -35,14 +35,14 @@ type Desc struct {
 	OptionDescs []option.Desc
 }
 
-func (d Desc) String() string {
+func (d *Desc) String() string {
 	return fmt.Sprintf("Desc{ID=%s, Name=%s, Version=%s, Package=%s, OptionDescs=%v}", d.ID, d.Name, d.Version, d.Package, d.OptionDescs)
 }
 
 // Logger adds the comp's package and name to the specified logger
 //
 // NOTE: if the logger already has the package or component fields, then they will be duplicated.
-func (d Desc) Logger(l *zerolog.Logger) *zerolog.Logger {
+func (d *Desc) Logger(l *zerolog.Logger) *zerolog.Logger {
 	return logging.ComponentLogger(logging.PackageLogger(l, d.Package), d.Name)
 }
 
@@ -51,7 +51,7 @@ func (d Desc) Logger(l *zerolog.Logger) *zerolog.Logger {
 // Panics if the options don't match the options defined by the component descriptor. The order of the options doesn't matter.
 // The options must match on the option types declared by the descriptor. They will be sorted according to the order they
 // are listed in the descriptor
-func (d Desc) MustNewComp(options ...option.Option) *Comp {
+func (d *Desc) MustNewComp(options ...option.Option) *Comp {
 	if len(options) != len(d.OptionDescs) {
 		panic(OptionCountDoesNotMatchErr.CausedBy(fmt.Errorf("expected %d options, but only %d were specified", len(d.OptionDescs), len(options))))
 	}

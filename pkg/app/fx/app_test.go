@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fx
+package fx_test
 
 import (
 	"bufio"
@@ -24,7 +24,10 @@ import (
 	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
+	appfx "github.com/oysterpack/partire-k8s/pkg/app/fx"
+	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
@@ -32,8 +35,10 @@ import (
 	"go.uber.org/fx"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -53,7 +58,7 @@ func TestNewApp(t *testing.T) {
 		// When the fx.App is created
 		var desc app.Desc
 		var instanceID app.InstanceID
-		fxapp := New(
+		fxapp := appfx.New(
 			fx.Populate(&desc),
 			fx.Populate(&instanceID),
 			fx.Invoke(LogTestEvents),
@@ -92,7 +97,7 @@ func TestNewApp(t *testing.T) {
 	t.Run("using overidden app start and stop timeouts", func(t *testing.T) {
 		apptest.Setenv(apptest.StartTimeout, "30s")
 		apptest.Setenv(apptest.StopTimeout, "60s")
-		fxapp := New()
+		fxapp := appfx.New()
 		if fxapp.StartTimeout() != 30*time.Second {
 			t.Error("StartTimeout did not match the default")
 		}
@@ -119,7 +124,7 @@ func TestNewApp(t *testing.T) {
 				t.Logf("as expected, fx.New() failed because of: %v", e)
 			}
 		}()
-		New()
+		appfx.New()
 	})
 
 	t.Run("using invalid log config", func(t *testing.T) {
@@ -132,7 +137,7 @@ func TestNewApp(t *testing.T) {
 				t.Logf("as expected, fx.New() failed because of: %v", e)
 			}
 		}()
-		New()
+		appfx.New()
 	})
 }
 
@@ -162,18 +167,6 @@ func LogTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 	log.Printf("logging using go std log")
 }
 
-func TestLoadDesc(t *testing.T) {
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("loading Desc should have failed and triggered a panic")
-		} else {
-			t.Logf("panic is expected: %v", e)
-		}
-	}()
-	apptest.ClearAppEnvSettings()
-	loadDesc()
-}
-
 // Feature: The app logs lifecycle events at the appropriate times.
 //
 // Given that the app log is captured
@@ -198,7 +191,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 			}
 
 			switch logEvent.Event {
-			case Start.Name, Running.Name, Stop.Name, Stopped.Name:
+			case appfx.Start.Name, appfx.Running.Name, appfx.Stop.Name, appfx.Stopped.Name:
 				events = append(events, logEvent.Event)
 			case LogTestEventLogEventName:
 				events = append(events, logEvent.Message)
@@ -206,12 +199,12 @@ func TestAppLifecycleEvents(t *testing.T) {
 		}
 
 		expectedEvents := []string{
-			Start.Name,
+			appfx.Start.Name,
 			LogTestEventOnStartMsg,
-			Running.Name,
-			Stop.Name,
+			appfx.Running.Name,
+			appfx.Stop.Name,
 			LogTestEventOnStopMsg,
-			Stopped.Name,
+			appfx.Stopped.Name,
 		}
 
 		t.Log(events)
@@ -248,7 +241,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 
 	// Given that the app log is captured
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(LogTestEvents))
+	fxapp := appfx.New(fx.Invoke(LogTestEvents))
 
 	// When the app is started
 	if e := fxapp.Start(context.Background()); e != nil {
@@ -348,7 +341,7 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(func() error {
+	fxapp := appfx.New(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return TestErr1.New()
 	}))
@@ -382,7 +375,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == InvokeErrClass.ID.String() {
+				if logEvent.Error.ID == appfx.InvokeErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -416,7 +409,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(func() error {
+	fxapp := appfx.New(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return errors.New("non standard error")
 	}))
@@ -451,7 +444,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == AppStartErrClass.ID.String() {
+				if logEvent.Error.ID == appfx.AppStartErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -485,7 +478,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(func(lc fx.Lifecycle) error {
+	fxapp := appfx.New(fx.Invoke(func(lc fx.Lifecycle) error {
 		t.Log("test func has been invoked ...")
 		lc.Append(fx.Hook{
 			OnStart: func(context.Context) error {
@@ -526,7 +519,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 			}
 
 			if logEvent.Level == zerolog.ErrorLevel.String() {
-				if logEvent.Error.ID == AppStopErrClass.ID.String() {
+				if logEvent.Error.ID == appfx.AppStopErrClass.ID.String() {
 					errorLogged = true
 				}
 			}
@@ -559,7 +552,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
 
 	apptest.InitEnv()
-	fxapp := New(
+	fxapp := appfx.New(
 		// When the app is configured with an OnStop hook that will fail
 		fx.Invoke(func(lc fx.Lifecycle) error {
 			t.Log("test func has been invoked ...")
@@ -618,7 +611,7 @@ func TestApp_Run(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := New(
+	fxapp := appfx.New(
 		// And the app will stop itself right after it starts
 		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 			lc.Append(fx.Hook{
@@ -656,11 +649,11 @@ func TestErrRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
 
 		// all of the standard app errors should be registered
-		errs := []*err.Err{InvokeErr, AppStartErr, AppStopErr}
+		errs := []*err.Err{appfx.InvokeErr, appfx.AppStartErr, appfx.AppStopErr}
 		for _, e := range errs {
 			if !errRegistry.Registered(e.SrcID) {
 				t.Errorf("error is not registered: %v", e)
@@ -701,11 +694,11 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := New(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.New(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 
 		// all of the standard app events should be registered
-		events := []logging.Event{Start, Running, Stop, Stopped, StopSignal}
+		events := []logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal}
 		for _, e := range events {
 			if !registry.Registered(e) {
 				t.Errorf("event is not registered: %v", e)
@@ -734,4 +727,101 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	if e := <-errChan; e != nil {
 		t.Errorf("App failed to run: %v", e)
 	}
+}
+
+func TestMustLoadDesc(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("loading Desc should have failed and triggered a panic")
+		} else {
+			t.Logf("panic is expected: %v", e)
+		}
+	}()
+	apptest.ClearAppEnvSettings()
+	appfx.MustLoadDesc()
+}
+
+type RandomNumberGenerator func() int
+type ProvideRandomNumberGenerator func() RandomNumberGenerator
+
+type Greeter func() string
+type ProvideGreeter func() Greeter
+
+var (
+	ProvideRandomNumberGeneratorOption = option.NewDesc(option.Provide, reflect.TypeOf(ProvideRandomNumberGenerator(nil)))
+	ProvideGreeterOption               = option.NewDesc(option.Provide, reflect.TypeOf(ProvideGreeter(nil)))
+
+	FooComp = comp.MustNewDesc(
+		comp.ID("01DCYBFQBQVXG8PZ758AM9JJCD"),
+		comp.Name("foo"),
+		comp.Version("0.0.1"),
+		app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
+		ProvideRandomNumberGeneratorOption,
+	)
+
+	BarComp = comp.MustNewDesc(
+		comp.ID("01DCYD1X7FMSRJMVMA8RWK7HMB"),
+		comp.Name("bar"),
+		comp.Version("0.0.1"),
+		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
+		ProvideGreeterOption,
+	)
+)
+
+func TestCompRegistryIsProvided(t *testing.T) {
+	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
+	flags := log.Flags()
+	defer func() {
+		log.SetFlags(flags)
+		log.SetOutput(os.Stderr)
+	}()
+
+	apptest.InitEnv()
+
+	t.Run("2 comps", func(t *testing.T) {
+		foo := FooComp.MustNewComp(
+			ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
+				return rand.Int
+			}),
+		)
+
+		bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
+			return func() string { return "greetings" }
+		}))
+
+		var compRegistry *comp.Registry
+		fxapp := appfx.New(
+			foo.FxOptions(),
+			bar.FxOptions(),
+			fx.Populate(&compRegistry),
+		)
+		if e := fxapp.Start(context.Background()); e != nil {
+			t.Errorf("failed to start app: %v", e)
+		}
+
+		// Then the components are registered
+		if compRegistry.FindByID(foo.ID) == nil {
+			t.Error("foo component was not found in the registry")
+		}
+		if compRegistry.FindByID(bar.ID) == nil {
+			t.Error("bar component was not found in the registry")
+		}
+		// And CompRegistered event is logged
+		// TODO: verify CompRegistered event is logged
+		if e := fxapp.Stop(context.Background()); e != nil {
+			t.Errorf("failed to start app: %v", e)
+		}
+
+	})
+
+	t.Run("0 comps", func(t *testing.T) {
+		fxapp := appfx.New(fx.Invoke(func() { t.Log("hello") }))
+		if e := fxapp.Start(context.Background()); e != nil {
+			t.Errorf("failed to start app: %v", e)
+		}
+		if e := fxapp.Stop(context.Background()); e != nil {
+			t.Errorf("failed to start app: %v", e)
+		}
+	})
+
 }

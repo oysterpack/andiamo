@@ -27,6 +27,12 @@ import (
 	"testing"
 )
 
+type components struct {
+	fx.In
+
+	Comps []*comp.Comp `group:"comp.Registry"`
+}
+
 func TestComp(t *testing.T) {
 	// define some app options
 	type Greeter func() string
@@ -59,14 +65,30 @@ func TestComp(t *testing.T) {
 	)
 
 	// Given a component
-	FooComp := FooDesc.MustNewComp(
+	FooComp := comp.MustNewComp(FooDesc,
 		LogGreetingDesc.NewOption(logGreeting),
 		GreeterDesc.NewOption(provideGreeter),
 	)
 
 	t.Log(FooComp)
 
-	fxapp := fx.New(FooComp.AppOptions()...)
+	fxapp := fx.New(
+		FooComp.FxOptions(),
+		fx.Invoke(func(comps components) {
+			// components should self-register with the app
+			found := false
+			for _, c := range comps.Comps {
+				if c.ID == FooComp.ID {
+					t.Logf("component was found: %v", c)
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Error("component was not found")
+			}
+		}),
+	)
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Fatal(e)
 	}

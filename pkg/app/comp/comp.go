@@ -22,21 +22,39 @@ import (
 	"go.uber.org/fx"
 )
 
-// Comp represents an application component.
+const CompRegistry = "comp.Registry"
+
+// Comp represents an application component. Components are constructed using component descriptors.
+//
+// see - Desc.MustNewComp()
 type Comp struct {
-	Desc
+	*Desc
 	Options []option.Option
 }
 
 func (c *Comp) String() string {
-	return fmt.Sprintf("FindByID{ID=%s, Name=%s, Version=%s, Package=%s}", c.ID, c.Name, c.Version, c.Package)
+	return fmt.Sprintf("Comp{ID=%s, Name=%s, Version=%s, Package=%s}", c.ID, c.Name, c.Version, c.Package)
 }
 
-// AppOptions returns component's application options
-func (c *Comp) AppOptions() []fx.Option {
-	options := make([]fx.Option, len(c.Options))
+// FxOptions returns component's application options
+func (c *Comp) FxOptions() fx.Option {
+	options := make([]fx.Option, len(c.Options), len(c.Options)+1)
 	for i, opt := range c.Options {
 		options[i] = opt.Option
 	}
-	return options
+	// provide itself, which will register the component
+	options = append(options, fx.Provide(fx.Annotated{
+		Group:  CompRegistry,
+		Target: func() *Comp { return c },
+	}))
+	return fx.Options(options...)
+}
+
+// MustNewComp builds a new component using the specified options
+//
+// Panics if the options don't match the options defined by the component descriptor. The order of the options doesn't matter.
+// The options must match on the option types declared by the descriptor. They will be sorted according to the order they
+// are listed in the descriptor
+func MustNewComp(desc *Desc, options ...option.Option) *Comp {
+	return desc.MustNewComp(options...)
 }

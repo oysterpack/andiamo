@@ -39,4 +39,7 @@ var (
 
 	// Stopped signals that the app has stopped.
 	Stopped = logging.NewEvent("stopped", zerolog.NoLevel, AppTag)
+
+	// CompRegistered indicates that a component has been registered
+	CompRegistered = logging.NewEvent("comp_registered", zerolog.NoLevel, AppTag)
 )

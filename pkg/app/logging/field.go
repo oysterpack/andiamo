@@ -28,6 +28,7 @@ const (
 	Name = Field("n")
 	// InstanceID
 	InstanceID = Field("x")
+	Version    = Field("v")
 
 	// Timestamp specifies when the log event occurred in Unix time.
 	Timestamp = Field("t")
@@ -69,10 +70,20 @@ const (
 	// AppName stores app.Name
 	AppName = Name
 	// AppVersion stores app.Version
-	AppVersion = Field("v")
+	AppVersion = Version
 	// AppInstanceID stores app.InstanceID
 	AppInstanceID = InstanceID
 
 	// Component is used to to specify the application component that logged the event. It stores the component name.
 	Component = Field("c")
+
+	// Comp is used to group together component related fields
+	Comp        = Field("comp")
+	CompID      = ID
+	CompVersion = Version
+	CompOptions = Field("options")
 )
+
+func (f Field) String() string {
+	return string(f)
+}

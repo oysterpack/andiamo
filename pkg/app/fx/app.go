@@ -19,8 +19,10 @@ package fx
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
@@ -46,7 +48,8 @@ type App struct {
 // Run starts the application, blocks on the signals channel, and then gracefully shuts the application down.
 // It uses DefaultTimeout to set a deadline for application startup and shutdown, unless the user has configured
 // different timeouts with the StartTimeout or StopTimeout options. It's designed to make typical applications simple to run.
-// Start and stop errors are logged. The stop signal that is received is logged.
+//
+// Application lifecycle events are logged.
 func (a *App) Run() error {
 	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
 	defer cancel()
@@ -99,7 +102,7 @@ func New(options ...fx.Option) *App {
 		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
 	}
 
-	desc := loadDesc()
+	desc := MustLoadDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
 	appOptions = append(appOptions,
@@ -109,6 +112,7 @@ func New(options ...fx.Option) *App {
 			func() *zerolog.Logger { return logger },
 			newErrorRegistry,
 			newEventRegistry,
+			provideCompRegistry,
 		))
 	appOptions = append(appOptions, fx.Logger(logger))
 	errHandler := &errLogger{logger}
@@ -137,9 +141,8 @@ func newErrorRegistry() (*err.Registry, error) {
 	return registry, nil
 }
 
-// panics if the Desc fails to load
-// - the panic is logged via go std log
-func loadDesc() app.Desc {
+// MustLoadDesc panics if the Desc fails to load from the env.
+func MustLoadDesc() app.Desc {
 	desc, e := app.LoadDesc()
 	if e != nil {
 		log.Panicf("failed to load app.Desc: %v", e)
@@ -203,4 +206,36 @@ func logError(logger *zerolog.Logger, e error) {
 	default:
 		InvokeErr.CausedBy(e).Log(logger).Msg("")
 	}
+}
+
+type components struct {
+	fx.In
+
+	Comps []*comp.Comp `group:"comp.Registry"`
+}
+
+func provideCompRegistry(comps components, logger *zerolog.Logger) (*comp.Registry, error) {
+	registry := comp.NewRegistry()
+	for _, c := range comps.Comps {
+		if e := registry.Register(c); e != nil {
+			return nil, e
+		}
+		logCompRegisteredEVent(c, logger)
+	}
+	return registry, nil
+}
+
+func logCompRegisteredEVent(c *comp.Comp, logger *zerolog.Logger) {
+	options := make([]string, len(c.Options))
+	for i := 0; i < len(options); i++ {
+		optionDesc := c.Options[i].Desc
+		options[i] = fmt.Sprintf("%s => %v", optionDesc.Type, optionDesc.FuncType)
+	}
+
+	CompRegistered.Log(c.Logger(logger)).
+		Dict(logging.Comp.String(), zerolog.Dict().
+			Str(logging.CompID.String(), c.ID.String()).
+			Str(logging.CompVersion.String(), c.Version.String()).
+			Strs(logging.CompOptions.String(), options),
+		).Msg("")
 }

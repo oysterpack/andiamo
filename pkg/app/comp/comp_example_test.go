@@ -41,10 +41,15 @@ type ProvideBar func() Bar
 // what does the component do
 type InvokeFooBar func(lc fx.Lifecycle, foo Foo, bar Bar, logger *zerolog.Logger, shutdowner fx.Shutdowner) error
 
+type Greeter func() string
+type ProvideGreeter func() Greeter
+
 var (
 	ProvideFooOption   = option.NewDesc(option.Provide, reflect.TypeOf(ProvideFoo(nil)))
 	ProvideBarOption   = option.NewDesc(option.Provide, reflect.TypeOf(ProvideBar(nil)))
 	InvokeFooBarOption = option.NewDesc(option.Invoke, reflect.TypeOf(InvokeFooBar(nil)))
+
+	ProvideGreeterOption = option.NewDesc(option.Provide, reflect.TypeOf(ProvideGreeter(nil)))
 )
 
 // component descriptors
@@ -58,6 +63,14 @@ var (
 		ProvideFooOption,
 		ProvideBarOption,
 		InvokeFooBarOption,
+	)
+
+	BarComp = comp.MustNewDesc(
+		comp.ID("01DCYD1X7FMSRJMVMA8RWK7HMB"),
+		comp.Name("bar"),
+		comp.Version("0.0.1"),
+		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
+		ProvideGreeterOption,
 	)
 )
 
@@ -94,8 +107,15 @@ func Example() {
 		}),
 	)
 
+	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
+		return func() string { return "greetings" }
+	}))
+
 	apptest.InitEnv()
-	fxapp := appfx.New(foobar.AppOptions()...)
+	fxapp := appfx.New(
+		foobar.FxOptions(),
+		bar.FxOptions(),
+	)
 	go func() {
 		if e := fxapp.Run(); e != nil {
 			log.Fatal(e)
