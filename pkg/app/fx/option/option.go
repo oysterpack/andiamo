@@ -102,3 +102,7 @@ type Option struct {
 	Desc
 	fx.Option
 }
+
+func (o Option) String() string {
+	return fmt.Sprintf("%s => %v", o.Type, o.FuncType)
+}

@@ -33,7 +33,7 @@ type Comp struct {
 }
 
 func (c *Comp) String() string {
-	return fmt.Sprintf("Comp{ID=%s, Name=%s, Version=%s, Package=%s}", c.ID, c.Name, c.Version, c.Package)
+	return fmt.Sprintf("Comp{ID=%s, Name=%s, Version=%s, Package=%s, Options=%v}", c.ID, c.Name, c.Version, c.Package, c.Options)
 }
 
 // FxOptions returns component's application options

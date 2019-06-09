@@ -25,10 +25,12 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/rs/zerolog"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -185,6 +187,19 @@ func NewDiscardLogger(p app.Package) *zerolog.Logger {
 	return &discardLogger
 }
 
+// CreateLogFile creates a new unique log file in the temp dir.
+//
+// use case: used to capture logger output
+func CreateLogFile(t *testing.T) (*os.File, string) {
+	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
+	t.Logf("log file: %v", logFilePath)
+	logFile, e := os.Create(logFilePath)
+	if e != nil {
+		t.Fatalf("failed to create log file: %v", e)
+	}
+	return logFile, logFilePath
+}
+
 // LogEvent is used to unmarshal zerolog JSON log events
 type LogEvent struct {
 	Level        string       `json:"l"`
@@ -198,6 +213,7 @@ type LogEvent struct {
 	Error        *Error       `json:"f"`
 	Tags         []string     `json:"g"`
 	Stack        []Stackframe `json:"s"`
+	Comp         *CompInfo    `json:"comp"`
 }
 
 // Time converts the log event event UNIX time into a time.Time
@@ -236,4 +252,10 @@ type Stackframe struct {
 	Func   string `json:"func"`
 	Line   string `json:"line"`
 	Source string `json:"source"`
+}
+
+type CompInfo struct {
+	ID      string   `json:"i"`
+	Version string   `json:"v"`
+	Options []string `json:"options"`
 }

@@ -39,6 +39,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -237,7 +238,11 @@ func TestAppLifecycleEvents(t *testing.T) {
 		t.Fatalf("failed to create log file: %v", e)
 	}
 	os.Stderr = logFile
-	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkLifecycleEvents)
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+		checkLogEvents(t, logFilePath, logFile, checkLifecycleEvents)
+	}()
 
 	// Given that the app log is captured
 	apptest.InitEnv()
@@ -259,9 +264,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 	// Then the Stopped event is logged as the last OnStop hook
 }
 
-func checkLogEvents(t *testing.T, logFilePath string, logFile, stderr *os.File, checker func(t *testing.T, logFile io.Reader)) {
-	// restore stderr
-	os.Stderr = stderr
+func checkLogEvents(t *testing.T, logFilePath string, logFile *os.File, checker func(t *testing.T, logFile io.Reader)) {
 	// close the log file to ensure it is flushed to disk
 	if e := logFile.Close(); e != nil {
 		t.Fatalf("failed to close log file: %v", e)
@@ -328,16 +331,15 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 	// Given that the app log is captured
 
 	// redirect Stderr to a log file
-	// redirect Stderr to a log file
 	stderrBackup := os.Stderr
-	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
-	t.Logf("log file: %v", logFilePath)
-	logFile, e := os.Create(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to create log file: %v", e)
-	}
+	logFile, logFilePath := apptest.CreateLogFile(t)
 	os.Stderr = logFile
-	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
+	}()
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
@@ -346,10 +348,11 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 		return TestErr1.New()
 	}))
 
-	if fxapp.Start(context.Background()) == nil {
+	if e := fxapp.Start(context.Background()); e == nil {
 		t.Fatal("Expected the app to fail to start up")
+	} else {
+		t.Logf("as expected, app failed to start: %v", e)
 	}
-	t.Logf("as expected, app failed to start: %v", e)
 }
 
 // Feature: Errors produced by app functions that are invoked by fx will be logged automatically
@@ -396,16 +399,14 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 	// Given that the app log is captured
 
 	// redirect Stderr to a log file
-	// redirect Stderr to a log file
 	stderrBackup := os.Stderr
-	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
-	t.Logf("log file: %v", logFilePath)
-	logFile, e := os.Create(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to create log file: %v", e)
-	}
+	logFile, logFilePath := apptest.CreateLogFile(t)
 	os.Stderr = logFile
-	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
+	}()
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
@@ -414,7 +415,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 		return errors.New("non standard error")
 	}))
 
-	e = fxapp.Start(context.Background())
+	e := fxapp.Start(context.Background())
 	if e == nil {
 		t.Fatal("Expected the app to fail to start up")
 	}
@@ -465,16 +466,14 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 	// Given that the app log is captured
 
 	// redirect Stderr to a log file
-	// redirect Stderr to a log file
 	stderrBackup := os.Stderr
-	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
-	t.Logf("log file: %v", logFilePath)
-	logFile, e := os.Create(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to create log file: %v", e)
-	}
+	logFile, logFilePath := apptest.CreateLogFile(t)
 	os.Stderr = logFile
-	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
+	}()
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
@@ -489,7 +488,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 		return nil
 	}))
 
-	e = fxapp.Run()
+	e := fxapp.Run()
 	if e == nil {
 		t.Fatal("Expected the app to fail to start up")
 	}
@@ -540,16 +539,14 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 	// Given that the app log is captured
 
 	// redirect Stderr to a log file
-	// redirect Stderr to a log file
 	stderrBackup := os.Stderr
-	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
-	t.Logf("log file: %v", logFilePath)
-	logFile, e := os.Create(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to create log file: %v", e)
-	}
+	logFile, logFilePath := apptest.CreateLogFile(t)
 	os.Stderr = logFile
-	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
+	}()
 
 	apptest.InitEnv()
 	fxapp := appfx.New(
@@ -589,7 +586,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 		close(errChan)
 	}()
 	// wait for the app to stop
-	e = <-errChan
+	e := <-errChan
 	if e == nil {
 		t.Fatal("Expected the app to fail to start up")
 	}
@@ -789,6 +786,43 @@ func TestCompRegistryIsProvided(t *testing.T) {
 			return func() string { return "greetings" }
 		}))
 
+		checkCompRegisteredEvents := func(t *testing.T, logFile io.Reader) {
+			scanner := bufio.NewScanner(logFile)
+			var compRegisteredEvents []*apptest.LogEvent
+			for scanner.Scan() {
+				logEventJSON := scanner.Text()
+				t.Log(logEventJSON)
+
+				var logEvent apptest.LogEvent
+				e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+				if e != nil {
+					t.Fatal(e)
+				}
+
+				if logEvent.Event == appfx.CompRegistered.Name {
+					compRegisteredEvents = append(compRegisteredEvents, &logEvent)
+					t.Logf("comp registered: %v", logEvent.Comp)
+				}
+			}
+
+			if len(compRegisteredEvents) == 0 {
+				t.Errorf("no %q events were logged", appfx.CompRegistered.Name)
+			} else {
+				t.Logf("len(compRegisteredEvents) = %d", len(compRegisteredEvents))
+				checkCompRegisteredEvents(t, []*comp.Comp{foo, bar}, compRegisteredEvents)
+			}
+		}
+
+		// redirect Stderr to a log file
+		stderrBackup := os.Stderr
+		logFile, logFilePath := apptest.CreateLogFile(t)
+		os.Stderr = logFile
+		defer func() {
+			// restore stderr
+			os.Stderr = stderrBackup
+			checkLogEvents(t, logFilePath, logFile, checkCompRegisteredEvents)
+		}()
+
 		var compRegistry *comp.Registry
 		fxapp := appfx.New(
 			foo.FxOptions(),
@@ -807,7 +841,6 @@ func TestCompRegistryIsProvided(t *testing.T) {
 			t.Error("bar component was not found in the registry")
 		}
 		// And CompRegistered event is logged
-		// TODO: verify CompRegistered event is logged
 		if e := fxapp.Stop(context.Background()); e != nil {
 			t.Errorf("failed to start app: %v", e)
 		}
@@ -824,4 +857,34 @@ func TestCompRegistryIsProvided(t *testing.T) {
 		}
 	})
 
+}
+
+func checkCompRegisteredEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {
+CompLoop:
+	for _, comp := range comps {
+		for _, event := range events {
+			if comp.ID.String() == event.Comp.ID {
+				t.Logf("checking %v against %v", comp, event.Comp)
+				if event.Comp.Version != comp.Version.String() {
+					t.Error("comp version did not match")
+				}
+				if len(comp.Options) != len(event.Comp.Options) {
+					t.Error("number of options does not match")
+				} else {
+					for _, opt := range comp.Options {
+						for _, eventOpt := range event.Comp.Options {
+							if !strings.Contains(eventOpt, opt.FuncType.String()) {
+								t.Error("option.Desc.FuncType did not match")
+							}
+							if !strings.Contains(eventOpt, opt.Type.String()) {
+								t.Error("option.Desc.Type did not match")
+							}
+						}
+					}
+				}
+				continue CompLoop
+			}
+		}
+		t.Errorf("event was not logged for: %v", comp.ID)
+	}
 }
