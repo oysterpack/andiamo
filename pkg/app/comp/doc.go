@@ -14,29 +14,8 @@
  * limitations under the License.
  */
 
+/*
+Package comp enables a clean separation of component interface design and implementation. Components can be plugged into
+an application using the [fx](https://godoc.org/go.uber.org/fx) dependency injection framework.
+*/
 package comp
-
-import (
-	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
-	"go.uber.org/fx"
-)
-
-// Comp represents an application component.
-type Comp struct {
-	Desc
-	Options []option.Option
-}
-
-func (c *Comp) String() string {
-	return fmt.Sprintf("FindByID{ID=%s, Name=%s, Version=%s, Package=%s}", c.ID, c.Name, c.Version, c.Package)
-}
-
-// AppOptions returns component's application options
-func (c *Comp) AppOptions() []fx.Option {
-	options := make([]fx.Option, len(c.Options))
-	for i, opt := range c.Options {
-		options[i] = opt.Option
-	}
-	return options
-}

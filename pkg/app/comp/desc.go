@@ -22,6 +22,8 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/rs/zerolog"
 )
 
 // Desc is the component descriptor.
@@ -37,7 +39,14 @@ func (d Desc) String() string {
 	return fmt.Sprintf("Desc{ID=%s, Name=%s, Version=%s, Package=%s, OptionDescs=%v}", d.ID, d.Name, d.Version, d.Package, d.OptionDescs)
 }
 
-// MustNewComp contructs a new Comp using the specified options.
+// Logger adds the comp's package and name to the specified logger
+//
+// NOTE: if the logger already has the package or component fields, then they will be duplicated.
+func (d Desc) Logger(l *zerolog.Logger) *zerolog.Logger {
+	return logging.ComponentLogger(logging.PackageLogger(l, d.Package), d.Name)
+}
+
+// MustNewComp builds a new Comp using the specified options.
 //
 // Panics if the options don't match the options defined by the component descriptor. The order of the options doesn't matter.
 // The options must match on the option types declared by the descriptor. They will be sorted according to the order they
@@ -64,7 +73,6 @@ OptionDescsLoop:
 		Desc:    d,
 		Options: compOptions,
 	}
-
 }
 
 // MustNewDesc constructs a new component descriptor.

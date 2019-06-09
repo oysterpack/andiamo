@@ -47,7 +47,7 @@ func TestNewApp(t *testing.T) {
 	}()
 
 	// Given the env is initialized
-	expectedDesc := apptest.InitEnvForDesc()
+	expectedDesc := apptest.InitEnv()
 
 	t.Run("using default settings", func(t *testing.T) {
 		// When the fx.App is created
@@ -110,7 +110,7 @@ func TestNewApp(t *testing.T) {
 	})
 
 	t.Run("using invalid app start/stop timeouts", func(t *testing.T) {
-		apptest.InitEnvForDesc()
+		apptest.InitEnv()
 		apptest.Setenv(apptest.StartTimeout, "--")
 		defer func() {
 			if e := recover(); e == nil {
@@ -123,7 +123,7 @@ func TestNewApp(t *testing.T) {
 	})
 
 	t.Run("using invalid log config", func(t *testing.T) {
-		apptest.InitEnvForDesc()
+		apptest.InitEnv()
 		apptest.Setenv(apptest.LogGlobalLevel, "--")
 		defer func() {
 			if e := recover(); e == nil {
@@ -247,7 +247,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkLifecycleEvents)
 
 	// Given that the app log is captured
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(LogTestEvents))
 
 	// When the app is started
@@ -347,7 +347,7 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
 
 	// When the app is created with a function that fails and returns an error when invoked
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return TestErr1.New()
@@ -415,7 +415,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
 
 	// When the app is created with a function that fails and returns an error when invoked
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return errors.New("non standard error")
@@ -484,7 +484,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
 
 	// When the app is created with a function that fails and returns an error when invoked
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(func(lc fx.Lifecycle) error {
 		t.Log("test func has been invoked ...")
 		lc.Append(fx.Hook{
@@ -558,7 +558,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 	os.Stderr = logFile
 	defer checkLogEvents(t, logFilePath, logFile, stderrBackup, checkErrorEvents)
 
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(
 		// When the app is configured with an OnStop hook that will fail
 		fx.Invoke(func(lc fx.Lifecycle) error {
@@ -617,7 +617,7 @@ func TestApp_Run(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(
 		// And the app will stop itself right after it starts
 		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
@@ -655,7 +655,7 @@ func TestErrRegistryIsProvided(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
 
@@ -700,7 +700,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 
-	apptest.InitEnvForDesc()
+	apptest.InitEnv()
 	fxapp := New(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 

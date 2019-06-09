@@ -37,7 +37,7 @@ import (
 // {"l":"info","a":{"i":"01DC2PY850NHGE3ABSDXBB0H5K","r":"01DC2PY8508607HG8TWS11AM3Y","n":"foobar","v":"0.0.1","x":"01DC2PY850WXPFKP1QM48XKJT3"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","t":1559164299}
 // 100000             22576 ns/op               0 B/op          0 allocs/op
 func BenchmarkLoggingWithNoMessage(b *testing.B) {
-	desc := apptest.InitEnvForDesc()
+	desc := apptest.InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {
@@ -59,7 +59,7 @@ func BenchmarkLoggingWithNoMessage(b *testing.B) {
 // {"l":"info","a":{"i":"01DC2PZQVFBXJWD1JWSQX0FVJC","r":"01DC2PZQVFMTZ0CYBDC2E6QV45","n":"foobar","v":"0.0.1","x":"01DC2PZQVFCS82MVK35R73NMT2"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","t":1559164348,"m":"message"}
 // 100000             22843 ns/op               0 B/op          0 allocs/op
 func BenchmarkLoggingWithMessage(b *testing.B) {
-	desc := apptest.InitEnvForDesc()
+	desc := apptest.InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {
@@ -81,7 +81,7 @@ func BenchmarkLoggingWithMessage(b *testing.B) {
 // {"l":"warn","a":{"i":"01DC2Q1A7KYQB7VZT1EPYAQ4BG","r":"01DC2Q1A7K5V738F3RR2TWJ2RN","n":"foobar","v":"0.0.1","x":"01DC2Q1A7KXEFAMBTVA9RFTAR2"},"p":"github.com/oysterpack/partire-k8s/pkg/app_test","n":"foo","t":1559164398,"m":"message"}
 // 50000             22037 ns/op               0 B/op          0 allocs/op
 func BenchmarkLogEvent_Log(b *testing.B) {
-	desc := apptest.InitEnvForDesc()
+	desc := apptest.InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {

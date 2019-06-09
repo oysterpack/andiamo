@@ -108,11 +108,11 @@ func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
 	}
 }
 
-// InitEnvForDesc initializes the env for testing and returns an app.Desc that has been loaded from the env.
+// InitEnv initializes the env for testing and returns an app.Desc that has been loaded from the env.
 // - app name = "foobar"
 // - app version = 0.0.1
 // - sets the env vars to be able to load the app.Desc from it
-func InitEnvForDesc() app.Desc {
+func InitEnv() app.Desc {
 	const AppName = app.Name("foobar")
 	var appVer = semver.MustParse("0.0.1")
 
@@ -150,7 +150,7 @@ func NewTestLogger(p app.Package) *TestLogger {
 
 // NewAppTestLogger constructs a new TestLogger instance.
 func NewAppTestLogger() *TestLogger {
-	desc := InitEnvForDesc()
+	desc := InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	if err := logcfg.ConfigureZerolog(); err != nil {
 		log.Fatalf("app.ConfigureZerolog() failed: %v", err)
@@ -171,7 +171,7 @@ func (l *TestLogger) WithPackage(p app.Package) *TestLogger {
 // NewDiscardLogger discards the log output by writing to /dev/null
 func NewDiscardLogger(p app.Package) *zerolog.Logger {
 	// Given an app.Desc and app.InstanceID
-	desc := InitEnvForDesc()
+	desc := InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {

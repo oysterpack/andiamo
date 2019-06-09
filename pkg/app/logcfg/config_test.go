@@ -94,7 +94,7 @@ func TestUseAsStandardLoggerOutput(t *testing.T) {
 	}()
 
 	// Given an app.Desc and app.InstanceID
-	desc := apptest.InitEnvForDesc()
+	desc := apptest.InitEnv()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	// And zerolog is configured
 	if err := logcfg.ConfigureZerolog(); err != nil {

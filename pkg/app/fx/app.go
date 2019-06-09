@@ -103,9 +103,10 @@ func New(options ...fx.Option) *App {
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
 	appOptions = append(appOptions,
-		fx.Provide(func() (app.Desc, app.InstanceID, *zerolog.Logger) {
-			return desc, instanceID, logger
-		},
+		fx.Provide(
+			func() app.Desc { return desc },
+			func() app.InstanceID { return instanceID },
+			func() *zerolog.Logger { return logger },
 			newErrorRegistry,
 			newEventRegistry,
 		))
