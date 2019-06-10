@@ -22,6 +22,8 @@ import (
 	"go.uber.org/fx"
 )
 
+// CompRegistry is used as the fx value group name for components.
+// Components will tag themselves with this group in order to auto-registered with the comp.Registry.
 const CompRegistry = "comp.Registry"
 
 // Comp represents an application component. Components are constructed using component descriptors.

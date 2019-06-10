@@ -112,7 +112,7 @@ func Example() {
 	}))
 
 	apptest.InitEnv()
-	fxapp := appfx.New(
+	fxapp := appfx.MustNew(
 		foobar.FxOptions(),
 		bar.FxOptions(),
 	)

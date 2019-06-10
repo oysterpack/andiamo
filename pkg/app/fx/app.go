@@ -78,9 +78,9 @@ func (a *App) Run() error {
 	return nil
 }
 
-// New constructs a new fx.App with the specified options.
+// MustNew constructs a new fx.App with the specified options.
 //
-// It is configured with the following options:
+// The app is pre-configured with the following options:
 //   - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
 //   - constructor functions for:
 //     - Desc - loaded from the env - see `LoadDesc()`
@@ -89,22 +89,24 @@ func (a *App) Run() error {
 //       - is used as the fx.App logger, which logs all fx.App log events using debug level
 //       - is used as the go std logger
 //     - *err.Registry
-//   - lifecycle hook is registered to log app.Start and app.Stop log events
+//     - *logging.EventRegistry
+//     - *comp.Registry
+//   - lifecycle hooks are registered to log app lifecycle events
 //   - fx.ErrorHandler is registered to log invoke errors
-func New(options ...fx.Option) *App {
-	config, e := app.LoadTimeouts()
-	if e != nil {
-		log.Panicf("app.LoadTimeouts() failed: %v", e)
-	}
-
-	desc := MustLoadDesc()
+//
+// NOTE: Only `provide` and `invoke` options should be specified. `populate` options are useful for unit testing.
+func MustNew(opt fx.Option, opts ...fx.Option) *App {
+	desc := mustLoadDesc()
+	timeouts := mustLoadAppStartStopTimeouts()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
 
 	appOptions := []fx.Option{
 		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
-		fx.StartTimeout(config.StartTimeout),
-		fx.StopTimeout(config.StopTimeout),
+
+		fx.StartTimeout(timeouts.StartTimeout),
+		fx.StopTimeout(timeouts.StopTimeout),
+
 		fx.Provide(
 			func() app.Desc { return desc },
 			func() app.InstanceID { return instanceID },
@@ -113,9 +115,14 @@ func New(options ...fx.Option) *App {
 			newEventRegistry,
 			provideCompRegistry,
 		),
+
 		fx.Logger(logger),
 		fx.ErrorHook(newErrLogger(logger)),
-		fx.Options(options...),
+
+		// application specific options
+		opt,
+		fx.Options(opts...),
+
 		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
 	}
 
@@ -123,6 +130,14 @@ func New(options ...fx.Option) *App {
 		App:    fx.New(appOptions...),
 		logger: logger,
 	}
+}
+
+func mustLoadAppStartStopTimeouts() app.Timeouts {
+	timeouts, e := app.LoadTimeouts()
+	if e != nil {
+		log.Panicf("app.LoadTimeouts() failed: %v", e)
+	}
+	return timeouts
 }
 
 func newEventRegistry() *logging.EventRegistry {
@@ -140,8 +155,7 @@ func newErrorRegistry() (*err.Registry, error) {
 	return registry, nil
 }
 
-// MustLoadDesc panics if the Desc fails to load from the env.
-func MustLoadDesc() app.Desc {
+func mustLoadDesc() app.Desc {
 	desc, e := app.LoadDesc()
 	if e != nil {
 		log.Panicf("failed to load app.Desc: %v", e)

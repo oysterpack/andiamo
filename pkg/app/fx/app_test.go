@@ -44,7 +44,7 @@ import (
 	"time"
 )
 
-func TestNewApp(t *testing.T) {
+func TestMustNewApp(t *testing.T) {
 	// reset the std logger when the test is done
 	flags := log.Flags()
 	defer func() {
@@ -52,94 +52,103 @@ func TestNewApp(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 
+	t.Run("using default settings", testNewAppWithDefaultSettings)
+
+	t.Run("using overidden app start and stop timeouts", testNewAppWithCustomAppTimeouts)
+
+	t.Run("using invalid app start/stop timeouts", testNewAppWithInvalidTimeouts)
+
+	t.Run("using invalid log config", testNewAppWithInvalidLogConfig)
+
+	t.Run("app.Desc env vars not defined", testDescNotDefinedInEnv)
+}
+
+func testNewAppWithInvalidLogConfig(t *testing.T) {
+	apptest.InitEnv()
+	apptest.Setenv(apptest.LogGlobalLevel, "--")
+	defer func() {
+		if e := recover(); e == nil {
+			t.Error("fx.MustNew() should have because the app global log level was misconfigured")
+		} else {
+			t.Logf("as expected, fx.MustNew() failed because of: %v", e)
+		}
+	}()
+	appfx.MustNew(fx.Invoke(func() {}))
+}
+
+func testNewAppWithInvalidTimeouts(t *testing.T) {
+	apptest.InitEnv()
+	apptest.Setenv(apptest.StartTimeout, "--")
+	defer func() {
+		if e := recover(); e == nil {
+			t.Error("fx.MustNew() should have because the app start timeout was misconfigured")
+		} else {
+			t.Logf("as expected, fx.MustNew() failed because of: %v", e)
+		}
+	}()
+	appfx.MustNew(fx.Invoke(func() {}))
+}
+
+func testNewAppWithCustomAppTimeouts(t *testing.T) {
+	apptest.Setenv(apptest.StartTimeout, "30s")
+	apptest.Setenv(apptest.StopTimeout, "60s")
+	fxapp := appfx.MustNew(fx.Invoke(func() {}))
+	if fxapp.StartTimeout() != 30*time.Second {
+		t.Error("StartTimeout did not match the default")
+	}
+	if fxapp.StopTimeout() != 60*time.Second {
+		t.Error("StopTimeout did not match the default")
+	}
+	if e := fxapp.Start(context.Background()); e != nil {
+		panic(e)
+	}
+	defer func() {
+		if e := fxapp.Stop(context.Background()); e != nil {
+			t.Errorf("fxapp.Stop error: %v", e)
+		}
+	}()
+}
+
+func testNewAppWithDefaultSettings(t *testing.T) {
 	// Given the env is initialized
 	expectedDesc := apptest.InitEnv()
 
-	t.Run("using default settings", func(t *testing.T) {
-		// When the fx.App is created
-		var desc app.Desc
-		var instanceID app.InstanceID
-		fxapp := appfx.New(
-			fx.Populate(&desc),
-			fx.Populate(&instanceID),
-			fx.Invoke(LogTestEvents),
-		)
-		if fxapp.StartTimeout() != 15*time.Second {
-			t.Error("StartTimeout did not match the default")
-		}
-		if fxapp.StopTimeout() != 15*time.Second {
-			t.Error("StopTimeout did not match the default")
-		}
+	// When the fx.App is created
+	var desc app.Desc
+	var instanceID app.InstanceID
+	fxapp := appfx.MustNew(
+		fx.Populate(&desc),
+		fx.Populate(&instanceID),
+		fx.Invoke(logTestEvents),
+	)
+	if fxapp.StartTimeout() != 15*time.Second {
+		t.Error("StartTimeout did not match the default")
+	}
+	if fxapp.StopTimeout() != 15*time.Second {
+		t.Error("StopTimeout did not match the default")
+	}
 
-		// Then it starts with no errors
-		if e := fxapp.Start(context.Background()); e != nil {
-			t.Fatal(e)
+	// Then it starts with no errors
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+	defer func() {
+		if e := fxapp.Stop(context.Background()); e != nil {
+			t.Errorf("fxapp.Stop error: %v", e)
 		}
-		defer func() {
-			if e := fxapp.Stop(context.Background()); e != nil {
-				t.Errorf("fxapp.Stop error: %v", e)
-			}
-		}()
+	}()
 
-		// And app.Desc is provided in the fx.App context
-		t.Logf("Desc specified in the env: %s", &expectedDesc)
-		t.Logf("Desc loaded via fx app   : %s", &desc)
-		apptest.CheckDescsAreEqual(t, desc, expectedDesc)
+	// And app.Desc is provided in the fx.App context
+	t.Logf("Desc specified in the env: %s", &expectedDesc)
+	t.Logf("Desc loaded via fx app   : %s", &desc)
+	apptest.CheckDescsAreEqual(t, desc, expectedDesc)
 
-		// And the app.InstanceID is defined
-		t.Logf("app InstanceID: %s", ulid.ULID(instanceID))
-		var zeroULID ulid.ULID
-		if zeroULID == ulid.ULID(instanceID) {
-			t.Error("instanceID was not initialized")
-		}
-
-	})
-
-	t.Run("using overidden app start and stop timeouts", func(t *testing.T) {
-		apptest.Setenv(apptest.StartTimeout, "30s")
-		apptest.Setenv(apptest.StopTimeout, "60s")
-		fxapp := appfx.New()
-		if fxapp.StartTimeout() != 30*time.Second {
-			t.Error("StartTimeout did not match the default")
-		}
-		if fxapp.StopTimeout() != 60*time.Second {
-			t.Error("StopTimeout did not match the default")
-		}
-		if e := fxapp.Start(context.Background()); e != nil {
-			panic(e)
-		}
-		defer func() {
-			if e := fxapp.Stop(context.Background()); e != nil {
-				t.Errorf("fxapp.Stop error: %v", e)
-			}
-		}()
-	})
-
-	t.Run("using invalid app start/stop timeouts", func(t *testing.T) {
-		apptest.InitEnv()
-		apptest.Setenv(apptest.StartTimeout, "--")
-		defer func() {
-			if e := recover(); e == nil {
-				t.Error("fx.New() should have because the app start timeout was misconfigured")
-			} else {
-				t.Logf("as expected, fx.New() failed because of: %v", e)
-			}
-		}()
-		appfx.New()
-	})
-
-	t.Run("using invalid log config", func(t *testing.T) {
-		apptest.InitEnv()
-		apptest.Setenv(apptest.LogGlobalLevel, "--")
-		defer func() {
-			if e := recover(); e == nil {
-				t.Error("fx.New() should have because the app global log level was misconfigured")
-			} else {
-				t.Logf("as expected, fx.New() failed because of: %v", e)
-			}
-		}()
-		appfx.New()
-	})
+	// And the app.InstanceID is defined
+	t.Logf("app InstanceID: %s", ulid.ULID(instanceID))
+	var zeroULID ulid.ULID
+	if zeroULID == ulid.ULID(instanceID) {
+		t.Error("instanceID was not initialized")
+	}
 }
 
 type empty struct{}
@@ -150,7 +159,7 @@ const (
 	LogTestEventOnStopMsg    = "OnStop"
 )
 
-func LogTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
+func logTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 	logger = logging.PackageLogger(logger, app.GetPackage(empty{}))
 	foo := logging.NewEvent(LogTestEventLogEventName, zerolog.InfoLevel)
 
@@ -246,7 +255,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 
 	// Given that the app log is captured
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(LogTestEvents))
+	fxapp := appfx.MustNew(fx.Invoke(logTestEvents))
 
 	// When the app is started
 	if e := fxapp.Start(context.Background()); e != nil {
@@ -343,7 +352,7 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(func() error {
+	fxapp := appfx.MustNew(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return TestErr1.New()
 	}))
@@ -410,7 +419,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(func() error {
+	fxapp := appfx.MustNew(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return errors.New("non standard error")
 	}))
@@ -477,7 +486,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(func(lc fx.Lifecycle) error {
+	fxapp := appfx.MustNew(fx.Invoke(func(lc fx.Lifecycle) error {
 		t.Log("test func has been invoked ...")
 		lc.Append(fx.Hook{
 			OnStart: func(context.Context) error {
@@ -549,7 +558,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.New(
+	fxapp := appfx.MustNew(
 		// When the app is configured with an OnStop hook that will fail
 		fx.Invoke(func(lc fx.Lifecycle) error {
 			t.Log("test func has been invoked ...")
@@ -608,7 +617,7 @@ func TestApp_Run(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.New(
+	fxapp := appfx.MustNew(
 		// And the app will stop itself right after it starts
 		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 			lc.Append(fx.Hook{
@@ -646,7 +655,7 @@ func TestErrRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.MustNew(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
 
 		// all of the standard app errors should be registered
@@ -691,7 +700,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.New(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.MustNew(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 
 		// all of the standard app events should be registered
@@ -726,7 +735,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	}
 }
 
-func TestMustLoadDesc(t *testing.T) {
+func testDescNotDefinedInEnv(t *testing.T) {
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("loading Desc should have failed and triggered a panic")
@@ -735,7 +744,7 @@ func TestMustLoadDesc(t *testing.T) {
 		}
 	}()
 	apptest.ClearAppEnvSettings()
-	appfx.MustLoadDesc()
+	appfx.MustNew(fx.Invoke(func() {}))
 }
 
 type RandomNumberGenerator func() int
@@ -773,19 +782,115 @@ func TestCompRegistryIsProvided(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	}()
 
+	t.Run("with 2 comps injectd", testCompRegistryWithCompsRegistered)
+
+	t.Run("with 0 comps injected", testEmptyComponentRegistry)
+
+	t.Run("with duplicate comps injected", testComponentRegistryWithDuplicateComps)
+
+}
+
+func testComponentRegistryWithDuplicateComps(t *testing.T) {
+	// Given 2 components conflict because they have the same ID
+	FooComp = comp.MustNewDesc(
+		comp.ID("01DCYBFQBQVXG8PZ758AM9JJCD"),
+		comp.Name("foo"),
+		comp.Version("0.0.1"),
+		app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
+		ProvideRandomNumberGeneratorOption,
+	)
+	BarComp = comp.MustNewDesc(
+		comp.ID(FooComp.ID.String()), // dup comp.ID will cause comp registration to fail
+		comp.Name("bar"),
+		comp.Version("0.0.1"),
+		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
+		ProvideGreeterOption,
+	)
+
+	foo := FooComp.MustNewComp(
+		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
+			return rand.Int
+		}),
+	)
+	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
+		return func() string { return "greetings" }
+	}))
+
+	apptest.InitEnv()
+	fxapp := appfx.MustNew(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
+		// triggers the comp.Registry to be constructed, which should then trigger the error when comps register
+		l.Info().Msgf("%v", r.Comps())
+	}))
+	// When the app is started
+	e := fxapp.Start(context.Background())
+	// Then it will fail to start up
+	if e == nil {
+		t.Fatal("app should have failed to start")
+	}
+	t.Log(e)
+}
+
+func testEmptyComponentRegistry(t *testing.T) {
+	apptest.InitEnv()
+	// When the app is created with no components
+	var compRegistry *comp.Registry
+	fxapp := appfx.MustNew(fx.Populate(&compRegistry))
+	// Then the app starts up just fine
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Errorf("failed to start app: %v", e)
+	}
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Errorf("failed to start app: %v", e)
+	}
+	t.Logf("registered components: %v", compRegistry.Comps())
+}
+
+func testCompRegistryWithCompsRegistered(t *testing.T) {
 	apptest.InitEnv()
 
-	t.Run("2 comps", func(t *testing.T) {
-		foo := FooComp.MustNewComp(
-			ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
-				return rand.Int
-			}),
-		)
+	// Given 2 components
+	foo := FooComp.MustNewComp(
+		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
+			return rand.Int
+		}),
+	)
+	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
+		return func() string { return "greetings" }
+	}))
 
-		bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
-			return func() string { return "greetings" }
-		}))
+	// redirect Stderr to a log file so that we can read the log
+	stderrBackup := os.Stderr
+	logFile, logFilePath := apptest.CreateLogFile(t)
+	os.Stderr = logFile
+	defer func() {
+		// restore stderr
+		os.Stderr = stderrBackup
+	}()
 
+	// When the app is created with the 2 components
+	var compRegistry *comp.Registry
+	fxapp := appfx.MustNew(
+		foo.FxOptions(),
+		bar.FxOptions(),
+		fx.Populate(&compRegistry),
+	)
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Errorf("failed to start app: %v", e)
+	}
+
+	// Then the components are registered
+	if compRegistry.FindByID(foo.ID) == nil {
+		t.Error("foo component was not found in the registry")
+	}
+	if compRegistry.FindByID(bar.ID) == nil {
+		t.Error("bar component was not found in the registry")
+	}
+
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Errorf("failed to start app: %v", e)
+	}
+
+	defer func() {
 		checkCompRegisteredEvents := func(t *testing.T, log io.Reader) {
 			scanner := bufio.NewScanner(log)
 			var compRegisteredEvents []*apptest.LogEvent
@@ -813,50 +918,9 @@ func TestCompRegistryIsProvided(t *testing.T) {
 			}
 		}
 
-		// redirect Stderr to a log file
-		stderrBackup := os.Stderr
-		logFile, logFilePath := apptest.CreateLogFile(t)
-		os.Stderr = logFile
-		defer func() {
-			// restore stderr
-			os.Stderr = stderrBackup
-			checkLogEvents(t, logFilePath, logFile, checkCompRegisteredEvents)
-		}()
-
-		var compRegistry *comp.Registry
-		fxapp := appfx.New(
-			foo.FxOptions(),
-			bar.FxOptions(),
-			fx.Populate(&compRegistry),
-		)
-		if e := fxapp.Start(context.Background()); e != nil {
-			t.Errorf("failed to start app: %v", e)
-		}
-
-		// Then the components are registered
-		if compRegistry.FindByID(foo.ID) == nil {
-			t.Error("foo component was not found in the registry")
-		}
-		if compRegistry.FindByID(bar.ID) == nil {
-			t.Error("bar component was not found in the registry")
-		}
-		// And CompRegistered event is logged
-		if e := fxapp.Stop(context.Background()); e != nil {
-			t.Errorf("failed to start app: %v", e)
-		}
-
-	})
-
-	t.Run("0 comps", func(t *testing.T) {
-		fxapp := appfx.New(fx.Invoke(func() { t.Log("hello") }))
-		if e := fxapp.Start(context.Background()); e != nil {
-			t.Errorf("failed to start app: %v", e)
-		}
-		if e := fxapp.Stop(context.Background()); e != nil {
-			t.Errorf("failed to start app: %v", e)
-		}
-	})
-
+		// And comp registration events are logged
+		checkLogEvents(t, logFilePath, logFile, checkCompRegisteredEvents)
+	}()
 }
 
 func checkCompRegisteredEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {
