@@ -78,7 +78,8 @@ func (a *App) Run() error {
 	return nil
 }
 
-// New constructs a new fx.App.
+// New constructs a new fx.App with the specified options.
+//
 // It is configured with the following options:
 //   - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
 //   - constructor functions for:
@@ -96,16 +97,14 @@ func New(options ...fx.Option) *App {
 		log.Panicf("app.LoadTimeouts() failed: %v", e)
 	}
 
-	appOptions := []fx.Option{
-		fx.StartTimeout(config.StartTimeout),
-		fx.StopTimeout(config.StopTimeout),
-		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
-	}
-
 	desc := MustLoadDesc()
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger := initLogging(instanceID, desc)
-	appOptions = append(appOptions,
+
+	appOptions := []fx.Option{
+		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
+		fx.StartTimeout(config.StartTimeout),
+		fx.StopTimeout(config.StopTimeout),
 		fx.Provide(
 			func() app.Desc { return desc },
 			func() app.InstanceID { return instanceID },
@@ -113,12 +112,12 @@ func New(options ...fx.Option) *App {
 			newErrorRegistry,
 			newEventRegistry,
 			provideCompRegistry,
-		))
-	appOptions = append(appOptions, fx.Logger(logger))
-	errHandler := &errLogger{logger}
-	appOptions = append(appOptions, fx.ErrorHook(errHandler))
-	appOptions = append(appOptions, options...)
-	appOptions = append(appOptions, fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook))
+		),
+		fx.Logger(logger),
+		fx.ErrorHook(newErrLogger(logger)),
+		fx.Options(options...),
+		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
+	}
 
 	return &App{
 		App:    fx.New(appOptions...),
@@ -128,7 +127,7 @@ func New(options ...fx.Option) *App {
 
 func newEventRegistry() *logging.EventRegistry {
 	registry := logging.NewEventRegistry()
-	registry.Register(Start, Running, Stop, Stopped, StopSignal)
+	registry.Register(Start, Running, Stop, Stopped, StopSignal, CompRegistered)
 	return registry
 }
 
@@ -197,6 +196,10 @@ type errLogger struct {
 // implements fx.ErrorHandler
 func (l *errLogger) HandleError(e error) {
 	logError(l.Logger, e)
+}
+
+func newErrLogger(logger *zerolog.Logger) *errLogger {
+	return &errLogger{logger}
 }
 
 func logError(logger *zerolog.Logger, e error) {

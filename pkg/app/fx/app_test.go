@@ -695,7 +695,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 
 		// all of the standard app events should be registered
-		events := []logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal}
+		events := []logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal, appfx.CompRegistered}
 		for _, e := range events {
 			if !registry.Registered(e) {
 				t.Errorf("event is not registered: %v", e)
@@ -786,8 +786,8 @@ func TestCompRegistryIsProvided(t *testing.T) {
 			return func() string { return "greetings" }
 		}))
 
-		checkCompRegisteredEvents := func(t *testing.T, logFile io.Reader) {
-			scanner := bufio.NewScanner(logFile)
+		checkCompRegisteredEvents := func(t *testing.T, log io.Reader) {
+			scanner := bufio.NewScanner(log)
 			var compRegisteredEvents []*apptest.LogEvent
 			for scanner.Scan() {
 				logEventJSON := scanner.Text()
@@ -861,17 +861,17 @@ func TestCompRegistryIsProvided(t *testing.T) {
 
 func checkCompRegisteredEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {
 CompLoop:
-	for _, comp := range comps {
+	for _, c := range comps {
 		for _, event := range events {
-			if comp.ID.String() == event.Comp.ID {
-				t.Logf("checking %v against %v", comp, event.Comp)
-				if event.Comp.Version != comp.Version.String() {
+			if c.ID.String() == event.Comp.ID {
+				t.Logf("checking %v against %v", c, event.Comp)
+				if event.Comp.Version != c.Version.String() {
 					t.Error("comp version did not match")
 				}
-				if len(comp.Options) != len(event.Comp.Options) {
+				if len(c.Options) != len(event.Comp.Options) {
 					t.Error("number of options does not match")
 				} else {
-					for _, opt := range comp.Options {
+					for _, opt := range c.Options {
 						for _, eventOpt := range event.Comp.Options {
 							if !strings.Contains(eventOpt, opt.FuncType.String()) {
 								t.Error("option.Desc.FuncType did not match")
@@ -885,6 +885,6 @@ CompLoop:
 				continue CompLoop
 			}
 		}
-		t.Errorf("event was not logged for: %v", comp.ID)
+		t.Errorf("event was not logged for: %v", c.ID)
 	}
 }
