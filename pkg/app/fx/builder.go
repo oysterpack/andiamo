@@ -19,10 +19,13 @@ package fx
 import (
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
+	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"io"
 	"time"
 )
+
+type disableLogSamplingFlag struct{}
 
 // AppBuilder is used to build a new App
 type AppBuilder struct {
@@ -31,11 +34,33 @@ type AppBuilder struct {
 	comps                     []*comp.Comp
 	opts                      []fx.Option
 	logWriter                 io.Writer
+	globalLogLevel            zerolog.Level
+	disableLogSampling        *disableLogSamplingFlag
 }
 
 // NewAppBuilder returns a new AppBuilder
 func NewAppBuilder() *AppBuilder {
-	return &AppBuilder{}
+	return &AppBuilder{
+		globalLogLevel: zerolog.NoLevel,
+	}
+}
+
+// DisableLogSampling disables log sampling. Log sampling is enabled by default.
+func (b *AppBuilder) DisableLogSampling() *AppBuilder {
+	b.disableLogSampling = &disableLogSamplingFlag{}
+	return b
+}
+
+// GlobalLogLevel sets the global log level
+func (b *AppBuilder) GlobalLogLevel(level zerolog.Level) *AppBuilder {
+	b.globalLogLevel = level
+	return b
+}
+
+// LogWriter specifies the writer that will be used for application logging.
+func (b *AppBuilder) LogWriter(w io.Writer) *AppBuilder {
+	b.logWriter = w
+	return b
 }
 
 // AppDesc sets the app descriptor. If not specified, then the builder will try to load the app descriptor from env vars.
@@ -109,5 +134,9 @@ func (b *AppBuilder) Build() (*App, error) {
 		b.opts = append(b.opts, c.FxOptions())
 	}
 
-	return NewApp(b.desc[0], timeouts, b.logWriter, b.opts...)
+	fxapp, e := NewApp(b.desc[0], timeouts, b.logWriter, b.globalLogLevel, b.opts...)
+	if b.disableLogSampling != nil {
+		zerolog.DisableSampling(true)
+	}
+	return fxapp, e
 }

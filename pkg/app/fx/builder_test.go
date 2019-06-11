@@ -18,6 +18,7 @@ package fx_test
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
@@ -28,6 +29,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -49,10 +51,175 @@ func TestAppBuilder(t *testing.T) {
 	t.Run("build app using duplicate components", testBuildAppUsingDupComps)
 
 	t.Run("build app specifying timeouts", buildAppSpecifyingTimeouts)
+
+	t.Run("build app with log writer", buildAppWithLogWriter)
+	t.Run("build with global log level", buildWithGlobalLogLevel)
+	t.Run("build with log sampling disabled", buildWithLogSamplingDisabled)
+}
+
+func buildWithLogSamplingDisabled(t *testing.T) {
+	apptest.InitEnv()
+
+	buf := new(strings.Builder)
+
+	key, value := ulidgen.MustNew(), ulidgen.MustNew()
+
+	fxapp, e := (appfx.NewAppBuilder().
+		LogWriter(buf).
+		DisableLogSampling().
+		Options(fx.Invoke(func(logger *zerolog.Logger) {
+			logger.Info().
+				Str(key.String(), value.String()).
+				Msgf("buildAppWithLogWriter: %v", value)
+		})).
+		Build())
+
+	if e != nil {
+		t.Error(e)
+	}
+
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+
+	logEvents := buf.String()
+	t.Log(logEvents)
+	if len(logEvents) == 0 {
+		t.Error("no events were logged")
+	}
+
+	var foundLogEvent bool
+	var logEvent apptest.LogEvent
+	for _, line := range strings.Split(logEvents, "\n") {
+		if len(line) == 0 {
+			break
+		}
+		if e := json.Unmarshal([]byte(line), &logEvent); e != nil {
+			t.Error(e)
+		} else {
+			if strings.Contains(logEvent.Message, value.String()) {
+				foundLogEvent = true
+			}
+		}
+	}
+	if !foundLogEvent {
+		t.Error("buildAppWithLogWriter log event was not found")
+	}
+}
+
+func buildWithGlobalLogLevel(t *testing.T) {
+	apptest.InitEnv()
+
+	buf := new(strings.Builder)
+
+	key, value := ulidgen.MustNew(), ulidgen.MustNew()
+
+	fxapp, e := (appfx.NewAppBuilder().
+		LogWriter(buf).
+		GlobalLogLevel(zerolog.WarnLevel).
+		Options(fx.Invoke(func(logger *zerolog.Logger) {
+			logger.Warn().
+				Str(key.String(), value.String()).
+				Msgf("buildAppWithLogWriter: %v", value)
+			logger.Info().
+				Str(key.String(), value.String()).
+				Msgf("buildAppWithLogWriter: %v", value)
+		})).
+		Build())
+
+	if e != nil {
+		t.Error(e)
+	}
+
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+
+	logEvents := buf.String()
+	t.Log(logEvents)
+	if len(logEvents) == 0 {
+		t.Error("no events were logged")
+	}
+
+	var logEventCount int
+	for _, line := range strings.Split(logEvents, "\n") {
+		if len(line) == 0 {
+			break
+		}
+		var logEvent apptest.LogEvent
+		if e := json.Unmarshal([]byte(line), &logEvent); e != nil {
+			t.Error(e)
+		} else {
+			if strings.Contains(logEvent.Message, value.String()) {
+				t.Logf("matched: %v : %v", logEvent.Message, line)
+				logEventCount += 1
+			}
+		}
+	}
+	if logEventCount != 1 {
+		t.Error("only the warn event should have been logged")
+	}
+}
+
+func buildAppWithLogWriter(t *testing.T) {
+	apptest.InitEnv()
+
+	buf := new(strings.Builder)
+
+	key, value := ulidgen.MustNew(), ulidgen.MustNew()
+
+	fxapp, e := (appfx.NewAppBuilder().
+		LogWriter(buf).
+		Options(fx.Invoke(func(logger *zerolog.Logger) {
+			logger.Info().
+				Str(key.String(), value.String()).
+				Msgf("buildAppWithLogWriter: %v", value)
+		})).
+		Build())
+
+	if e != nil {
+		t.Error(e)
+	}
+
+	if e := fxapp.Start(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+	if e := fxapp.Stop(context.Background()); e != nil {
+		t.Fatal(e)
+	}
+
+	logEvents := buf.String()
+	t.Log(logEvents)
+	if len(logEvents) == 0 {
+		t.Error("no events were logged")
+	}
+
+	var foundLogEvent bool
+	var logEvent apptest.LogEvent
+	for _, line := range strings.Split(logEvents, "\n") {
+		if len(line) == 0 {
+			break
+		}
+		if e := json.Unmarshal([]byte(line), &logEvent); e != nil {
+			t.Error(e)
+		} else {
+			if strings.Contains(logEvent.Message, value.String()) {
+				foundLogEvent = true
+			}
+		}
+	}
+	if !foundLogEvent {
+		t.Error("buildAppWithLogWriter log event was not found")
+	}
 }
 
 func buildAppSpecifyingTimeouts(t *testing.T) {
-	// Given the app.Desc env vars are set
 	apptest.InitEnv()
 
 	startTimeout := 30 * time.Second

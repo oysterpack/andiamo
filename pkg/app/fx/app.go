@@ -149,7 +149,9 @@ func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
 }
 
 // NewApp tries to construct a new App
-func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...fx.Option) (*App, error) {
+func NewApp(desc app.Desc, timeouts app.Timeouts,
+	logWriter io.Writer, globalLogLevel zerolog.Level,
+	opts ...fx.Option) (*App, error) {
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger, e := initLogging(instanceID, desc)
 	if e != nil {
@@ -158,6 +160,9 @@ func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...f
 	if logWriter != nil {
 		customLogger := logger.Output(logWriter)
 		logger = &customLogger
+	}
+	if globalLogLevel != zerolog.NoLevel {
+		zerolog.SetGlobalLevel(globalLogLevel)
 	}
 
 	appOptions := []fx.Option{

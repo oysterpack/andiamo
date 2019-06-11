@@ -44,6 +44,7 @@ func (id ID) String() string {
 	return id.ULID().String()
 }
 
+// ULID returns the underlying ULID
 func (id ID) ULID() ulid.ULID {
 	return ulid.ULID(id)
 }
@@ -63,6 +64,7 @@ func (id ReleaseID) String() string {
 	return id.ULID().String()
 }
 
+// ULID returns the underlying ULID
 func (id ReleaseID) ULID() ulid.ULID {
 	return ulid.ULID(id)
 }
