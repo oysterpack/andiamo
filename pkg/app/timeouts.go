@@ -32,6 +32,14 @@ type Timeouts struct {
 	StopTimeout time.Duration `default:"15s" split_words:"true"`
 }
 
+// NewTimeouts defaults to 15 sec timeout for both start and stop timeouts.
+func NewTimeouts() Timeouts {
+	return Timeouts{
+		StartTimeout: 15 * time.Second,
+		StopTimeout:  15 * time.Second,
+	}
+}
+
 func (c Timeouts) String() string {
 	return fmt.Sprintf("Timeouts{StartTimeout=%s, StopTimeout=%s}", c.StartTimeout, c.StopTimeout)
 }

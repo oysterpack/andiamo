@@ -352,16 +352,19 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(func() error {
-		t.Log("test func has been invoked ...")
-		return TestErr1.New()
-	}))
-
-	if e := fxapp.Start(context.Background()); e == nil {
-		t.Fatal("Expected the app to fail to start up")
-	} else {
-		t.Logf("as expected, app failed to start: %v", e)
-	}
+	func() {
+		defer func() {
+			e := recover()
+			if e == nil {
+				t.Fatal("app should have failed to be created because the invoked func returned an error")
+			}
+			t.Log(e)
+		}()
+		appfx.MustNewApp(fx.Invoke(func() error {
+			t.Log("test func has been invoked ...")
+			return TestErr1.New()
+		}))
+	}()
 }
 
 // Feature: Errors produced by app functions that are invoked by fx will be logged automatically
@@ -419,16 +422,19 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(func() error {
-		t.Log("test func has been invoked ...")
-		return errors.New("non standard error")
-	}))
-
-	e := fxapp.Start(context.Background())
-	if e == nil {
-		t.Fatal("Expected the app to fail to start up")
-	}
-	t.Logf("as expected, app failed to start: %v", e)
+	func() {
+		defer func() {
+			e := recover()
+			if e == nil {
+				t.Fatal("app should have failed to be created because the invoked func returned an error")
+			}
+			t.Log(e)
+		}()
+		appfx.MustNewApp(fx.Invoke(func() error {
+			t.Log("test func has been invoked ...")
+			return errors.New("non standard error")
+		}))
+	}()
 }
 
 // Feature: Errors produced by app functions that are invoked by fx will be logged automatically
@@ -817,17 +823,19 @@ func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	}))
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
-		// triggers the comp.Registry to be constructed, which should then trigger the error when comps register
-		l.Info().Msgf("%v", r.Comps())
-	}))
-	// When the app is started
-	e := fxapp.Start(context.Background())
-	// Then it will fail to start up
-	if e == nil {
-		t.Fatal("app should have failed to start")
-	}
-	t.Log(e)
+	func() {
+		defer func() {
+			e := recover()
+			if e == nil {
+				t.Fatal("app should have failed to be created because the invoked func returned an error")
+			}
+			t.Log(e)
+		}()
+		appfx.MustNewApp(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
+			// triggers the comp.Registry to be constructed, which should then trigger the error when comps register
+			l.Info().Msgf("%v", r.Comps())
+		}))
+	}()
 }
 
 func testEmptyComponentRegistry(t *testing.T) {

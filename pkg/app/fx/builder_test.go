@@ -29,6 +29,7 @@ import (
 	"go.uber.org/fx"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestAppBuilder(t *testing.T) {
@@ -45,6 +46,80 @@ func TestAppBuilder(t *testing.T) {
 	t.Run("build app with invalid app.Desc", testBuildAppWithInvalidAppDesc)
 
 	t.Run("build app using components", testBuildAppUsingComps)
+	t.Run("build app using duplicate components", testBuildAppUsingDupComps)
+
+	t.Run("build app specifying timeouts", buildAppSpecifyingTimeouts)
+}
+
+func buildAppSpecifyingTimeouts(t *testing.T) {
+	// Given the app.Desc env vars are set
+	apptest.InitEnv()
+
+	startTimeout := 30 * time.Second
+	stopTimeout := time.Minute
+
+	fxapp, e := appfx.NewAppBuilder().
+		StartTimeout(startTimeout).
+		StopTimeout(stopTimeout).
+		Options(fx.Invoke(func(shutdowner fx.Shutdowner) { shutdowner.Shutdown() })).
+		Build()
+
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	if fxapp.StartTimeout() != startTimeout {
+		t.Errorf("StartTimeout did not match: %v", fxapp.StartTimeout())
+	}
+	if fxapp.StopTimeout() != stopTimeout {
+		t.Errorf("StopTimeout did not match: %v", fxapp.StopTimeout())
+	}
+}
+
+func testBuildAppUsingDupComps(t *testing.T) {
+	type Command func()
+
+	var (
+		CommandOptionDesc = option.NewDesc(option.Invoke, reflect.TypeOf(Command(nil)))
+
+		FooCompDesc = comp.MustNewDesc(
+			comp.ID(ulidgen.MustNew().String()),
+			comp.Name("foo"),
+			comp.Version("0.0.1"),
+			app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
+			CommandOptionDesc,
+		)
+
+		FooComp = FooCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("foo: ciao") }))
+
+		BarCompDesc = comp.MustNewDesc(
+			comp.ID(ulidgen.MustNew().String()),
+			comp.Name("bar"),
+			comp.Version("0.0.1"),
+			app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
+			CommandOptionDesc,
+		)
+
+		BarComp = BarCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("bar: ciao") }))
+	)
+
+	// Given the app.Desc env vars are set
+	apptest.InitEnv()
+
+	// When the app is built, app.Desc will be loaded from the env
+	_, e := appfx.NewAppBuilder().
+		Comps(
+			FooComp,
+			BarComp,
+			FooComp, // dup
+		).
+		Build()
+
+	// Then app should fail to build
+	if e == nil {
+		t.Fatal("app should have failed to build because duplicate components were specified")
+	}
+	t.Log(e)
 }
 
 func testBuildAppWithInvalidAppDesc(t *testing.T) {
@@ -86,7 +161,6 @@ func testBuildAppUsingComps(t *testing.T) {
 
 	var (
 		CommandOptionDesc = option.NewDesc(option.Invoke, reflect.TypeOf(Command(nil)))
-		CommandOption     = CommandOptionDesc.NewOption(func() { t.Log("ciao") })
 
 		FooCompDesc = comp.MustNewDesc(
 			comp.ID(ulidgen.MustNew().String()),
@@ -96,7 +170,7 @@ func testBuildAppUsingComps(t *testing.T) {
 			CommandOptionDesc,
 		)
 
-		FooComp = FooCompDesc.MustNewComp(CommandOption)
+		FooComp = FooCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("foo: ciao") }))
 
 		BarCompDesc = comp.MustNewDesc(
 			comp.ID(ulidgen.MustNew().String()),
@@ -106,7 +180,7 @@ func testBuildAppUsingComps(t *testing.T) {
 			CommandOptionDesc,
 		)
 
-		BarComp = BarCompDesc.MustNewComp(CommandOption)
+		BarComp = BarCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("bar: ciao") }))
 	)
 
 	// Given the app.Desc env vars are set
@@ -114,7 +188,7 @@ func testBuildAppUsingComps(t *testing.T) {
 
 	// When the app is built, app.Desc will be loaded from the env
 	fxapp, e := appfx.NewAppBuilder().
-		// And a component is plugged in
+		// And components are plugged in
 		Comps(
 			FooComp,
 			BarComp,
@@ -216,6 +290,10 @@ func testRunAppWithMinimalRequired(t *testing.T) {
 
 	if e != nil {
 		t.Fatal(e)
+	}
+
+	if fxapp.StartTimeout() != fx.DefaultTimeout && fxapp.StopTimeout() != fx.DefaultTimeout {
+		t.Errorf("app start/stop timeouts do not match the expected defaults: %v : %v", fxapp.StartTimeout(), fxapp.StopTimeout())
 	}
 
 	go func() {

@@ -21,30 +21,46 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"go.uber.org/fx"
 	"io"
+	"time"
 )
 
+// AppBuilder is used to build a new App
 type AppBuilder struct {
-	desc      []app.Desc
-	timeouts  []app.Timeouts
-	comps     []*comp.Comp
-	opts      []fx.Option
-	logWriter io.Writer
+	desc                      []app.Desc
+	startTimeout, stopTimeout time.Duration
+	comps                     []*comp.Comp
+	opts                      []fx.Option
+	logWriter                 io.Writer
 }
 
+// NewAppBuilder returns a new AppBuilder
 func NewAppBuilder() *AppBuilder {
 	return &AppBuilder{}
 }
 
+// AppDesc sets the app descriptor. If not specified, then the builder will try to load the app descriptor from env vars.
 func (b *AppBuilder) AppDesc(desc app.Desc) *AppBuilder {
 	b.desc = []app.Desc{desc}
 	return b
 }
 
-func (b *AppBuilder) Timeouts(timeouts app.Timeouts) *AppBuilder {
-	b.timeouts = []app.Timeouts{timeouts}
+// StartTimeout sets the app start timeout. If not set, then it will try to load the timeout from the env.
+// If not specified in the env, then it defaults to 15 sec.
+func (b *AppBuilder) StartTimeout(timeout time.Duration) *AppBuilder {
+	b.startTimeout = timeout
 	return b
 }
 
+// StopTimeout sets the app stop timeout. If not set, then it will try to load the timeout from the env.
+// If not specified in the env, then it defaults to 15 sec.
+func (b *AppBuilder) StopTimeout(timeout time.Duration) *AppBuilder {
+	b.stopTimeout = timeout
+	return b
+}
+
+// Options is used to specify application options.
+// Only `provide` and `invoke` options should be specified.
+// `populate` options come in handy when unit testing.
 func (b *AppBuilder) Options(opts ...fx.Option) *AppBuilder {
 	if len(opts) > 0 {
 		b.opts = append(b.opts, opts...)
@@ -52,6 +68,7 @@ func (b *AppBuilder) Options(opts ...fx.Option) *AppBuilder {
 	return b
 }
 
+// Comps is used to specifiy the application components, which will be registered with the component registry.
 func (b *AppBuilder) Comps(comps ...*comp.Comp) *AppBuilder {
 	if len(comps) > 0 {
 		b.comps = append(b.comps, comps...)
@@ -59,6 +76,7 @@ func (b *AppBuilder) Comps(comps ...*comp.Comp) *AppBuilder {
 	return b
 }
 
+// Build tries to build the app.
 func (b *AppBuilder) Build() (*App, error) {
 	if len(b.comps) == 0 && len(b.opts) == 0 {
 		return nil, OptionsRequiredErr.New()
@@ -76,17 +94,20 @@ func (b *AppBuilder) Build() (*App, error) {
 		return nil, InvalidDescErr.CausedBy(e)
 	}
 
-	if len(b.timeouts) == 0 {
-		timeouts, e := app.LoadTimeouts()
-		if e != nil {
-			return nil, e
-		}
-		b.Timeouts(timeouts)
+	timeouts, e := app.LoadTimeouts()
+	if e != nil {
+		return nil, e
+	}
+	if b.startTimeout != 0 {
+		timeouts.StartTimeout = b.startTimeout
+	}
+	if b.stopTimeout != 0 {
+		timeouts.StopTimeout = b.stopTimeout
 	}
 
 	for _, c := range b.comps {
 		b.opts = append(b.opts, c.FxOptions())
 	}
 
-	return NewApp(b.desc[0], b.timeouts[0], b.logWriter, b.opts...)
+	return NewApp(b.desc[0], timeouts, b.logWriter, b.opts...)
 }

@@ -122,7 +122,7 @@ func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
 			func() *zerolog.Logger { return logger },
 			newErrorRegistry,
 			newEventRegistry,
-			provideCompRegistry,
+			comp.NewRegistry,
 		),
 
 		fx.Logger(logger),
@@ -131,16 +131,24 @@ func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
 		// application specific options
 		opt,
 		fx.Options(opts...),
+		fx.Invoke(registerComponents),
 
 		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
 	}
 
-	return &App{
+	fxapp := &App{
 		App:    fx.New(appOptions...),
 		logger: logger,
 	}
+
+	if e := fxapp.Err(); e != nil {
+		log.Panic(e)
+	}
+
+	return fxapp
 }
 
+// NewApp tries to construct a new App
 func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...fx.Option) (*App, error) {
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger, e := initLogging(instanceID, desc)
@@ -164,7 +172,7 @@ func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...f
 			func() *zerolog.Logger { return logger },
 			newErrorRegistry,
 			newEventRegistry,
-			provideCompRegistry,
+			comp.NewRegistry,
 		),
 
 		fx.Logger(logger),
@@ -172,6 +180,7 @@ func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...f
 
 		// application specific options
 		fx.Options(opts...),
+		fx.Invoke(registerComponents),
 
 		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
 	}
@@ -179,6 +188,9 @@ func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...f
 	fxapp := &App{
 		App:    fx.New(appOptions...),
 		logger: logger,
+	}
+	if e := fxapp.Err(); e != nil {
+		return nil, e
 	}
 
 	return fxapp, nil
@@ -292,18 +304,28 @@ type components struct {
 	Comps []*comp.Comp `group:"comp.Registry"`
 }
 
-func provideCompRegistry(comps components, logger *zerolog.Logger) (*comp.Registry, error) {
-	registry := comp.NewRegistry()
+//func provideCompRegistry(comps components, logger *zerolog.Logger) (*comp.Registry, error) {
+//	registry := comp.NewRegistry()
+//	for _, c := range comps.Comps {
+//		if e := registry.Register(c); e != nil {
+//			return nil, e
+//		}
+//		logCompRegisteredEvent(c, logger)
+//	}
+//	return registry, nil
+//}
+
+func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger) error {
 	for _, c := range comps.Comps {
 		if e := registry.Register(c); e != nil {
-			return nil, e
+			return e
 		}
-		logCompRegisteredEVent(c, logger)
+		logCompRegisteredEvent(c, logger)
 	}
-	return registry, nil
+	return nil
 }
 
-func logCompRegisteredEVent(c *comp.Comp, logger *zerolog.Logger) {
+func logCompRegisteredEvent(c *comp.Comp, logger *zerolog.Logger) {
 	options := make([]string, len(c.Options))
 	for i := 0; i < len(options); i++ {
 		optionDesc := c.Options[i].Desc

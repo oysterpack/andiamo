@@ -26,6 +26,16 @@ import (
 func TestLoadConfigFromEnv(t *testing.T) {
 	const DefaultTimeout = 15 * time.Second
 
+	t.Run("NewTimemouts defaults to 15 secs", func(t *testing.T) {
+		timeouts := app.NewTimeouts()
+		if timeouts.StartTimeout != DefaultTimeout {
+			t.Errorf("StartTimeout != 15 sec : %s", timeouts.StartTimeout)
+		}
+		if timeouts.StopTimeout != DefaultTimeout {
+			t.Errorf("StopTimeout != 15 sec : %s", timeouts.StartTimeout)
+		}
+	})
+
 	t.Run("when env not set, then defaults are used", func(t *testing.T) {
 		apptest.ClearAppEnvSettings()
 		config, err := app.LoadTimeouts()

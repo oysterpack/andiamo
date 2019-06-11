@@ -90,6 +90,12 @@ func (v *Version) Decode(value string) error {
 	return nil
 }
 
+// Semver returns the underlying version
+func (v *Version) Semver() *semver.Version {
+	ver := semver.Version(*v)
+	return &ver
+}
+
 func (v *Version) String() string {
 	return (*semver.Version)(v).String()
 }

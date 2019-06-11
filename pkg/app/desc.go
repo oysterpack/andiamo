@@ -46,8 +46,9 @@ func (d *Desc) Validate() error {
 		return errors.New("app.Desc.Version is required")
 	}
 
-	if _, e := semver.NewVersion(d.Version.String()); e != nil {
-		return e
+	v := d.Version.Semver()
+	if v.Major() == 0 && v.Minor() == 0 && v.Patch() == 0 {
+		return errors.New("app.Desc.Version must be greater than 0.0.0")
 	}
 
 	var zero ulid.ULID

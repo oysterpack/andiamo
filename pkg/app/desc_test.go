@@ -221,4 +221,14 @@ func TestDesc_Validate(t *testing.T) {
 		t.Fatalf("desc should be valid: %v", e)
 	}
 	t.Log(desc)
+
+	v := semver.Version{}
+	zeroVersion := app.Version(v)
+	desc.Version = &zeroVersion
+
+	e = desc.Validate()
+	if e == nil {
+		t.Fatalf("desc should not be valid: %v", desc)
+	}
+	t.Log(e)
 }
