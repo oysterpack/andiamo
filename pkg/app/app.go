@@ -41,7 +41,11 @@ func (id *ID) Decode(value string) error {
 }
 
 func (id ID) String() string {
-	return ulid.ULID(id).String()
+	return id.ULID().String()
+}
+
+func (id ID) ULID() ulid.ULID {
+	return ulid.ULID(id)
 }
 
 // Name is the application name.
@@ -56,7 +60,11 @@ func NewReleaseID() ReleaseID {
 }
 
 func (id ReleaseID) String() string {
-	return ulid.ULID(id).String()
+	return id.ULID().String()
+}
+
+func (id ReleaseID) ULID() ulid.ULID {
+	return ulid.ULID(id)
 }
 
 // Decode implements the envconfig.Decoder interface

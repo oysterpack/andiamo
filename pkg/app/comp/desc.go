@@ -52,8 +52,23 @@ func (d *Desc) Logger(l *zerolog.Logger) *zerolog.Logger {
 // The options must match on the option types declared by the descriptor. They will be sorted according to the order they
 // are listed in the descriptor
 func (d *Desc) MustNewComp(options ...option.Option) *Comp {
+	c, e := d.NewComp(options...)
+
+	if e != nil {
+		panic(e)
+	}
+
+	return c
+}
+
+// NewComp builds a new Comp using the specified options.
+//
+// Errors
+// - OptionCountDoesNotMatchErr
+// - OptionDescTypeNotMatchedErr
+func (d *Desc) NewComp(options ...option.Option) (*Comp, error) {
 	if len(options) != len(d.OptionDescs) {
-		panic(OptionCountDoesNotMatchErr.CausedBy(fmt.Errorf("expected %d options, but only %d were specified", len(d.OptionDescs), len(options))))
+		return nil, OptionCountDoesNotMatchErr.CausedBy(fmt.Errorf("expected %d options, but only %d were specified", len(d.OptionDescs), len(options)))
 	}
 
 	// sort the options in the same order matching Desc.OptionDescs
@@ -66,21 +81,38 @@ OptionDescsLoop:
 				continue OptionDescsLoop
 			}
 		}
-		panic(OptionDescTypeNotMatchedErr.CausedBy(fmt.Errorf("no option found for descriptor: %s", optionDesc)))
+		return nil, OptionDescTypeNotMatchedErr.CausedBy(fmt.Errorf("no option found for descriptor: %s", optionDesc))
 	}
 
-	return &Comp{
+	c := &Comp{
 		Desc:    d,
 		Options: compOptions,
 	}
+	return c, nil
 }
 
 // MustNewDesc constructs a new component descriptor.
 //
 // At least 1 option is required - a component without any application options is useless.
 func MustNewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...option.Desc) *Desc {
+	desc, e := NewDesc(id, name, version, pkg, optionDescs...)
+	if e != nil {
+		panic(e)
+	}
+
+	return desc
+}
+
+// NewDesc constructs a new component descriptor.
+//
+// At least 1 option is required - a component without any application options is useless.
+//
+// Errors
+// - OptionsRequiredErr
+// - UniqueOptionTypeConstraintErr
+func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...option.Desc) (*Desc, error) {
 	if len(optionDescs) == 0 {
-		panic(OptionsRequiredErr.CausedBy(fmt.Errorf("ID: %s, Name: %s, Package: %s", id, name, pkg)))
+		return nil, OptionsRequiredErr.CausedBy(fmt.Errorf("ID: %s, Name: %s, Package: %s", id, name, pkg))
 	}
 
 	desc := &Desc{
@@ -95,13 +127,13 @@ func MustNewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs
 	desc.OptionDescs = make([]option.Desc, len(optionDescs))
 	for i, optionDesc := range optionDescs {
 		if optionType[optionDesc] {
-			panic(UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate desc: %v", optionDesc)))
+			return nil, UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate desc: %v", optionDesc))
 		}
 		optionType[optionDesc] = true
 		desc.OptionDescs[i] = optionDesc
 	}
 
-	return desc
+	return desc, nil
 }
 
 // ID is the component ULID ID.

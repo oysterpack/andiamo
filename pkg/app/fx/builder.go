@@ -24,8 +24,8 @@ import (
 )
 
 type AppBuilder struct {
-	desc      *app.Desc
-	timeouts  *app.Timeouts
+	desc      []app.Desc
+	timeouts  []app.Timeouts
 	comps     []*comp.Comp
 	opts      []fx.Option
 	logWriter io.Writer
@@ -36,7 +36,12 @@ func NewAppBuilder() *AppBuilder {
 }
 
 func (b *AppBuilder) AppDesc(desc app.Desc) *AppBuilder {
-	b.desc = &desc
+	b.desc = []app.Desc{desc}
+	return b
+}
+
+func (b *AppBuilder) Timeouts(timeouts app.Timeouts) *AppBuilder {
+	b.timeouts = []app.Timeouts{timeouts}
 	return b
 }
 
@@ -59,25 +64,29 @@ func (b *AppBuilder) Build() (*App, error) {
 		return nil, OptionsRequiredErr.New()
 	}
 
-	if b.desc == nil {
+	if len(b.desc) == 0 {
 		desc, e := app.LoadDesc()
 		if e != nil {
 			return nil, e
 		}
-		b.desc = &desc
+		b.AppDesc(desc)
 	}
 
-	if b.timeouts == nil {
+	if e := b.desc[0].Validate(); e != nil {
+		return nil, InvalidDescErr.CausedBy(e)
+	}
+
+	if len(b.timeouts) == 0 {
 		timeouts, e := app.LoadTimeouts()
 		if e != nil {
 			return nil, e
 		}
-		b.timeouts = &timeouts
+		b.Timeouts(timeouts)
 	}
 
 	for _, c := range b.comps {
 		b.opts = append(b.opts, c.FxOptions())
 	}
 
-	return NewApp(*b.desc, *b.timeouts, b.logWriter, b.opts...)
+	return NewApp(b.desc[0], b.timeouts[0], b.logWriter, b.opts...)
 }

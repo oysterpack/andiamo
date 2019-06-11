@@ -21,6 +21,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"testing"
 	"time"
@@ -181,4 +182,43 @@ func TestLoadDescFromEnv(t *testing.T) {
 			t.Log(err)
 		}
 	})
+}
+
+func TestDesc_Validate(t *testing.T) {
+	var desc app.Desc
+
+	e := desc.Validate()
+	if e == nil {
+		t.Fatal("desc should not be valid because it is the zero value")
+	}
+	t.Log(e)
+
+	desc.Name = "foo"
+	e = desc.Validate()
+	if e == nil {
+		t.Fatal("desc should not be valid")
+	}
+	t.Log(e)
+
+	version := semver.MustParse("0.1.0")
+	appVersion := app.Version(*version)
+	desc.Version = &appVersion
+	e = desc.Validate()
+	if e == nil {
+		t.Fatal("desc should not be valid")
+	}
+	t.Log(e)
+
+	desc.ID = app.ID(ulidgen.MustNew())
+	e = desc.Validate()
+	if e == nil {
+		t.Fatal("desc should not be valid")
+	}
+	t.Log(e)
+
+	desc.ReleaseID = app.ReleaseID(ulidgen.MustNew())
+	if e := desc.Validate(); e != nil {
+		t.Fatalf("desc should be valid: %v", e)
+	}
+	t.Log(desc)
 }

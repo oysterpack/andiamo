@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
+	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	appfx "github.com/oysterpack/partire-k8s/pkg/app/fx"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
@@ -31,11 +32,53 @@ import (
 )
 
 func TestAppBuilder(t *testing.T) {
+	// The minimum required to build an app is:
+	// - app.Desc
+	// - at least 1 option specified
 	t.Run("run app with minimal required and no env vars", testRunAppWithMinimalRequired)
 	t.Run("run app with minimal required and app.Desc loaded from env", testRunAppWithMinimalRequiredAppDescFromEnv)
+	// Given no app.Desc
+	// Then the app will fail to build
 	t.Run("build app with no app.Desc specified and env vars not set", testBuildAppWithNoAppDescAndEnvVarsNotSet)
+	// Given an invalid app.Desc
+	// Then the app will fail to build
+	t.Run("build app with invalid app.Desc", testBuildAppWithInvalidAppDesc)
 
 	t.Run("build app using components", testBuildAppUsingComps)
+}
+
+func testBuildAppWithInvalidAppDesc(t *testing.T) {
+	var desc app.Desc
+	apptest.ClearAppEnvSettings()
+
+	_, e := appfx.NewAppBuilder().
+		// app.Desc is required
+		AppDesc(desc).
+		// at least 1 option is required
+		Options(fx.Invoke(func(lc fx.Lifecycle, l *zerolog.Logger, s fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(_ context.Context) error {
+					l.Info().Msg("shutting down ...")
+					if e := s.Shutdown(); e != nil {
+						t.Error(e)
+					}
+					return nil
+				},
+			})
+		})).
+		Build()
+
+	if e == nil {
+		t.Fatal("App should have failed to build because app.Desc is not valid")
+	}
+
+	t.Log(e)
+
+	buildErr := e.(*err.Instance)
+	if buildErr.SrcID != appfx.InvalidDescErr.SrcID {
+		t.Errorf("unexpected error instance: %v", appfx.InvalidDescErr.SrcID)
+	}
+
 }
 
 func testBuildAppUsingComps(t *testing.T) {
@@ -47,13 +90,23 @@ func testBuildAppUsingComps(t *testing.T) {
 
 		FooCompDesc = comp.MustNewDesc(
 			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("Foo"),
+			comp.Name("foo"),
 			comp.Version("0.0.1"),
 			app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
 			CommandOptionDesc,
 		)
 
 		FooComp = FooCompDesc.MustNewComp(CommandOption)
+
+		BarCompDesc = comp.MustNewDesc(
+			comp.ID(ulidgen.MustNew().String()),
+			comp.Name("bar"),
+			comp.Version("0.0.1"),
+			app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
+			CommandOptionDesc,
+		)
+
+		BarComp = BarCompDesc.MustNewComp(CommandOption)
 	)
 
 	// Given the app.Desc env vars are set
@@ -62,7 +115,10 @@ func testBuildAppUsingComps(t *testing.T) {
 	// When the app is built, app.Desc will be loaded from the env
 	fxapp, e := appfx.NewAppBuilder().
 		// And a component is plugged in
-		Comps(FooComp).
+		Comps(
+			FooComp,
+			BarComp,
+		).
 		Build()
 
 	if e != nil {
@@ -144,6 +200,7 @@ func testRunAppWithMinimalRequired(t *testing.T) {
 	fxapp, e := appfx.NewAppBuilder().
 		// app.Desc is required
 		AppDesc(desc).
+		// at least 1 option is required
 		Options(fx.Invoke(func(lc fx.Lifecycle, l *zerolog.Logger, s fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
