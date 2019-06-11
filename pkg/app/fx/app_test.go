@@ -68,12 +68,12 @@ func testNewAppWithInvalidLogConfig(t *testing.T) {
 	apptest.Setenv(apptest.LogGlobalLevel, "--")
 	defer func() {
 		if e := recover(); e == nil {
-			t.Error("fx.MustNew() should have because the app global log level was misconfigured")
+			t.Error("fx.MustNewApp() should have because the app global log level was misconfigured")
 		} else {
-			t.Logf("as expected, fx.MustNew() failed because of: %v", e)
+			t.Logf("as expected, fx.MustNewApp() failed because of: %v", e)
 		}
 	}()
-	appfx.MustNew(fx.Invoke(func() {}))
+	appfx.MustNewApp(fx.Invoke(func() {}))
 }
 
 func testNewAppWithInvalidTimeouts(t *testing.T) {
@@ -81,18 +81,18 @@ func testNewAppWithInvalidTimeouts(t *testing.T) {
 	apptest.Setenv(apptest.StartTimeout, "--")
 	defer func() {
 		if e := recover(); e == nil {
-			t.Error("fx.MustNew() should have because the app start timeout was misconfigured")
+			t.Error("fx.MustNewApp() should have because the app start timeout was misconfigured")
 		} else {
-			t.Logf("as expected, fx.MustNew() failed because of: %v", e)
+			t.Logf("as expected, fx.MustNewApp() failed because of: %v", e)
 		}
 	}()
-	appfx.MustNew(fx.Invoke(func() {}))
+	appfx.MustNewApp(fx.Invoke(func() {}))
 }
 
 func testNewAppWithCustomAppTimeouts(t *testing.T) {
 	apptest.Setenv(apptest.StartTimeout, "30s")
 	apptest.Setenv(apptest.StopTimeout, "60s")
-	fxapp := appfx.MustNew(fx.Invoke(func() {}))
+	fxapp := appfx.MustNewApp(fx.Invoke(func() {}))
 	if fxapp.StartTimeout() != 30*time.Second {
 		t.Error("StartTimeout did not match the default")
 	}
@@ -116,7 +116,7 @@ func testNewAppWithDefaultSettings(t *testing.T) {
 	// When the fx.App is created
 	var desc app.Desc
 	var instanceID app.InstanceID
-	fxapp := appfx.MustNew(
+	fxapp := appfx.MustNewApp(
 		fx.Populate(&desc),
 		fx.Populate(&instanceID),
 		fx.Invoke(logTestEvents),
@@ -255,7 +255,7 @@ func TestAppLifecycleEvents(t *testing.T) {
 
 	// Given that the app log is captured
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(logTestEvents))
+	fxapp := appfx.MustNewApp(fx.Invoke(logTestEvents))
 
 	// When the app is started
 	if e := fxapp.Start(context.Background()); e != nil {
@@ -352,7 +352,7 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(func() error {
+	fxapp := appfx.MustNewApp(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return TestErr1.New()
 	}))
@@ -419,7 +419,7 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(func() error {
+	fxapp := appfx.MustNewApp(fx.Invoke(func() error {
 		t.Log("test func has been invoked ...")
 		return errors.New("non standard error")
 	}))
@@ -486,7 +486,7 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(func(lc fx.Lifecycle) error {
+	fxapp := appfx.MustNewApp(fx.Invoke(func(lc fx.Lifecycle) error {
 		t.Log("test func has been invoked ...")
 		lc.Append(fx.Hook{
 			OnStart: func(context.Context) error {
@@ -558,7 +558,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(
+	fxapp := appfx.MustNewApp(
 		// When the app is configured with an OnStop hook that will fail
 		fx.Invoke(func(lc fx.Lifecycle) error {
 			t.Log("test func has been invoked ...")
@@ -617,7 +617,7 @@ func TestApp_Run(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(
+	fxapp := appfx.MustNewApp(
 		// And the app will stop itself right after it starts
 		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 			lc.Append(fx.Hook{
@@ -655,7 +655,7 @@ func TestErrRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.MustNewApp(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
 
 		// all of the standard app errors should be registered
@@ -700,7 +700,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	}()
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+	fxapp := appfx.MustNewApp(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 
 		// all of the standard app events should be registered
@@ -744,7 +744,7 @@ func testDescNotDefinedInEnv(t *testing.T) {
 		}
 	}()
 	apptest.ClearAppEnvSettings()
-	appfx.MustNew(fx.Invoke(func() {}))
+	appfx.MustNewApp(fx.Invoke(func() {}))
 }
 
 type RandomNumberGenerator func() int
@@ -817,7 +817,7 @@ func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	}))
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNew(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
+	fxapp := appfx.MustNewApp(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
 		// triggers the comp.Registry to be constructed, which should then trigger the error when comps register
 		l.Info().Msgf("%v", r.Comps())
 	}))
@@ -834,7 +834,7 @@ func testEmptyComponentRegistry(t *testing.T) {
 	apptest.InitEnv()
 	// When the app is created with no components
 	var compRegistry *comp.Registry
-	fxapp := appfx.MustNew(fx.Populate(&compRegistry))
+	fxapp := appfx.MustNewApp(fx.Populate(&compRegistry))
 	// Then the app starts up just fine
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Errorf("failed to start app: %v", e)
@@ -869,7 +869,7 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 
 	// When the app is created with the 2 components
 	var compRegistry *comp.Registry
-	fxapp := appfx.MustNew(
+	fxapp := appfx.MustNewApp(
 		foo.FxOptions(),
 		bar.FxOptions(),
 		fx.Populate(&compRegistry),

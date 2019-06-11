@@ -102,9 +102,14 @@ func CheckDescsAreEqual(t *testing.T, desc, expected app.Desc) {
 	if desc.Name != expected.Name {
 		t.Errorf("Name did not match: %s != %s", desc.Name, expected.Name)
 	}
-	if !(*semver.Version)(desc.Version).Equal((*semver.Version)(expected.Version)) {
-		t.Errorf("Version did not match: %s != %s", (*semver.Version)(desc.Version), (*semver.Version)(expected.Version))
+	if desc.Version != nil {
+		if !(*semver.Version)(desc.Version).Equal((*semver.Version)(expected.Version)) {
+			t.Errorf("Version did not match: %s != %s", (*semver.Version)(desc.Version), (*semver.Version)(expected.Version))
+		}
+	} else {
+		t.Error("Version did not match: version is nil")
 	}
+
 	if desc.ReleaseID != expected.ReleaseID {
 		t.Errorf("ReleaseID did not match: %s != %s", desc.ReleaseID, expected.ReleaseID)
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
+	"io"
 	"log"
 	"strings"
 	"time"
@@ -78,7 +79,7 @@ func (a *App) Run() error {
 	return nil
 }
 
-// MustNew constructs a new fx.App with the specified options.
+// MustNewApp constructs a new fx.App with the specified options.
 //
 // The app is pre-configured with the following options:
 //   - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
@@ -95,11 +96,19 @@ func (a *App) Run() error {
 //   - fx.ErrorHandler is registered to log invoke errors
 //
 // NOTE: Only `provide` and `invoke` options should be specified. `populate` options are useful for unit testing.
-func MustNew(opt fx.Option, opts ...fx.Option) *App {
+func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
 	desc := mustLoadDesc()
 	timeouts := mustLoadAppStartStopTimeouts()
+
+	//fxapp, e := NewApp(desc, timeouts)
+	//if e != nil {
+	//	log.Panic(e)
+	//}
+	//
+	//return fxapp
+
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger := initLogging(instanceID, desc)
+	logger := mustInitLogging(instanceID, desc)
 
 	appOptions := []fx.Option{
 		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
@@ -130,6 +139,49 @@ func MustNew(opt fx.Option, opts ...fx.Option) *App {
 		App:    fx.New(appOptions...),
 		logger: logger,
 	}
+}
+
+func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, opts ...fx.Option) (*App, error) {
+	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
+	logger, e := initLogging(instanceID, desc)
+	if e != nil {
+		return nil, e
+	}
+	if logWriter != nil {
+		customLogger := logger.Output(logWriter)
+		logger = &customLogger
+	}
+
+	appOptions := []fx.Option{
+		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
+
+		fx.StartTimeout(timeouts.StartTimeout),
+		fx.StopTimeout(timeouts.StopTimeout),
+
+		fx.Provide(
+			func() app.Desc { return desc },
+			func() app.InstanceID { return instanceID },
+			func() *zerolog.Logger { return logger },
+			newErrorRegistry,
+			newEventRegistry,
+			provideCompRegistry,
+		),
+
+		fx.Logger(logger),
+		fx.ErrorHook(newErrLogger(logger)),
+
+		// application specific options
+		fx.Options(opts...),
+
+		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
+	}
+
+	fxapp := &App{
+		App:    fx.New(appOptions...),
+		logger: logger,
+	}
+
+	return fxapp, nil
 }
 
 func mustLoadAppStartStopTimeouts() app.Timeouts {
@@ -164,13 +216,22 @@ func mustLoadDesc() app.Desc {
 }
 
 // panics if an error occurs while trying to configure zerolog
-func initLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
+func mustInitLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
 	logger := logcfg.NewLogger(instanceID, desc)
 	if e := logcfg.ConfigureZerolog(); e != nil {
 		log.Panicf("logcfg.ConfigureZerolog() failed: %v", e)
 	}
 	logcfg.UseAsStandardLoggerOutput(logger)
 	return logger
+}
+
+func initLogging(instanceID app.InstanceID, desc app.Desc) (*zerolog.Logger, error) {
+	logger := logcfg.NewLogger(instanceID, desc)
+	if e := logcfg.ConfigureZerolog(); e != nil {
+		return nil, e
+	}
+	logcfg.UseAsStandardLoggerOutput(logger)
+	return logger, nil
 }
 
 func registerStartStoppedLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
