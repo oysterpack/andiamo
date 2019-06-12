@@ -42,6 +42,13 @@ func (r *EventRegistry) Register(event ...*Event) {
 	}
 }
 
+// Count returns the number of registered events
+func (r *EventRegistry) Count() int {
+	r.m.RLock()
+	defer r.m.RUnlock()
+	return len(r.events)
+}
+
 // Registered returns true is the event is already registered.
 func (r *EventRegistry) Registered(event *Event) bool {
 	r.m.RLock()

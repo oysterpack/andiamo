@@ -266,23 +266,13 @@ type components struct {
 	Comps []*comp.Comp `group:"comp.Registry"`
 }
 
-//func provideCompRegistry(comps components, logger *zerolog.Logger) (*comp.Registry, error) {
-//	registry := comp.NewRegistry()
-//	for _, c := range comps.Comps {
-//		if e := registry.Register(c); e != nil {
-//			return nil, e
-//		}
-//		logCompRegisteredEvent(c, logger)
-//	}
-//	return registry, nil
-//}
-
-func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger) error {
+func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger, eventRegistry *logging.EventRegistry) error {
 	for _, c := range comps.Comps {
 		if e := registry.Register(c); e != nil {
 			return e
 		}
 		logCompRegisteredEvent(c, logger)
+		eventRegistry.Register(c.EventRegistry.Events()...)
 	}
 	return nil
 }

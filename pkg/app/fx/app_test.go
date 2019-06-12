@@ -793,7 +793,6 @@ func TestCompRegistryIsProvided(t *testing.T) {
 	t.Run("with 0 comps injected", testEmptyComponentRegistry)
 
 	t.Run("with duplicate comps injected", testComponentRegistryWithDuplicateComps)
-
 }
 
 func testComponentRegistryWithDuplicateComps(t *testing.T) {
@@ -856,12 +855,17 @@ func testEmptyComponentRegistry(t *testing.T) {
 func testCompRegistryWithCompsRegistered(t *testing.T) {
 	apptest.InitEnv()
 
+	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+
 	// Given 2 components
 	foo := FooComp.MustNewComp(
 		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
 			return rand.Int
 		}),
 	)
+	// And the component has events
+	foo.EventRegistry.Register(event1, event2)
 	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
 		return func() string { return "greetings" }
 	}))
@@ -877,10 +881,12 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 
 	// When the app is created with the 2 components
 	var compRegistry *comp.Registry
+	var eventRegistry *logging.EventRegistry
 	fxapp := appfx.MustNewApp(
 		foo.FxOptions(),
 		bar.FxOptions(),
 		fx.Populate(&compRegistry),
+		fx.Populate(&eventRegistry),
 	)
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Errorf("failed to start app: %v", e)
@@ -892,6 +898,13 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	}
 	if compRegistry.FindByID(bar.ID) == nil {
 		t.Error("bar component was not found in the registry")
+	}
+
+	if !eventRegistry.Registered(event1) {
+		t.Error("event1 is not registered")
+	}
+	if !eventRegistry.Registered(event2) {
+		t.Error("event2 is not registered")
 	}
 
 	if e := fxapp.Stop(context.Background()); e != nil {

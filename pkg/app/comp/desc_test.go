@@ -22,7 +22,9 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
+	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
+	"github.com/rs/zerolog"
 	"reflect"
 	"testing"
 )
@@ -189,4 +191,31 @@ func TestDesc_MustNewComp(t *testing.T) {
 		}
 		desc.MustNewComp(invalidOptions...)
 	})
+}
+
+func TestDesc_EventRegistry(t *testing.T) {
+	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+
+	type Foo func()
+	optionDesc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))
+
+	compDesc := comp.MustNewDesc(
+		comp.ID(ulidgen.MustNew().String()),
+		comp.Name("foo"),
+		comp.Version("0.1.0"),
+		Package,
+		optionDesc,
+	)
+	compDesc.EventRegistry.Register(
+		event1,
+		event2,
+		// dup events will get deduped
+		event1,
+		event2,
+	)
+
+	if len(compDesc.EventRegistry.Events()) != 2 {
+		t.Errorf("unexpected number of events")
+	}
 }

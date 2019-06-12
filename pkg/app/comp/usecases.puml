@@ -8,22 +8,27 @@ actor App
 actor Comp
 actor Registry
 
-App ...> Comp
+App ..> Comp
 App ..> Registry
-Registry  ..>Comp
+Registry ..>Comp
 
 usecase COMP_DESC as "
-Get descriptor
+Has descriptor
 ---
 ID
 Name
 Version
 Package
-Option descriptors
+Option descs
+Events
 "
 
 usecase COMP_OPTIONS as "
-Get options
+Has options
+"
+
+usecase COMP_EVENT_REGISTRY as "
+Has event registry
 "
 
 note as COMP_NAME_NOTE
@@ -44,11 +49,12 @@ COMP_OPTIONS .. COMP_OPTIONS_NOTE
 COMP_DESC .. COMP_OPTION_DESCS_NOTE
 COMP_OPTIONS_NOTE=.COMP_OPTION_DESCS_NOTE
 
-usecase COMP_LOGGER as "Get comp logger"
+usecase COMP_LOGGER as "Has logger"
 
 Comp --> COMP_DESC
 Comp --> COMP_OPTIONS
 Comp --> COMP_LOGGER
+Comp --> COMP_EVENT_REGISTRY
 COMP_DESC .. COMP_NAME_NOTE
 
 usecase REGISTER_COMP as "Register comp"
@@ -65,9 +71,15 @@ usecase GET_ALL_COMPS as "
 Get all
 registered comps"
 
+usecase AUTO_REGISTER_EVENTS as "
+Registers comp events with
+the app event registry
+"
+
 Registry --> REGISTER_COMP
 Registry --> GET_COMP_BY_ID
 Registry --> GET_COMP_BY_NAME
 Registry --> GET_ALL_COMPS
-
+App --> AUTO_REGISTER_EVENTS
+AUTO_REGISTER_EVENTS .> Registry
 @enduml

@@ -32,7 +32,8 @@ type Desc struct {
 	Name string
 	*semver.Version
 	app.Package
-	OptionDescs []option.Desc
+	OptionDescs   []option.Desc
+	EventRegistry *logging.EventRegistry
 }
 
 func (d *Desc) String() string {
@@ -116,10 +117,11 @@ func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...
 	}
 
 	desc := &Desc{
-		ID:      id.MustParse(),
-		Name:    name.String(),
-		Version: version.MustParse(),
-		Package: pkg,
+		ID:            id.MustParse(),
+		Name:          name.String(),
+		Version:       version.MustParse(),
+		Package:       pkg,
+		EventRegistry: logging.NewEventRegistry(),
 	}
 
 	// verify that option types are unique

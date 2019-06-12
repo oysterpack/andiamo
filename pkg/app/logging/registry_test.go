@@ -82,6 +82,10 @@ func TestEventRegistry_Filter(t *testing.T) {
 	registry := logging.NewEventRegistry()
 	registry.Register(FooEvent, BarEvent, FooBarEvent)
 
+	if registry.Count() != 3 {
+		t.Errorf("count should be 3 but was %d", registry.Count())
+	}
+
 	events := registry.Filter(func(event *logging.Event) bool {
 		return event.Level >= zerolog.WarnLevel
 	})
