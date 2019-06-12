@@ -30,8 +30,7 @@ type Event struct {
 	Name string
 	// Level is required
 	zerolog.Level
-	// Tags are optional. They are used to organize and categorize events.
-	// If there are no tags, then it is implied that the event is an application level event.
+	// Tags are used to organize and group related events.
 	Tags []string
 }
 

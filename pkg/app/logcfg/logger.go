@@ -24,6 +24,7 @@ import (
 )
 
 // NewLogger constructs a new timestamped Logger with standardized fields.
+// The logger writes to stderr.
 //
 // Example log message:
 //

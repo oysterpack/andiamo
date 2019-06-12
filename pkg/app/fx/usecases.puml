@@ -6,7 +6,7 @@ skinparam usecase {
 
 actor :App : as APP
 
-usecase APP_TIMEOUTS << envconfig >> as "Application start and stop timeouts
+usecase APP_TIMEOUTS << envconfig >> as "app start and stop timeouts
 are loaded from env vars"
 
 note bottom of APP_TIMEOUTS {
@@ -23,7 +23,7 @@ APPX12_LOG_GLOBAL_LEVEL
 APPX12_LOG_DISABLE_SAMPLING
 }
 
-usecase LOG_APP_DESC as "Standard fields are logged
+usecase LOG_APP_DESC as "standard fields are logged
 with each event"
 
 note bottom of LOG_APP_DESC {
@@ -31,19 +31,18 @@ note bottom of LOG_APP_DESC {
 - app.InstanceID
 }
 
-usecase LOG_TIMESTAMP as "Log event timestamps are
+usecase LOG_TIMESTAMP as "log event timestamps are
 logged in UNIX time"
 
-usecase LOG_DURATION as "Log event time.Duration fields
+usecase LOG_DURATION as "log event time.Duration fields
 are logged in millisecs"
 
-usecase LOG_ERROR_STACK_MARSHALLER as "Error stack marshalling
+usecase LOG_ERROR_STACK_MARSHALLER as "error stack marshalling
 is supported"
 
 usecase GO_LOGGING as "zerolog is used as go
 standard logger output"
 
-usecase DEPENDENCY_INJECTION << Provide >> as "Dependency injection"
 usecase PROVIDE_APP_DESC << Provide >> as "app.Desc"
 
 note top of PROVIDE_APP_DESC {
@@ -67,31 +66,34 @@ unique instance ID upon starting up
 usecase PROVIDE_LOGGER << Provide >> as "*zerolog.Logger"
 usecase PROVIDE_ERR_REGISTRY << Provide >> as "*err.Registry"
 usecase PROVIDE_EVENT_REGISTRY << Provide >> as "*logging.EventRegistry"
+usecase PROVIDE_COMP_REGISTRY << Provide >> as "*comp.Registry"
 
 
-DEPENDENCY_INJECTION .up.> PROVIDE_APP_DESC
-DEPENDENCY_INJECTION .up.> PROVIDE_APP_INSTANCE_ID
-DEPENDENCY_INJECTION .up.> PROVIDE_LOGGER
-DEPENDENCY_INJECTION .up.> PROVIDE_ERR_REGISTRY
-DEPENDENCY_INJECTION .up.> PROVIDE_EVENT_REGISTRY
+APP .up.> PROVIDE_APP_DESC
+APP .up.> PROVIDE_APP_INSTANCE_ID
+APP .up..> PROVIDE_LOGGER
+APP .up..> PROVIDE_ERR_REGISTRY
+APP .up..> PROVIDE_EVENT_REGISTRY
+APP .up..> PROVIDE_COMP_REGISTRY
 
 usecase LOG_APP_LIFECYCLE_EVENTS as "App lifecycle
 events are logged
 ---
 Start
 Running
+StopSignal
 Stop
 Stopped"
 
-usecase LOG_APP_INVOKE_ERRORS as "App func invocation errors
+usecase LOG_APP_INVOKE_ERRORS as "app func invoke errors
 are logged"
 
-usecase LOG_APP_START_STOP_ERRORS as "App start/stop
+usecase LOG_APP_START_STOP_ERRORS as "app start/stop
 errors are logged"
 
-usecase LOG_STOP_SIGNAL_EVENT as "App stop os.Signal is logged"
+usecase LOG_STOP_SIGNAL_EVENT as "app stop os.Signal is logged"
 
-usecase APP_STOP_SIGNALS as "Listens for stop signals
+usecase APP_STOP_SIGNALS as "listens for stop signals
 ---
 SIGINT
 SIGTERM
@@ -108,7 +110,6 @@ APP_LOGGING ....> LOG_STOP_SIGNAL_EVENT
 APP_LOGGING ... LOG_ERROR_STACK_MARSHALLER
 
 
-APP -up-> DEPENDENCY_INJECTION
 APP --> APP_TIMEOUTS
 APP --> APP_LOGGING
 

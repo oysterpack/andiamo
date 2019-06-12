@@ -1,0 +1,34 @@
+@startuml
+
+package "go.uber.org/fx" {
+[App]
+[Option]
+}
+
+package "github.com/oysterpack/partire-k8s/app" {
+[Desc]
+[InstanceID]
+
+[*comp.Comp]
+[*comp.Registry]
+
+[*logging.EventRegistry]
+[*err.Registry]
+}
+
+package "github.com/rs/zerolog" {
+[*Logger]
+}
+
+[App] --> [Option]
+
+[Option] ..> [Desc]
+[Option] ..> [InstanceID]
+[Option] ...> [*Logger]
+[Option] ...> [*comp.Registry]
+[Option] ...> [*logging.EventRegistry]
+[Option] ...> [*err.Registry]
+
+[*comp.Registry] --> [*comp.Comp]
+
+@enduml
