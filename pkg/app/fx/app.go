@@ -200,10 +200,10 @@ func mustLoadDesc() app.Desc {
 }
 
 func initLogging(instanceID app.InstanceID, desc app.Desc) (*zerolog.Logger, error) {
-	logger := logcfg.NewLogger(instanceID, desc)
 	if e := logcfg.ConfigureZerolog(); e != nil {
 		return nil, e
 	}
+	logger := logcfg.NewLogger(instanceID, desc)
 	logcfg.UseAsStandardLoggerOutput(logger)
 	return logger, nil
 }

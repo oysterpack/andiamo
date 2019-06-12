@@ -16,6 +16,37 @@
 
 package logging
 
+import (
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/pkgerrors"
+	"time"
+)
+
+// Applies standard zerolog initialization.
+//
+// - configures the standard logger field names defined by `Field`
+//   - Timestamp
+//   - Level
+//	 - Message
+//   - Error
+//   - Stack
+// - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
+// - duration field unit is set to millisecond
+// - stack marshaller is set
+func init() {
+	zerolog.TimestampFieldName = string(Timestamp)
+	zerolog.LevelFieldName = string(Level)
+	zerolog.MessageFieldName = string(Message)
+	zerolog.ErrorFieldName = string(Error)
+	zerolog.ErrorStackFieldName = string(Stack)
+
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	zerolog.DurationFieldUnit = time.Millisecond
+	zerolog.DurationFieldInteger = true
+
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+}
+
 // Field is used to define log event fields used for structured logging.
 type Field string
 
