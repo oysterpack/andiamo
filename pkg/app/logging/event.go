@@ -39,7 +39,7 @@ func (e Event) String() string {
 }
 
 // Equals returns true if the 2 events are equal.
-func (e Event) Equals(e2 Event) bool {
+func (e Event) Equals(e2 *Event) bool {
 	if e.Name != e2.Name {
 		return false
 	}
@@ -64,7 +64,7 @@ func (e Event) Equals(e2 Event) bool {
 // NewEvent constructs a new Event.
 //
 // Tags will be trimmed, lowercased, deduped, and sorted.
-func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
+func NewEvent(name string, level zerolog.Level, tags ...Tag) *Event {
 	var tagSlice []string
 	if len(tags) > 0 {
 		// dedupe the tags
@@ -79,7 +79,7 @@ func NewEvent(name string, level zerolog.Level, tags ...Tag) Event {
 		}
 		sort.Strings(tagSlice)
 	}
-	return Event{
+	return &Event{
 		Name:  name,
 		Level: level,
 		Tags:  tagSlice,

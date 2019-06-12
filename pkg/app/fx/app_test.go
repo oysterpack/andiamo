@@ -710,7 +710,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 		logger.Info().Msgf("registered events: %v", registry.Events())
 
 		// all of the standard app events should be registered
-		events := []logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal, appfx.CompRegistered}
+		events := []*logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal, appfx.CompRegistered}
 		for _, e := range events {
 			if !registry.Registered(e) {
 				t.Errorf("event is not registered: %v", e)

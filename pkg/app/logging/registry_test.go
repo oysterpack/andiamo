@@ -32,7 +32,7 @@ func TestEventRegistry(t *testing.T) {
 		FooEvent = logging.NewEvent("foo", zerolog.WarnLevel, TagA, TagB)
 		BarEvent = logging.NewEvent("bar", zerolog.ErrorLevel)
 
-		expectedEvents = []logging.Event{FooEvent, BarEvent}
+		expectedEvents = []*logging.Event{FooEvent, BarEvent}
 	)
 
 	registry := logging.NewEventRegistry()
@@ -82,7 +82,7 @@ func TestEventRegistry_Filter(t *testing.T) {
 	registry := logging.NewEventRegistry()
 	registry.Register(FooEvent, BarEvent, FooBarEvent)
 
-	events := registry.Filter(func(event logging.Event) bool {
+	events := registry.Filter(func(event *logging.Event) bool {
 		return event.Level >= zerolog.WarnLevel
 	})
 	if len(events) != 2 {
