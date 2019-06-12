@@ -39,4 +39,5 @@ var (
 	AppBuilderErrClass = err.NewDesc("01DD1WNC0F0HR51S2TBAR8NC8P", "OptionsRequiredErr", "failed to build app")
 	OptionsRequiredErr = err.New(AppBuilderErrClass, "01DD1WS6DSKX01FRFYN6D0WXGM")
 	InvalidDescErr     = err.New(AppBuilderErrClass, "01DD3168A74BGBA08K2DNWMKW6")
+	InvalidTimeoutsErr = err.New(AppBuilderErrClass, "01DD6GBYKPMX897TABAWR0ZCJW")
 )

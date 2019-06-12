@@ -121,7 +121,7 @@ func (b *AppBuilder) Build() (*App, error) {
 
 	timeouts, e := app.LoadTimeouts()
 	if e != nil {
-		return nil, e
+		return nil, InvalidTimeoutsErr.CausedBy(e)
 	}
 	if b.startTimeout != 0 {
 		timeouts.StartTimeout = b.startTimeout

@@ -100,48 +100,15 @@ func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
 	desc := mustLoadDesc()
 	timeouts := mustLoadAppStartStopTimeouts()
 
-	//fxapp, e := NewApp(desc, timeouts)
-	//if e != nil {
-	//	log.Panic(e)
-	//}
-	//
-	//return fxapp
-
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger := mustInitLogging(instanceID, desc)
-
-	appOptions := []fx.Option{
-		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
-
-		fx.StartTimeout(timeouts.StartTimeout),
-		fx.StopTimeout(timeouts.StopTimeout),
-
-		fx.Provide(
-			func() app.Desc { return desc },
-			func() app.InstanceID { return instanceID },
-			func() *zerolog.Logger { return logger },
-			newErrorRegistry,
-			newEventRegistry,
-			comp.NewRegistry,
-		),
-
-		fx.Logger(logger),
-		fx.ErrorHook(newErrLogger(logger)),
-
-		// application specific options
-		opt,
-		fx.Options(opts...),
-		fx.Invoke(registerComponents),
-
-		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
+	var appOptions fx.Option
+	if len(opts) > 0 {
+		appOptions = fx.Options(opts...)
+		appOptions = fx.Options(opt, appOptions)
+	} else {
+		appOptions = opt
 	}
-
-	fxapp := &App{
-		App:    fx.New(appOptions...),
-		logger: logger,
-	}
-
-	if e := fxapp.Err(); e != nil {
+	fxapp, e := NewApp(desc, timeouts, nil, zerolog.NoLevel, appOptions)
+	if e != nil {
 		log.Panic(e)
 	}
 
@@ -230,16 +197,6 @@ func mustLoadDesc() app.Desc {
 		log.Panicf("failed to load app.Desc: %v", e)
 	}
 	return desc
-}
-
-// panics if an error occurs while trying to configure zerolog
-func mustInitLogging(instanceID app.InstanceID, desc app.Desc) *zerolog.Logger {
-	logger := logcfg.NewLogger(instanceID, desc)
-	if e := logcfg.ConfigureZerolog(); e != nil {
-		log.Panicf("logcfg.ConfigureZerolog() failed: %v", e)
-	}
-	logcfg.UseAsStandardLoggerOutput(logger)
-	return logger
 }
 
 func initLogging(instanceID app.InstanceID, desc app.Desc) (*zerolog.Logger, error) {

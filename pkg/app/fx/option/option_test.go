@@ -47,6 +47,7 @@ func TestDesc(t *testing.T) {
 	if e != nil {
 		t.Fatalf("Failed to bind the func to the Desc: %v", e)
 	}
+	t.Log(fooOption.String())
 
 	barOption := bar.NewOption(func(greeter Greeter) {
 		t.Logf("greeting: %s", greeter())

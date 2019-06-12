@@ -63,47 +63,61 @@ func TestRegistry_Register(t *testing.T) {
 	}
 
 	t.Run("register conflicting Err", func(t *testing.T) {
-		// Given an Err is already registered
-
-		// When we try to register a new Err that reuses the same Err.SrcID that is already registered but with a different Desc.ID
-		e := registry.Register(err.New(DGraphQueryTimeoutErr1.Desc, InvalidRequestErr2.SrcID.String()))
-		// Then an the Err registration fails
-		if e == nil {
-			t.Error("Err registration should have failed because InvalidRequestErr2 is already registered, but with a different Desc.ID")
-		} else {
-			switch e := e.(type) {
-			case *err.Instance:
-				t.Logf("%v", e)
-			default:
-				t.Errorf("unexpected error type: %T: %[1]1v", e)
-			}
-		}
+		testRegisterConflictingErr(t, registry)
 	})
 
-	t.Run("register the same error again", func(t *testing.T) {
-		InvalidRequestErr3 := err.New(InvalidRequestErr2.Desc, ulidgen.MustNew().String())
+	t.Run("register duplicate error", func(t *testing.T) {
+		testRegisterDupError(t, registry)
+	})
 
-		registeredErrCount := registry.Size()
-
-		// When the same error is registered
-		e := registry.Register(InvalidRequestErr1,
-			InvalidRequestErr2,
-			InvalidRequestErr3,
-			DGraphQueryTimeoutErr1)
-		// Then it succeeds as a noop
-		if e != nil {
-			t.Error(e)
-		} else {
-			expectedCount := registeredErrCount + 1
-			t.Log(registry.Errs())
-			if len(registry.Errs()) != expectedCount {
-				t.Errorf("registered error count (%v) should be %d", registry.Size(), expectedCount)
-			}
-			if !registry.Registered(InvalidRequestErr3.SrcID) {
-				t.Errorf("InvalidRequestErr3 is not registered - registered Errs = %v", registry.Errs())
-			}
+	t.Run("lookup unregistered error", func(t *testing.T) {
+		if registry.Registered(ulidgen.MustNew()) {
+			t.Error("error should not be registered for a random ULID")
 		}
 	})
+}
+
+func testRegisterDupError(t *testing.T, registry *err.Registry) {
+	InvalidRequestErr3 := err.New(InvalidRequestErr2.Desc, ulidgen.MustNew().String())
+
+	registeredErrCount := registry.Size()
+
+	// When the same error is registered
+	e := registry.Register(InvalidRequestErr1,
+		InvalidRequestErr2,
+		InvalidRequestErr3,
+		DGraphQueryTimeoutErr1)
+	// Then it succeeds as a noop
+	if e != nil {
+		t.Error(e)
+	} else {
+		expectedCount := registeredErrCount + 1
+		t.Log(registry.Errs())
+		if len(registry.Errs()) != expectedCount {
+			t.Errorf("registered error count (%v) should be %d", registry.Size(), expectedCount)
+		}
+		if !registry.Registered(InvalidRequestErr3.SrcID) {
+			t.Errorf("InvalidRequestErr3 is not registered - registered Errs = %v", registry.Errs())
+		}
+	}
+}
+
+func testRegisterConflictingErr(t *testing.T, registry *err.Registry) {
+	// Given an Err is already registered
+
+	// When we try to register a new Err that reuses the same Err.SrcID that is already registered but with a different Desc.ID
+	e := registry.Register(err.New(DGraphQueryTimeoutErr1.Desc, InvalidRequestErr2.SrcID.String()))
+	// Then an the Err registration fails
+	if e == nil {
+		t.Error("Err registration should have failed because InvalidRequestErr2 is already registered, but with a different Desc.ID")
+	} else {
+		switch e := e.(type) {
+		case *err.Instance:
+			t.Logf("%v", e)
+		default:
+			t.Errorf("unexpected error type: %T: %[1]1v", e)
+		}
+	}
 }
 
 func TestRegistry_Read(t *testing.T) {

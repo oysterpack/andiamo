@@ -62,3 +62,9 @@ func TestComponentLogger(t *testing.T) {
 		t.Errorf("log event component name did not match: %v", logEvent.Component)
 	}
 }
+
+func TestField_String(t *testing.T) {
+	if logging.ID.String() != string(logging.ID) {
+		t.Errorf("Field.String() should simply return the Field as a string: %s", logging.ID.String())
+	}
+}

@@ -44,6 +44,7 @@ type InvokeFooBar func(lc fx.Lifecycle, foo Foo, bar Bar, logger *zerolog.Logger
 type Greeter func() string
 type ProvideGreeter func() Greeter
 
+// Component options
 var (
 	ProvideFooOption   = option.NewDesc(option.Provide, reflect.TypeOf(ProvideFoo(nil)))
 	ProvideBarOption   = option.NewDesc(option.Provide, reflect.TypeOf(ProvideBar(nil)))
@@ -52,7 +53,7 @@ var (
 	ProvideGreeterOption = option.NewDesc(option.Provide, reflect.TypeOf(ProvideGreeter(nil)))
 )
 
-// component descriptors
+// Component descriptors
 var (
 	FooBar = comp.MustNewDesc(
 		comp.ID("01DCY6DYT9CMQCAY89W42HWBGG"),

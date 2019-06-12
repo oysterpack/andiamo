@@ -43,18 +43,51 @@ func TestAppBuilder(t *testing.T) {
 	// Given no app.Desc
 	// Then the app will fail to build
 	t.Run("build app with no app.Desc specified and env vars not set", testBuildAppWithNoAppDescAndEnvVarsNotSet)
-	// Given an invalid app.Desc
-	// Then the app will fail to build
-	t.Run("build app with invalid app.Desc", testBuildAppWithInvalidAppDesc)
 
 	t.Run("build app using components", testBuildAppUsingComps)
-	t.Run("build app using duplicate components", testBuildAppUsingDupComps)
-
 	t.Run("build app specifying timeouts", buildAppSpecifyingTimeouts)
 
 	t.Run("build app with log writer", buildAppWithLogWriter)
 	t.Run("build with global log level", buildWithGlobalLogLevel)
 	t.Run("build with log sampling disabled", buildWithLogSamplingDisabled)
+
+	// error test cases
+	t.Run("build app with invalid app.Desc", testBuildAppWithInvalidAppDesc)
+	t.Run("build app using duplicate components", testBuildAppUsingDupComps)
+	t.Run("build app with no options", testBuildAppWithNoOptions)
+	t.Run("build app with an invalid timeout env setting", buildAppWithInvalidTimeoutEnvSetting)
+}
+
+func buildAppWithInvalidTimeoutEnvSetting(t *testing.T) {
+	apptest.InitEnv()
+
+	apptest.Setenv(apptest.StartTimeout, "INVALID")
+
+	_, e := appfx.NewAppBuilder().
+		Options(fx.Invoke(func() {})).
+		Build()
+	if e == nil {
+		t.Fatal("app should have failed to build because no options or components were specified")
+	}
+
+	appErr := e.(*err.Instance)
+	if appErr.SrcID != appfx.InvalidTimeoutsErr.SrcID {
+		t.Errorf("unexpected error: %v", appErr)
+	}
+}
+
+func testBuildAppWithNoOptions(t *testing.T) {
+	apptest.InitEnv()
+
+	_, e := appfx.NewAppBuilder().Build()
+	if e == nil {
+		t.Fatal("app should have failed to build because no options or components were specified")
+	}
+
+	appErr := e.(*err.Instance)
+	if appErr.SrcID != appfx.OptionsRequiredErr.SrcID {
+		t.Errorf("unexpected error: %v", appErr)
+	}
 }
 
 func buildWithLogSamplingDisabled(t *testing.T) {
@@ -442,10 +475,10 @@ func testRunAppWithMinimalRequired(t *testing.T) {
 		// app.Desc is required
 		AppDesc(desc).
 		// at least 1 option is required
-		Options(fx.Invoke(func(lc fx.Lifecycle, l *zerolog.Logger, s fx.Shutdowner) {
+		Options(fx.Invoke(func(lc fx.Lifecycle, l *zerolog.Logger, appDesc app.Desc, appInstanceID app.InstanceID, s fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
-					l.Info().Msg("shutting down ...")
+					l.Info().Msgf("%v : %v : shutting down ...", appDesc, appInstanceID)
 					if e := s.Shutdown(); e != nil {
 						t.Error(e)
 					}

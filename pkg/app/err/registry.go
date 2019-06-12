@@ -17,6 +17,7 @@
 package err
 
 import (
+	"fmt"
 	"github.com/oklog/ulid"
 	"sync"
 )
@@ -31,14 +32,12 @@ var (
 type Registry struct {
 	m sync.RWMutex
 	// Err.SrcID -> *Err
-	errs map[ulid.ULID]*Err
+	errs []*Err
 }
 
 // NewRegistry is the registry constructor. It automatically registers RegistryConflictErr.
 func NewRegistry() *Registry {
-	registry := &Registry{
-		errs: make(map[ulid.ULID]*Err),
-	}
+	registry := &Registry{}
 	registry.Register(RegistryConflictErr)
 	return registry
 }
@@ -50,12 +49,13 @@ func (r *Registry) Register(errs ...*Err) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 	for _, e := range errs {
-		if registeredErr := r.errs[e.SrcID]; registeredErr != nil {
+		if registeredErr := r.findBySrcID(e.SrcID); registeredErr != nil {
+			// check that the registered error references the same error descriptor
 			if registeredErr.ID != e.ID {
-				return RegistryConflictErr.New()
+				return RegistryConflictErr.CausedBy(fmt.Errorf(""))
 			}
 		} else {
-			r.errs[e.SrcID] = e
+			r.errs = append(r.errs, e)
 		}
 	}
 	return nil
@@ -65,7 +65,17 @@ func (r *Registry) Register(errs ...*Err) error {
 func (r *Registry) Registered(srcID ulid.ULID) bool {
 	r.m.RLock()
 	defer r.m.RUnlock()
-	return r.errs[srcID] != nil
+	return r.registered(srcID)
+}
+
+// Registered returns true if an Err is registered for the specified Err.SrcID
+func (r *Registry) registered(srcID ulid.ULID) bool {
+	for _, e := range r.errs {
+		if e.SrcID == srcID {
+			return true
+		}
+	}
+	return false
 }
 
 // Errs returns all registered Err(s)
@@ -101,6 +111,10 @@ func (r *Registry) Descs() map[ulid.ULID]*Desc {
 func (r *Registry) Filter(filter func(*Err) bool) []*Err {
 	r.m.RLock()
 	defer r.m.RUnlock()
+	return r.filter(filter)
+}
+
+func (r *Registry) filter(filter func(*Err) bool) []*Err {
 	var errs []*Err
 	for _, e := range r.errs {
 		if filter(e) {
@@ -108,4 +122,13 @@ func (r *Registry) Filter(filter func(*Err) bool) []*Err {
 		}
 	}
 	return errs
+}
+
+func (r *Registry) findBySrcID(srcID ulid.ULID) *Err {
+	for _, e := range r.errs {
+		if e.SrcID == srcID {
+			return e
+		}
+	}
+	return nil
 }
