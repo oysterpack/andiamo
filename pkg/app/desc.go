@@ -42,6 +42,10 @@ func (d *Desc) Validate() error {
 		return errors.New("app.Desc.Name is required")
 	}
 
+	if e := d.Name.Validate(); e != nil {
+		return e
+	}
+
 	if d.Version == nil {
 		return errors.New("app.Desc.Version is required")
 	}

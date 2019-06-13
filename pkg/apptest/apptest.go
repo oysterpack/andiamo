@@ -18,7 +18,9 @@
 package apptest
 
 import (
+	"bufio"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
@@ -27,6 +29,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/rs/zerolog"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -263,4 +266,25 @@ type CompInfo struct {
 	ID      string   `json:"i"`
 	Version string   `json:"v"`
 	Options []string `json:"options"`
+}
+
+// CollectLogEvents filters the log stream for events that match against the specified filter
+func CollectLogEvents(t *testing.T, log io.Reader, accept func(*LogEvent) bool) []*LogEvent {
+	scanner := bufio.NewScanner(log)
+	var compRegisteredEvents []*LogEvent
+	for scanner.Scan() {
+		logEventJSON := scanner.Text()
+		t.Log(logEventJSON)
+
+		var logEvent LogEvent
+		e := json.Unmarshal([]byte(logEventJSON), &logEvent)
+		if e != nil {
+			t.Fatal(e)
+		}
+
+		if accept(&logEvent) {
+			compRegisteredEvents = append(compRegisteredEvents, &logEvent)
+		}
+	}
+	return compRegisteredEvents
 }

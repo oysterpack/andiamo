@@ -17,9 +17,19 @@
 package app
 
 import (
+	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
+	"regexp"
+)
+
+var (
+	// name constraints:
+	// - must be alpha-numeric and can contain the following non-alpha-numeric chars: '_' '-'
+	// - must start with an alpha
+	// - min len = 3, max len = 50
+	nameRegex = regexp.MustCompile(`^[[:alpha:]][a-zA-Z0-9_-]{2,49}$`)
 )
 
 // ID is the unique application ID.
@@ -52,6 +62,18 @@ func (id ID) ULID() ulid.ULID {
 // Name is the application name.
 type Name string
 
+func (n Name) Validate() error {
+	if !nameRegex.MatchString(n.String()) {
+		return fmt.Errorf("name failed to match against regex: %q : %q", nameRegex, n)
+	}
+
+	return nil
+}
+
+func (n Name) String() string {
+	return string(n)
+}
+
 // ReleaseID is the application release ID.
 type ReleaseID ulid.ULID
 
@@ -80,6 +102,8 @@ func (id *ReleaseID) Decode(value string) error {
 }
 
 // Version represents the app version
+//
+// NOTE: type alias was created in order to implement envconfig.Decoder interface
 type Version semver.Version
 
 // Decode implements the envconfig.Decoder interface

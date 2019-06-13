@@ -57,6 +57,12 @@ APPX12_VERSION
 APPX12_RELEASE_ID
 }
 
+note as NAME_REGEX
+name regex: `^[[[[:alpha:]]]][a-zA-Z0-9_]{2,49}$`
+end note
+
+PROVIDE_APP_DESC . NAME_REGEX
+
 usecase PROVIDE_APP_INSTANCE_ID << Provide >> as "app.InstanceID"
 
 note top of PROVIDE_APP_INSTANCE_ID  {

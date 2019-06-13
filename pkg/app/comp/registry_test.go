@@ -31,76 +31,82 @@ const (
 func TestRegistry_Register(t *testing.T) {
 	t.Parallel()
 
-	t.Run("register comp", func(t *testing.T) {
-		registry := comp.NewRegistry()
-		// Given a component is registered
-		foo := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
-		bar := NewComp(t, "01DCQ6ZSVE7D7G6VRVDAECJJWF", "bar", "0.0.1")
-		for _, c := range []*comp.Comp{foo, bar} {
-			if e := registry.Register(c); e != nil {
-				t.Fatalf("Failed to register component: %v", e)
-			}
-		}
+	t.Run("register comp", testRegistry_Register_ValidScenario)
 
-		for _, c := range []*comp.Comp{foo, bar} {
-			// Then it can be retrieved from the registry by ID
-			if cc := registry.FindByID(c.ID); cc == nil {
-				t.Error("component was not found by the registry")
-			} else {
-				t.Log(cc)
-				if c.ID != cc.ID {
-					t.Errorf("The comp returned has a different ID: %v != %v", c.ID, cc.ID)
-				}
-			}
+	t.Run("registering comp using ID that is already registered", testRegistry_Register_CompIDAlreadyRegistered)
 
-			// And it can be retrieved from the registry by name
-			if cc := registry.FindByName(c.Name); cc == nil {
-				t.Error("component was not found by the registry")
-			} else {
-				t.Log(cc)
-				if c.ID != cc.ID && c.Name == cc.Name {
-					t.Errorf("The comp returned has a different ID: %v != %v", c.ID, cc.ID)
-				}
-			}
-		}
-	})
+	t.Run("registering comp using a name that is already registered", testRegistry_Register_CompNameAlreadyRegistered)
 
-	t.Run("registering comp using ID that is already registered", func(t *testing.T) {
-		registry := comp.NewRegistry()
-		c := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
+}
+
+func testRegistry_Register_CompIDAlreadyRegistered(t *testing.T) {
+	registry := comp.NewRegistry()
+	c := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
+	if e := registry.Register(c); e != nil {
+		t.Fatalf("Failed to register component: %v", e)
+	}
+	if e := registry.Register(c); e == nil {
+		t.Error("registration should have failed")
+	} else {
+		t.Log(e)
+	}
+}
+
+func testRegistry_Register_CompNameAlreadyRegistered(t *testing.T) {
+	registry := comp.NewRegistry()
+	// Given a comp is registered
+	c1 := NewComp(t, ulidgen.MustNew().String(), "foo", "0.0.1")
+	if e := registry.Register(c1); e != nil {
+		t.Fatalf("Failed to register component: %v", e)
+	}
+	// When a comp is trying to be registered using a name that is already registered
+	c2 := NewComp(t, ulidgen.MustNew().String(), c1.Name, "0.0.1")
+	if e := registry.Register(c2); e == nil {
+		t.Errorf("registration should have failed: %v", registry.FindByID(c1.ID))
+	} else {
+		// Then registration will fail
+		t.Log(e)
+	}
+	// When a unique comp is registered
+	c3 := NewComp(t, ulidgen.MustNew().String(), ulidgen.MustNew().String(), "0.0.1")
+	// Then it will successfully register
+	if e := registry.Register(c3); e != nil {
+		t.Fatalf("Failed to register component: %v", e)
+	}
+}
+
+func testRegistry_Register_ValidScenario(t *testing.T) {
+	registry := comp.NewRegistry()
+	// Given a component is registered
+	foo := NewComp(t, "01DCQ2NV56WAQD6SDDECZPGB2T", "foo", "0.0.1")
+	bar := NewComp(t, "01DCQ6ZSVE7D7G6VRVDAECJJWF", "bar", "0.0.1")
+	for _, c := range []*comp.Comp{foo, bar} {
 		if e := registry.Register(c); e != nil {
 			t.Fatalf("Failed to register component: %v", e)
 		}
-		if e := registry.Register(c); e == nil {
-			t.Error("registration should have failed")
-		} else {
-			t.Log(e)
-		}
-	})
+	}
 
-	t.Run("registering comp using a name that is already registered", func(t *testing.T) {
-		registry := comp.NewRegistry()
-		// Given a comp is registered
-		c1 := NewComp(t, ulidgen.MustNew().String(), "foo", "0.0.1")
-		if e := registry.Register(c1); e != nil {
-			t.Fatalf("Failed to register component: %v", e)
-		}
-		// When a comp is trying to be registered using a name that is already registered
-		c2 := NewComp(t, ulidgen.MustNew().String(), c1.Name, "0.0.1")
-		if e := registry.Register(c2); e == nil {
-			t.Errorf("registration should have failed: %v", registry.FindByID(c1.ID))
+	for _, c := range []*comp.Comp{foo, bar} {
+		// Then it can be retrieved from the registry by ID
+		if cc := registry.FindByID(c.ID); cc == nil {
+			t.Error("component was not found by the registry")
 		} else {
-			// Then registration will fail
-			t.Log(e)
+			t.Log(cc)
+			if c.ID != cc.ID {
+				t.Errorf("The comp returned has a different ID: %v != %v", c.ID, cc.ID)
+			}
 		}
-		// When a unique comp is registered
-		c3 := NewComp(t, ulidgen.MustNew().String(), ulidgen.MustNew().String(), "0.0.1")
-		// Then it will successfully register
-		if e := registry.Register(c3); e != nil {
-			t.Fatalf("Failed to register component: %v", e)
-		}
-	})
 
+		// And it can be retrieved from the registry by name
+		if cc := registry.FindByName(c.Name); cc == nil {
+			t.Error("component was not found by the registry")
+		} else {
+			t.Log(cc)
+			if c.ID != cc.ID && c.Name == cc.Name {
+				t.Errorf("The comp returned has a different ID: %v != %v", c.ID, cc.ID)
+			}
+		}
+	}
 }
 
 func TestRegistry_FindByID_NotFound(t *testing.T) {

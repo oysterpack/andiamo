@@ -839,6 +839,10 @@ func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	}()
 }
 
+// app components are optional, i.e., in order for an app to run, it requires at least 1 fx.Option
+//
+// When an app is created with no explicit components, but has options defined
+// Then the app starts up fine
 func testEmptyComponentRegistry(t *testing.T) {
 	apptest.InitEnv()
 	// When the app is created with no components
@@ -854,6 +858,11 @@ func testEmptyComponentRegistry(t *testing.T) {
 	t.Logf("registered components: %v", compRegistry.Comps())
 }
 
+// When components are registered
+// And components expose errors and events
+// Then events are logged when the components are registered
+// And the component's events are registered with the app event registry
+// And the component's errors are registered with the app error registry
 func testCompRegistryWithCompsRegistered(t *testing.T) {
 	apptest.InitEnv()
 
@@ -905,11 +914,10 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	}
 
 	// Then the components are registered
-	if compRegistry.FindByID(foo.ID) == nil {
-		t.Error("foo component was not found in the registry")
-	}
-	if compRegistry.FindByID(bar.ID) == nil {
-		t.Error("bar component was not found in the registry")
+	for _, c := range []*comp.Comp{foo, bar} {
+		if compRegistry.FindByID(c.ID) == nil {
+			t.Errorf("*** component was not found in the registry: %v", c)
+		}
 	}
 
 	for _, event := range []*logging.Event{event1, event2} {
@@ -925,28 +933,14 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	}
 
 	if e := fxapp.Stop(context.Background()); e != nil {
-		t.Errorf("failed to start app: %v", e)
+		t.Errorf("*** failed to start app: %v", e)
 	}
 
 	defer func() {
 		checkCompRegisteredEvents := func(t *testing.T, log io.Reader) {
-			scanner := bufio.NewScanner(log)
-			var compRegisteredEvents []*apptest.LogEvent
-			for scanner.Scan() {
-				logEventJSON := scanner.Text()
-				t.Log(logEventJSON)
-
-				var logEvent apptest.LogEvent
-				e := json.Unmarshal([]byte(logEventJSON), &logEvent)
-				if e != nil {
-					t.Fatal(e)
-				}
-
-				if logEvent.Event == appfx.CompRegistered.Name {
-					compRegisteredEvents = append(compRegisteredEvents, &logEvent)
-					t.Logf("comp registered: %v", logEvent.Comp)
-				}
-			}
+			compRegisteredEvents := apptest.CollectLogEvents(t, log, func(logEvent *apptest.LogEvent) bool {
+				return logEvent.Event == appfx.CompRegistered.Name
+			})
 
 			if len(compRegisteredEvents) == 0 {
 				t.Errorf("no %q events were logged", appfx.CompRegistered.Name)
@@ -961,6 +955,8 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	}()
 }
 
+// When components are registered that conflict
+// Then the app construction will fail
 func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
 	appDesc := apptest.InitEnv()
 
