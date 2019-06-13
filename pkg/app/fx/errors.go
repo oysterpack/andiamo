@@ -24,19 +24,19 @@ var (
 	// This is only used to wrap non-standard errors, i.e., whose type is not *err.Instance
 	//
 	// - the error stack is included to help track down where the error came from
-	InvokeErrClass = err.NewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed").WithStacktrace()
+	InvokeErrClass = err.MustNewDesc("01DCFB3H7DDT7PG5WD5MHVSZ25", "InvokeErr", "invoking app function failed").WithStacktrace()
 	InvokeErr      = err.New(InvokeErrClass, "01DCFB4PKEBPEBQNWH7SMDXNAZ")
 
-	AppStartErrClass = err.NewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start")
+	AppStartErrClass = err.MustNewDesc("01DCFMV6VJ6QS9B22Z7Q38EC8V", "AppStartErr", "app failed to start")
 	AppStartErr      = err.New(AppStartErrClass, "01DCFMZ5KHESA1E20C7DHMGS9Y")
 
-	AppStopErrClass = err.NewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStopErr", "app failed to stop cleanly")
+	AppStopErrClass = err.MustNewDesc("01DCFPF53Z0YF0QDM6YW7818JE", "AppStopErr", "app failed to stop cleanly")
 	AppStopErr      = err.New(AppStopErrClass, "01DCFPFAFFDPKVF5GPYEYJ8Y8C")
 )
 
 // AppBuilder related errors
 var (
-	AppBuilderErrClass = err.NewDesc("01DD1WNC0F0HR51S2TBAR8NC8P", "OptionsRequiredErr", "failed to build app")
+	AppBuilderErrClass = err.MustNewDesc("01DD1WNC0F0HR51S2TBAR8NC8P", "OptionsRequiredErr", "failed to build app")
 	OptionsRequiredErr = err.New(AppBuilderErrClass, "01DD1WS6DSKX01FRFYN6D0WXGM")
 	InvalidDescErr     = err.New(AppBuilderErrClass, "01DD3168A74BGBA08K2DNWMKW6")
 	InvalidTimeoutsErr = err.New(AppBuilderErrClass, "01DD6GBYKPMX897TABAWR0ZCJW")

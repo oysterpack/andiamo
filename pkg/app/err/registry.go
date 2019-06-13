@@ -24,7 +24,7 @@ import (
 
 // Registry related errors
 var (
-	RegistryConflictErrClass = NewDesc("01DCMMN0342H9FBMVHZ4MGWS2J", "RegistryConflict", "an Err with the same SrcID but different Desc.ID is already registered")
+	RegistryConflictErrClass = MustNewDesc("01DCMMN0342H9FBMVHZ4MGWS2J", "RegistryConflict", "an Err with the same SrcID but different Desc.ID is already registered")
 	RegistryConflictErr      = New(RegistryConflictErrClass, "01DCMMT8M89SE1JX3SGNXZZMST")
 )
 

@@ -34,9 +34,9 @@ func TestRegistry_Register(t *testing.T) {
 
 	// error descriptors
 	var (
-		InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
+		InvalidRequestErr = err.MustNewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
 
-		DGraphQueryTimeoutErr = err.NewDesc(
+		DGraphQueryTimeoutErr = err.MustNewDesc(
 			"01DCC447HWNM5MP7D4Z0DKK0SQ",
 			"DatabaseTimeout",
 			"query timeout",
@@ -131,9 +131,9 @@ func TestRegistry_Read(t *testing.T) {
 
 	// error descriptors
 	var (
-		InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
+		InvalidRequestErr = err.MustNewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
 
-		DGraphQueryTimeoutErr = err.NewDesc(
+		DGraphQueryTimeoutErr = err.MustNewDesc(
 			"01DCC447HWNM5MP7D4Z0DKK0SQ",
 			"DatabaseTimeout",
 			"query timeout",

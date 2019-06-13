@@ -28,8 +28,8 @@ import (
 // Logging the stacktrace is very expensive. Thus, collect the stacktrace only when needed.
 func BenchmarkInstance_Log(b *testing.B) {
 
-	ErrWithNoStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error")
-	ErrWithStackTrace := err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error").WithStacktrace()
+	ErrWithNoStackTrace := err.MustNewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error")
+	ErrWithStackTrace := err.MustNewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "Err", "error").WithStacktrace()
 
 	logger := apptest.NewDiscardLogger(pkg)
 

@@ -221,11 +221,11 @@ func TestDesc_EventRegistry(t *testing.T) {
 }
 
 func TestDesc_ErrorRegistry(t *testing.T) {
-	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
 	err1 := err.New(errDesc1, ulidgen.MustNew().String())
 	err2 := err.New(errDesc1, ulidgen.MustNew().String())
 
-	errDesc2 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
+	errDesc2 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
 	err3 := err.New(errDesc2, ulidgen.MustNew().String())
 
 	type Foo func()

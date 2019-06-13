@@ -22,6 +22,7 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
+	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -42,9 +43,9 @@ const (
 
 // error descriptors
 var (
-	InvalidRequestErr = err.NewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
+	InvalidRequestErr = err.MustNewDesc("01DC9HDP0X3R60GWDZZY18CVB8", "InvalidRequest", "Invalid request")
 
-	DGraphQueryTimeoutErr = err.NewDesc(
+	DGraphQueryTimeoutErr = err.MustNewDesc(
 		"01DCC447HWNM5MP7D4Z0DKK0SQ",
 		"DatabaseTimeout",
 		"query timeout",
@@ -203,18 +204,52 @@ func TestErr_CausedBy(t *testing.T) {
 	}
 }
 
-//  The take away lesson is that slices share underlying memory. Be careful on how slices are shared.
-// In general, it's better off to not share them.
-func TestSliceReference(t *testing.T) {
-	s1 := make([]int, 0, 10)
-	s1 = append(s1, 1, 2, 3)
-	s2 := s1
+func TestNewDesc(t *testing.T) {
+	t.Run("ID is not avalid ULID", func(t *testing.T) {
+		_, e := err.NewDesc("INVALID_ULID", "name", "msg")
+		if e == nil {
+			t.Fatal("err.Desc should have failed to be created because ID is not a valid ULID")
+		}
+		t.Log(e)
+	})
 
-	s2 = append(s2, 5)
-	t.Logf("s1: %v", s1) // s1: [1 2 3]
-	t.Logf("s2: %v", s2) // s2: [1 2 3 5]
-	// at this point, s1 and s2 both reference the same slice - currently s2[4] = 5, but writing to s1 will change it
-	s1 = append(s1, 4, 5, 6)
-	t.Logf("s1: %v", s1) // s1: [1 2 3 4 5 6]
-	t.Logf("s2: %v", s2) // s2: [1 2 3 4]
+	t.Run("Name is blank", func(t *testing.T) {
+		_, e := err.NewDesc(ulidgen.MustNew().String(), "  ", "msg")
+		if e == nil {
+			t.Fatal("err.Desc should have failed to be created because name is blank")
+		}
+		t.Log(e)
+	})
+
+	t.Run("Message is blank", func(t *testing.T) {
+		_, e := err.NewDesc(ulidgen.MustNew().String(), "err", "   ")
+		if e == nil {
+			t.Fatal("err.Desc should have failed to be created because name is blank")
+		}
+		t.Log(e)
+	})
+
+	t.Run("Name and message are wrapped in whitespace", func(t *testing.T) {
+		desc, e := err.NewDesc(ulidgen.MustNew().String(), "  err  ", "  msg  ")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if desc.Name != "err" {
+			t.Errorf("name should have been trimmed: %q", desc.Message)
+		}
+		if desc.Message != "msg" {
+			t.Errorf("message should have been trimmed: %q", desc.Message)
+		}
+	})
+}
+
+func TestMustNewDesc(t *testing.T) {
+	defer func() {
+		e := recover()
+		if e == nil {
+			t.Fatal("err.MustNewDesc() should have panicked because desc should have failed to be constructed")
+		}
+		t.Log(e)
+	}()
+	err.MustNewDesc("INVALID_ULID", "name", "msg")
 }

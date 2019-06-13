@@ -24,16 +24,13 @@ import (
 	"sync"
 )
 
-// Registry related error classes
-var (
-	IDAlreadyRegisteredErrClass   = err.NewDesc("01DCQ59QEKTE9ATFJM5SGF168C", "IDAlreadyregisteredErr", "a component with the same ID is already registered")
-	NameAlreadyRegisteredErrClass = err.NewDesc("01DCQF3MT1EPJZQJRC9DCVBK4M", "NameAlreadyregisteredErr", "a component with the same name is already registered")
-)
-
 // Registry related errors
 var (
-	IDAlreadyRegisteredErr   = err.New(IDAlreadyRegisteredErrClass, "01DCQ5CX2SCKAZZD354GAF30T5")
-	NameAlreadyRegisteredErr = err.New(NameAlreadyRegisteredErrClass, "01DCQF4NP9J9MKM6Y2JD4SFP0G")
+	IDAlreadyRegisteredErrClass = err.MustNewDesc("01DCQ59QEKTE9ATFJM5SGF168C", "IDAlreadyregisteredErr", "a component with the same ID is already registered")
+	IDAlreadyRegisteredErr      = err.New(IDAlreadyRegisteredErrClass, "01DCQ5CX2SCKAZZD354GAF30T5")
+
+	NameAlreadyRegisteredErrClass = err.MustNewDesc("01DCQF3MT1EPJZQJRC9DCVBK4M", "NameAlreadyregisteredErr", "a component with the same name is already registered")
+	NameAlreadyRegisteredErr      = err.New(NameAlreadyRegisteredErrClass, "01DCQF4NP9J9MKM6Y2JD4SFP0G")
 )
 
 // Registry is used as an application component registry.

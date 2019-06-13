@@ -23,6 +23,8 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"log"
+	"strings"
 )
 
 var (
@@ -49,9 +51,37 @@ type Desc struct {
 	IncludeStack bool
 }
 
+// MustNewDesc constructs a new Desc
+func MustNewDesc(id, name, message string, tags ...Tag) *Desc {
+	desc, e := NewDesc(id, name, message, tags...)
+	if e != nil {
+		log.Panic(e)
+	}
+	return desc
+}
+
 // NewDesc constructs a new Desc
-// - panics if `id` is not a valid ULID
-func NewDesc(id, name, message string, tags ...Tag) *Desc {
+//
+// Argument Constraints
+// - id must be a ULID (https://github.com/ulid/spec)
+// - name and message will be trimmed and cannot be blank
+func NewDesc(id, name, message string, tags ...Tag) (*Desc, error) {
+	ULID, e := ulid.Parse(id)
+	if e != nil {
+		return nil, e
+	}
+
+	name = strings.TrimSpace(name)
+	message = strings.TrimSpace(message)
+
+	if name == "" {
+		return nil, errors.New("name cannot be blank")
+	}
+
+	if message == "" {
+		return nil, errors.New("message cannot be blank")
+	}
+
 	var tagSlice []string
 	if len(tags) > 0 {
 		tagSlice = make([]string, len(tags))
@@ -59,12 +89,14 @@ func NewDesc(id, name, message string, tags ...Tag) *Desc {
 			tagSlice[i] = tag.String()
 		}
 	}
-	return &Desc{
-		ID:      ulid.MustParse(id),
+	desc := &Desc{
+		ID:      ULID,
 		Name:    name,
 		Message: message,
 		Tags:    tagSlice,
 	}
+
+	return desc, nil
 }
 
 // WithStacktrace indicates that the error stacktrace will be logged.

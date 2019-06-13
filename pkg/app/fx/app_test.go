@@ -292,7 +292,7 @@ func checkLogEvents(t *testing.T, logFilePath string, logFile *os.File, checker 
 }
 
 var (
-	TestErr  = err.NewDesc("01DCF9FYQMKKM6MA3RAYZWEVTR", "TestError", "test error")
+	TestErr  = err.MustNewDesc("01DCF9FYQMKKM6MA3RAYZWEVTR", "TestError", "test error")
 	TestErr1 = err.New(TestErr, "01DC9JRXD98HS9BEXJ1MBXWWM8")
 )
 
@@ -869,7 +869,7 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 
-	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
 	err1 := err.New(errDesc1, ulidgen.MustNew().String())
 	err2 := err.New(errDesc1, ulidgen.MustNew().String())
 
@@ -960,8 +960,8 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
 	appDesc := apptest.InitEnv()
 
-	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
-	errDesc2 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
+	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	errDesc2 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
 
 	err1 := err.New(errDesc1, ulidgen.MustNew().String())
 	err2 := err.New(errDesc2, err1.SrcID.String()) // will fail error registration

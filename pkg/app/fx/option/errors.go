@@ -20,7 +20,7 @@ import "github.com/oysterpack/partire-k8s/pkg/app/err"
 
 // Option related error descriptors
 var (
-	UnassignableBindingErrClass = err.NewDesc("01DCVHM65XN2E0QF5W8N0M3RKB", "UnassignableBindingErr", "option type is not assignable to type defined by Desc.FuncType")
+	UnassignableBindingErrClass = err.MustNewDesc("01DCVHM65XN2E0QF5W8N0M3RKB", "UnassignableBindingErr", "option type is not assignable to type defined by Desc.FuncType")
 )
 
 // Option related errors
