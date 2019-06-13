@@ -194,8 +194,8 @@ func TestDesc_MustNewComp(t *testing.T) {
 }
 
 func TestDesc_EventRegistry(t *testing.T) {
-	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
-	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event1 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event2 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 
 	type Foo func()
 	optionDesc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))

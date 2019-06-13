@@ -62,6 +62,13 @@ func (id ID) ULID() ulid.ULID {
 // Name is the application name.
 type Name string
 
+// Validate returns an error if the name is not valid.
+//
+// Constraints
+//
+//   - must be alpha-numeric and can contain the following non-alpha-numeric chars: '_' '-'
+//   - must start with an alpha
+//   - min len = 3, max len = 50
 func (n Name) Validate() error {
 	if !nameRegex.MatchString(n.String()) {
 		return fmt.Errorf("name failed to match against regex: %q : %q", nameRegex, n)

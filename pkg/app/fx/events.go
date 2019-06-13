@@ -26,20 +26,20 @@ const AppTag logging.Tag = "app"
 
 var (
 	// Start signals that the app is starting.
-	Start = logging.NewEvent("start", zerolog.NoLevel, AppTag)
+	Start = logging.MustNewEvent("start", zerolog.NoLevel, AppTag)
 
 	// Running signals that the app is running.
-	Running = logging.NewEvent("running", zerolog.NoLevel, AppTag)
+	Running = logging.MustNewEvent("running", zerolog.NoLevel, AppTag)
 
 	// StopSignal indicates that the stop signalled has been received
-	StopSignal = logging.NewEvent("stop_signal", zerolog.NoLevel, AppTag)
+	StopSignal = logging.MustNewEvent("stop_signal", zerolog.NoLevel, AppTag)
 
 	// Stop signals that the app is stopping.
-	Stop = logging.NewEvent("stop", zerolog.NoLevel, AppTag)
+	Stop = logging.MustNewEvent("stop", zerolog.NoLevel, AppTag)
 
 	// Stopped signals that the app has stopped.
-	Stopped = logging.NewEvent("stopped", zerolog.NoLevel, AppTag)
+	Stopped = logging.MustNewEvent("stopped", zerolog.NoLevel, AppTag)
 
 	// CompRegistered indicates that a component has been registered
-	CompRegistered = logging.NewEvent("comp_registered", zerolog.NoLevel, AppTag)
+	CompRegistered = logging.MustNewEvent("comp_registered", zerolog.NoLevel, AppTag)
 )

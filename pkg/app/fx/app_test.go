@@ -161,7 +161,7 @@ const (
 
 func logTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 	logger = logging.PackageLogger(logger, app.GetPackage(empty{}))
-	foo := logging.NewEvent(LogTestEventLogEventName, zerolog.InfoLevel)
+	foo := logging.MustNewEvent(LogTestEventLogEventName, zerolog.InfoLevel)
 
 	lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
@@ -866,8 +866,8 @@ func testEmptyComponentRegistry(t *testing.T) {
 func testCompRegistryWithCompsRegistered(t *testing.T) {
 	apptest.InitEnv()
 
-	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
-	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event1 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event2 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 
 	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
 	err1 := err.New(errDesc1, ulidgen.MustNew().String())

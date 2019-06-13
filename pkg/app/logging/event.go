@@ -18,7 +18,9 @@ package logging
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"log"
 	"sort"
 	"strings"
 )
@@ -61,29 +63,57 @@ func (e Event) Equals(e2 *Event) bool {
 	return true
 }
 
+// MustNewEvent constructs a new Event.
+func MustNewEvent(name string, level zerolog.Level, tags ...Tag) *Event {
+	event, e := NewEvent(name, level, tags...)
+	if e != nil {
+		log.Panic(e)
+	}
+	return event
+}
+
 // NewEvent constructs a new Event.
 //
+// Name will be trimmed.
 // Tags will be trimmed, lowercased, deduped, and sorted.
-func NewEvent(name string, level zerolog.Level, tags ...Tag) *Event {
-	var tagSlice []string
+func NewEvent(name string, level zerolog.Level, tags ...Tag) (*Event, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("event name must not be blank")
+	}
+	normalizedTags, e := normalizeTags(tags...)
+	if e != nil {
+		return nil, e
+	}
+	event := &Event{
+		Name:  name,
+		Level: level,
+		Tags:  normalizedTags,
+	}
+
+	return event, nil
+}
+
+func normalizeTags(tags ...Tag) ([]string, error) {
+	var normalizedTags []string
 	if len(tags) > 0 {
 		// dedupe the tags
 		tagSet := make(map[string]bool, len(tags))
 		for _, tag := range tags {
-			tagSet[tag.Normalize().String()] = true
+			tag = tag.Normalize()
+			if tag == "" {
+				return nil, errors.New("event tag must not be blank")
+			}
+			tagSet[tag.String()] = true
 		}
 
-		tagSlice = make([]string, 0, len(tagSet))
+		normalizedTags = make([]string, 0, len(tagSet))
 		for tag := range tagSet {
-			tagSlice = append(tagSlice, tag)
+			normalizedTags = append(normalizedTags, tag)
 		}
-		sort.Strings(tagSlice)
+		sort.Strings(normalizedTags)
 	}
-	return &Event{
-		Name:  name,
-		Level: level,
-		Tags:  tagSlice,
-	}
+	return normalizedTags, nil
 }
 
 // Tag is used to define tags as constants in a type safe manner.
