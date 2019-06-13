@@ -184,7 +184,7 @@ func newEventRegistry() *logging.EventRegistry {
 
 func newErrorRegistry() (*err.Registry, error) {
 	registry := err.NewRegistry()
-	if e := registry.Register(InvokeErr, AppStartErr, AppStopErr); e != nil {
+	if e := registry.Register(err.RegistryConflictErr, InvokeErr, AppStartErr, AppStopErr); e != nil {
 		// should never happen - if it does, then it means it is a bug
 		return nil, e
 	}
@@ -266,13 +266,16 @@ type components struct {
 	Comps []*comp.Comp `group:"comp.Registry"`
 }
 
-func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger, eventRegistry *logging.EventRegistry) error {
+func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger, eventRegistry *logging.EventRegistry, errRegistry *err.Registry) error {
 	for _, c := range comps.Comps {
 		if e := registry.Register(c); e != nil {
 			return e
 		}
 		logCompRegisteredEvent(c, logger)
 		eventRegistry.Register(c.EventRegistry.Events()...)
+		if e := errRegistry.Register(c.ErrorRegistry.Errs()...); e != nil {
+			return e
+		}
 	}
 	return nil
 }

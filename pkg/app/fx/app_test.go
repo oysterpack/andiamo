@@ -792,19 +792,21 @@ func TestCompRegistryIsProvided(t *testing.T) {
 
 	t.Run("with 0 comps injected", testEmptyComponentRegistry)
 
+	// error scenarios
 	t.Run("with duplicate comps injected", testComponentRegistryWithDuplicateComps)
+	t.Run("with comps that have conflicting errors registered", testCompRegistryWithCompsContainingConflictingErrors)
 }
 
 func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	// Given 2 components conflict because they have the same ID
-	FooComp = comp.MustNewDesc(
+	FooComp := comp.MustNewDesc(
 		comp.ID("01DCYBFQBQVXG8PZ758AM9JJCD"),
 		comp.Name("foo"),
 		comp.Version("0.0.1"),
 		app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
 		ProvideRandomNumberGeneratorOption,
 	)
-	BarComp = comp.MustNewDesc(
+	BarComp := comp.MustNewDesc(
 		comp.ID(FooComp.ID.String()), // dup comp.ID will cause comp registration to fail
 		comp.Name("bar"),
 		comp.Version("0.0.1"),
@@ -858,14 +860,22 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	event1 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 	event2 := logging.NewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 
+	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	err1 := err.New(errDesc1, ulidgen.MustNew().String())
+	err2 := err.New(errDesc1, ulidgen.MustNew().String())
+
 	// Given 2 components
 	foo := FooComp.MustNewComp(
 		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
 			return rand.Int
 		}),
 	)
-	// And the component has events
+	// And the component exposes events
 	foo.EventRegistry.Register(event1, event2)
+	// And the component exposes errors
+	if e := foo.ErrorRegistry.Register(err1, err2); e != nil {
+		t.Fatal(e)
+	}
 	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
 		return func() string { return "greetings" }
 	}))
@@ -882,11 +892,13 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 	// When the app is created with the 2 components
 	var compRegistry *comp.Registry
 	var eventRegistry *logging.EventRegistry
+	var errRegistry *err.Registry
 	fxapp := appfx.MustNewApp(
 		foo.FxOptions(),
 		bar.FxOptions(),
 		fx.Populate(&compRegistry),
 		fx.Populate(&eventRegistry),
+		fx.Populate(&errRegistry),
 	)
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Errorf("failed to start app: %v", e)
@@ -900,11 +912,16 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 		t.Error("bar component was not found in the registry")
 	}
 
-	if !eventRegistry.Registered(event1) {
-		t.Error("event1 is not registered")
+	for _, event := range []*logging.Event{event1, event2} {
+		if !eventRegistry.Registered(event) {
+			t.Errorf("*** event is not registered: %v", event)
+		}
 	}
-	if !eventRegistry.Registered(event2) {
-		t.Error("event2 is not registered")
+
+	for _, e := range []*err.Err{err1, err2} {
+		if !errRegistry.Registered(e.SrcID) {
+			t.Errorf("*** error is not registered: %v", e)
+		}
 	}
 
 	if e := fxapp.Stop(context.Background()); e != nil {
@@ -942,6 +959,55 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 		// And comp registration events are logged
 		checkLogEvents(t, logFilePath, logFile, checkCompRegisteredEvents)
 	}()
+}
+
+func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
+	appDesc := apptest.InitEnv()
+
+	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	errDesc2 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
+
+	err1 := err.New(errDesc1, ulidgen.MustNew().String())
+	err2 := err.New(errDesc2, err1.SrcID.String()) // will fail error registration
+
+	// Given 2 components
+	foo := FooComp.MustNewComp(
+		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
+			return rand.Int
+		}),
+	)
+	bar := BarComp.MustNewComp(ProvideGreeterOption.NewOption(func() Greeter {
+		return func() string { return "greetings" }
+	}))
+
+	// And the component exposes errors, but they conflict
+	if e := foo.ErrorRegistry.Register(err1); e != nil {
+		t.Fatal(e)
+	}
+	if e := bar.ErrorRegistry.Register(err2); e != nil {
+		t.Fatal(e)
+	}
+
+	// When the app is created
+	// Then it will fail
+	_, e := appfx.NewApp(
+		appDesc,
+		app.NewTimeouts(),
+		nil,
+		zerolog.InfoLevel,
+		foo.FxOptions(),
+		bar.FxOptions(),
+	)
+
+	if e == nil {
+		t.Fatal("the app should have failed to be created because the comp error registration should have failed")
+	}
+	t.Log(e)
+	errInstance := e.(*err.Instance)
+	if errInstance.SrcID != err.RegistryConflictErr.SrcID {
+		t.Errorf("unexpected error: %v : %v", errInstance.SrcID, errInstance)
+	}
+
 }
 
 func checkCompRegisteredEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {

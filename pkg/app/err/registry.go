@@ -37,14 +37,14 @@ type Registry struct {
 
 // NewRegistry is the registry constructor. It automatically registers RegistryConflictErr.
 func NewRegistry() *Registry {
-	registry := &Registry{}
-	registry.Register(RegistryConflictErr)
-	return registry
+	return &Registry{}
 }
 
 // Register registers the specified errors, if not already registered. Err.SrcID is used as the registry key.
 //
-// Returns an error if an Err is already registered with the same Err.SrcID, but with a different Desc.ID.
+// Errors
+//
+// RegistryConflictErr - if an Err is already registered with the same Err.SrcID, but with a different Desc.ID
 func (r *Registry) Register(errs ...*Err) error {
 	r.m.Lock()
 	defer r.m.Unlock()
@@ -89,8 +89,8 @@ func (r *Registry) Errs() []*Err {
 	return errs
 }
 
-// Size returns the number of registered Err(s)
-func (r *Registry) Size() int {
+// Count returns the number of registered Err(s)
+func (r *Registry) Count() int {
 	r.m.RLock()
 	defer r.m.RUnlock()
 	return len(r.errs)

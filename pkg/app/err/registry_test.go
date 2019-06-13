@@ -80,7 +80,7 @@ func TestRegistry_Register(t *testing.T) {
 func testRegisterDupError(t *testing.T, registry *err.Registry) {
 	InvalidRequestErr3 := err.New(InvalidRequestErr2.Desc, ulidgen.MustNew().String())
 
-	registeredErrCount := registry.Size()
+	registeredErrCount := registry.Count()
 
 	// When the same error is registered
 	e := registry.Register(InvalidRequestErr1,
@@ -94,7 +94,7 @@ func testRegisterDupError(t *testing.T, registry *err.Registry) {
 		expectedCount := registeredErrCount + 1
 		t.Log(registry.Errs())
 		if len(registry.Errs()) != expectedCount {
-			t.Errorf("registered error count (%v) should be %d", registry.Size(), expectedCount)
+			t.Errorf("registered error count (%v) should be %d", registry.Count(), expectedCount)
 		}
 		if !registry.Registered(InvalidRequestErr3.SrcID) {
 			t.Errorf("InvalidRequestErr3 is not registered - registered Errs = %v", registry.Errs())
@@ -163,11 +163,8 @@ func TestRegistry_Read(t *testing.T) {
 		descs := registry.Descs()
 		t.Log(descs)
 		// err.RegistryConflictErrClass is automatically registered
-		if len(descs) != 3 {
+		if len(descs) != 2 {
 			t.Errorf("expected 2 Descs, but got back: %v", len(descs))
-		}
-		if descs[err.RegistryConflictErrClass.ID] != err.RegistryConflictErrClass {
-			t.Error("err.RegistryConflictErrClass should be registered")
 		}
 		if descs[InvalidRequestErr1.ID] != InvalidRequestErr {
 			t.Error("InvalidRequestErr should be registered")

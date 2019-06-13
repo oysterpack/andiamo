@@ -21,6 +21,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
+	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/rs/zerolog"
@@ -34,6 +35,7 @@ type Desc struct {
 	app.Package
 	OptionDescs   []option.Desc
 	EventRegistry *logging.EventRegistry
+	ErrorRegistry *err.Registry
 }
 
 func (d *Desc) String() string {
@@ -122,6 +124,7 @@ func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...
 		Version:       version.MustParse(),
 		Package:       pkg,
 		EventRegistry: logging.NewEventRegistry(),
+		ErrorRegistry: err.NewRegistry(),
 	}
 
 	// verify that option types are unique

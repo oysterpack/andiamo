@@ -215,7 +215,42 @@ func TestDesc_EventRegistry(t *testing.T) {
 		event2,
 	)
 
-	if len(compDesc.EventRegistry.Events()) != 2 {
+	if compDesc.EventRegistry.Count() != 2 {
 		t.Errorf("unexpected number of events")
 	}
+}
+
+func TestDesc_ErrorRegistry(t *testing.T) {
+	errDesc1 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	err1 := err.New(errDesc1, ulidgen.MustNew().String())
+	err2 := err.New(errDesc1, ulidgen.MustNew().String())
+
+	errDesc2 := err.NewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
+	err3 := err.New(errDesc2, ulidgen.MustNew().String())
+
+	type Foo func()
+	optionDesc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))
+
+	compDesc := comp.MustNewDesc(
+		comp.ID(ulidgen.MustNew().String()),
+		comp.Name("foo"),
+		comp.Version("0.1.0"),
+		Package,
+		optionDesc,
+	)
+	e := compDesc.ErrorRegistry.Register(
+		err1,
+		err2,
+		err3,
+		// dup errs will get deduped
+		err1,
+	)
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	if compDesc.ErrorRegistry.Count() != 3 {
+		t.Errorf("unexpected number of errors: %v", compDesc.ErrorRegistry.Errs())
+	}
+
 }

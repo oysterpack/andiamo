@@ -23,13 +23,12 @@ Option descs
 Events
 "
 
-usecase COMP_OPTIONS as "
-Has options
-"
+usecase COMP_OPTIONS as "Has options"
 
-usecase COMP_EVENT_REGISTRY as "
-Has event registry
-"
+usecase COMP_EVENT_REGISTRY as "Has event registry"
+
+usecase COMP_ERR_REGISTRY as "Has error registry"
+
 
 note as COMP_NAME_NOTE
 Name is unique per app
@@ -55,6 +54,7 @@ Comp --> COMP_DESC
 Comp --> COMP_OPTIONS
 Comp --> COMP_LOGGER
 Comp --> COMP_EVENT_REGISTRY
+Comp --> COMP_ERR_REGISTRY
 COMP_DESC .. COMP_NAME_NOTE
 
 usecase REGISTER_COMP as "Register comp"

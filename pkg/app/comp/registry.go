@@ -17,6 +17,7 @@
 package comp
 
 import (
+	"errors"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"sort"
@@ -64,10 +65,10 @@ func (r *Registry) Register(c *Comp) error {
 	defer r.m.Unlock()
 	for _, registeredComp := range r.comps {
 		if c.ID == registeredComp.ID {
-			return IDAlreadyRegisteredErr.New()
+			return IDAlreadyRegisteredErr.CausedBy(errors.New(registeredComp.String()))
 		}
 		if c.Name == registeredComp.Name {
-			return NameAlreadyRegisteredErr.New()
+			return NameAlreadyRegisteredErr.CausedBy(errors.New(registeredComp.String()))
 		}
 	}
 	r.comps = append(r.comps, c)

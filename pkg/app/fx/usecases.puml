@@ -69,6 +69,12 @@ usecase PROVIDE_ERR_REGISTRY << Provide >> as "*err.Registry"
 usecase PROVIDE_EVENT_REGISTRY << Provide >> as "*logging.EventRegistry"
 usecase PROVIDE_COMP_REGISTRY << Provide >> as "*comp.Registry"
 
+note as COMP_REGISTRY_NOTES
+comp events and errors
+are auto registered
+end note
+
+COMP_REGISTRY_NOTES ..> PROVIDE_COMP_REGISTRY
 
 APP .up.> PROVIDE_APP_DESC
 APP .up.> PROVIDE_APP_INSTANCE_ID
