@@ -17,5 +17,13 @@
 /*
 Package comp enables a clean separation of component interface design and implementation. Components can be plugged into
 an application using the [fx](https://godoc.org/go.uber.org/fx) dependency injection framework.
+
+Log Events
+
+Log events are defined via the component event registry.
+
+Metrics
+
+- metric naming convention: <comp_name>_<metric_name>
 */
 package comp

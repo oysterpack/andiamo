@@ -20,7 +20,9 @@ import (
 	"sync"
 )
 
-// EventRegistry is used to register application events
+// EventRegistry is used to register application events.
+//
+// EventRegistry is concurrency safe.
 type EventRegistry struct {
 	m      sync.RWMutex
 	events []*Event

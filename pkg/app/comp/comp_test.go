@@ -65,7 +65,7 @@ func TestComp(t *testing.T) {
 	)
 
 	// Given a component
-	FooComp := comp.MustNewComp(FooDesc,
+	FooComp := FooDesc.MustNewComp(
 		LogGreetingDesc.NewOption(logGreeting),
 		GreeterDesc.NewOption(provideGreeter),
 	)

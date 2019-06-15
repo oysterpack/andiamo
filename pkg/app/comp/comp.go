@@ -51,12 +51,3 @@ func (c *Comp) FxOptions() fx.Option {
 	}))
 	return fx.Options(options...)
 }
-
-// MustNewComp builds a new component using the specified options
-//
-// Panics if the options don't match the options defined by the component descriptor. The order of the options doesn't matter.
-// The options must match on the option types declared by the descriptor. They will be sorted according to the order they
-// are listed in the descriptor
-func MustNewComp(desc *Desc, options ...option.Option) *Comp {
-	return desc.MustNewComp(options...)
-}

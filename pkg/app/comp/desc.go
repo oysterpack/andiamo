@@ -24,6 +24,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 )
 
@@ -33,9 +34,42 @@ type Desc struct {
 	Name string
 	*semver.Version
 	app.Package
-	OptionDescs   []option.Desc
+
+	// defines component interface, i.e., functionality
+	OptionDescs []option.Desc
+
 	EventRegistry *logging.EventRegistry
 	ErrorRegistry *err.Registry
+
+	metrics      *prometheus.Registry
+	counterDescs []prometheus.CounterOpts
+}
+
+// RegisterCounter specifies a new counter metric.
+//
+// The component name will be used as the subsystem.
+// Namespace will be blanked out.
+func (d *Desc) RegisterCounter(opts prometheus.CounterOpts) (prometheus.Counter, error) {
+	opts.Namespace = ""
+	opts.Subsystem = d.Name
+	counter := prometheus.NewCounter(opts)
+	e := d.metrics.Register(counter)
+	if e != nil {
+		return nil, e
+	}
+	d.counterDescs = append(d.counterDescs, opts)
+	return counter, nil
+}
+
+// CounterDescs returns the set of registered counter descriptors
+func (d *Desc) CounterDescs() []prometheus.CounterOpts {
+	if len(d.counterDescs) == 0 {
+		return nil
+	}
+
+	descs := make([]prometheus.CounterOpts, len(d.counterDescs))
+	copy(descs, d.counterDescs)
+	return descs
 }
 
 func (d *Desc) String() string {
@@ -125,6 +159,7 @@ func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...
 		Package:       pkg,
 		EventRegistry: logging.NewEventRegistry(),
 		ErrorRegistry: err.NewRegistry(),
+		metrics:       prometheus.NewPedanticRegistry(),
 	}
 
 	// verify that option types are unique

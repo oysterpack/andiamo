@@ -7,8 +7,8 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oklog/ulid v1.3.1
 	github.com/pkg/errors v0.8.1
+	github.com/prometheus/client_golang v0.9.4
 	github.com/rs/zerolog v1.14.3
-	github.com/stretchr/testify v1.3.0 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/dig v1.7.0 // indirect
 	go.uber.org/fx v1.9.0

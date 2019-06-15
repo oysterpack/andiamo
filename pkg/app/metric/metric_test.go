@@ -14,26 +14,4 @@
  * limitations under the License.
  */
 
-/*
-Package logging standardizes application logging - using zerolog as the logging framework.
-
-	Field
-	-----
-	- standardizes the log field names
-
-	Event
-	-----
-	- used to define all application log events in code
-	- is used to log events to a `zerolog.Logger`
-
-	PackageLogger()
-	---------------
-	- used to scope log events to a package, i.e., it adds the `Package` field to the log event
-
-	ComponentLogger()
-	-----------------
-    - used to scope log events to a component, i.e., it adds the `Component` field to the log event
-    - see: comp.Desc.Logger()
-
-*/
-package logging
+package metric_test

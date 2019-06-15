@@ -263,6 +263,7 @@ func logError(logger *zerolog.Logger, e error) {
 type components struct {
 	fx.In
 
+	// NOTE: the group name must match the constant: comp.CompRegistry
 	Comps []*comp.Comp `group:"comp.Registry"`
 }
 
