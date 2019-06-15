@@ -18,19 +18,16 @@ package fx
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
-	"io"
 	"strings"
-	"time"
 )
 
 // App is a wrapper around fx.App.
@@ -78,55 +75,18 @@ func (a *App) Run() error {
 	return nil
 }
 
-// NewApp tries to construct a new App
-func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, globalLogLevel zerolog.Level, opts ...fx.Option) (*App, error) {
-	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
-	logger, e := initLogging(instanceID, desc)
-	if e != nil {
-		return nil, e
-	}
-	if logWriter != nil {
-		customLogger := logger.Output(logWriter)
-		logger = &customLogger
-	}
-	if globalLogLevel != zerolog.NoLevel {
-		zerolog.SetGlobalLevel(globalLogLevel)
-	}
-
-	appOptions := []fx.Option{
-		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
-
-		fx.StartTimeout(timeouts.StartTimeout),
-		fx.StopTimeout(timeouts.StopTimeout),
-
-		fx.Provide(
-			func() app.Desc { return desc },
-			func() app.InstanceID { return instanceID },
-			func() *zerolog.Logger { return logger },
-			newErrorRegistry,
-			newEventRegistry,
-			comp.NewRegistry,
-		),
-
-		fx.Logger(logger),
-		fx.ErrorHook(newErrLogger(logger)),
-
-		// application specific options
-		fx.Options(opts...),
-		fx.Invoke(registerComponents),
-
-		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
-	}
-
-	fxapp := &App{
-		App:    fx.New(appOptions...),
-		logger: logger,
-	}
-	if e := fxapp.Err(); e != nil {
-		return nil, e
-	}
-
-	return fxapp, nil
+func newMetricRegistry(appDesc app.Desc) (*prometheus.Registry, prometheus.Registerer) {
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(
+		prometheus.NewGoCollector(),
+		// process metrics are prefixed with "app_<app.ID>"
+		// NOTE: `app` is used as a prefix because prometheus metric names must not start with a number
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{
+			Namespace:    fmt.Sprintf("app_%s", appDesc.ID),
+			ReportErrors: true,
+		}),
+	)
+	return registry, registry
 }
 
 func newEventRegistry() *logging.EventRegistry {
@@ -158,7 +118,7 @@ func registerStartStoppedLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerol
 	appLogger := logging.PackageLogger(logger, PACKAGE)
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			Start.Log(appLogger).Msg("")
+			logStartEvent(appLogger)
 			return nil
 		},
 		OnStop: func(context.Context) error {

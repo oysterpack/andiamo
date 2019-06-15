@@ -15,3 +15,33 @@
  */
 
 package metric
+
+import dto "github.com/prometheus/client_model/go"
+
+// FindMetricFamilyByName returns the metric family that matches the specified name
+func FindMetricFamilyByName(mfs []*dto.MetricFamily, name string) *dto.MetricFamily {
+	return FindMetricFamily(mfs, func(mf *dto.MetricFamily) bool {
+		return *mf.Name == name
+	})
+}
+
+// FindMetricFamily returns the first metric family that matches the filter
+func FindMetricFamily(mfs []*dto.MetricFamily, accept func(mf *dto.MetricFamily) bool) *dto.MetricFamily {
+	for _, mf := range mfs {
+		if accept(mf) {
+			return mf
+		}
+	}
+	return nil
+}
+
+// FindMetricFamilies returns first metric families that match the filter
+func FindMetricFamilies(mfs []*dto.MetricFamily, accept func(mf *dto.MetricFamily) bool) []*dto.MetricFamily {
+	var result []*dto.MetricFamily
+	for _, mf := range mfs {
+		if accept(mf) {
+			result = append(result, mf)
+		}
+	}
+	return result
+}

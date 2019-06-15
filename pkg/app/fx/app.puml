@@ -16,6 +16,11 @@ package "github.com/oysterpack/partire-k8s/app" {
 [*err.Registry]
 }
 
+package "github.com/prometheus/client_golang/prometheus" {
+[*Registry]
+[Registerer]
+}
+
 package "github.com/rs/zerolog" {
 [*Logger]
 }
@@ -24,10 +29,13 @@ package "github.com/rs/zerolog" {
 
 [Option] ..> [Desc]
 [Option] ..> [InstanceID]
-[Option] ...> [*Logger]
 [Option] ...> [*comp.Registry]
 [Option] ...> [*logging.EventRegistry]
 [Option] ...> [*err.Registry]
+
+[Option] ...> [*Logger]
+[Option] ....> [*Registry]
+[Option] ....> [Registerer]
 
 [*comp.Registry] --> [*comp.Comp]
 

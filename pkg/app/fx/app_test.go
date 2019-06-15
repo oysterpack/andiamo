@@ -30,9 +30,11 @@ import (
 	appfx "github.com/oysterpack/partire-k8s/pkg/app/fx"
 	"github.com/oysterpack/partire-k8s/pkg/app/fx/option"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/oysterpack/partire-k8s/pkg/app/metric"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
 	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"io"
@@ -956,7 +958,7 @@ func checkCompRegistrationEvents(t *testing.T, comps []*comp.Comp, events []*app
 // When components are registered that conflict
 // Then the app construction will fail
 func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
-	appDesc := apptest.InitEnv()
+	apptest.InitEnv()
 
 	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
 	errDesc2 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
@@ -984,14 +986,9 @@ func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
 
 	// When the app is created
 	// Then it will fail
-	_, e := appfx.NewApp(
-		appDesc,
-		app.NewTimeouts(),
-		nil,
-		zerolog.InfoLevel,
-		foo.FxOptions(),
-		bar.FxOptions(),
-	)
+	_, e := appfx.NewAppBuilder().
+		Comps(foo, bar).
+		Build()
 
 	if e == nil {
 		t.Fatal("the app should have failed to be created because the comp error registration should have failed")
@@ -1038,6 +1035,54 @@ func TestFxAppWithStructAndCompatiblyInterfaceInjections(t *testing.T) {
 	e := fxapp.Start(context.Background())
 	if e != nil {
 		t.Fatalf("*** app failed to start: %v", e)
+	}
+
+}
+
+func TestPrometheusRegistryIsProvided(t *testing.T) {
+	apptest.InitEnv()
+
+	// When the app is created
+	var metricRegistry *prometheus.Registry
+	var metricRegisterer prometheus.Registerer
+	_, e := appfx.NewAppBuilder().
+		Options(fx.Populate(&metricRegistry, &metricRegisterer)).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
+	// Then a metric registry will be provided
+	if metricRegistry == nil {
+		t.Error("*** *prometheus.Registry was not provided")
+	}
+	// And a metric registerer will be provided
+	if metricRegisterer == nil {
+		t.Error("*** prometheus.Registerer was not provided")
+	}
+
+	metrics, e := metricRegistry.Gather()
+	if e != nil {
+		t.Fatalf("metrics failed to be gathereed: %v", e)
+	}
+	logMetrics := func(metrics []*io_prometheus_client.MetricFamily) {
+		for _, mf := range metrics {
+			t.Log(mf)
+		}
+	}
+	logMetrics(metrics)
+
+	// And go metrics are collected
+	metrics = metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
+		return strings.HasPrefix(*mf.Name, "go_")
+	})
+	if len(metrics) == 0 {
+		t.Errorf("prometheus go collector is not registered")
+	} else {
+		t.Log("--- go metrics ---")
+		logMetrics(metrics)
+		t.Log("--- go metrics ---")
 	}
 
 }

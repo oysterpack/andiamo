@@ -17,6 +17,8 @@
 package fx
 
 import (
+	"crypto/rand"
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/app"
 	"github.com/oysterpack/partire-k8s/pkg/app/comp"
 	"github.com/rs/zerolog"
@@ -134,9 +136,61 @@ func (b *AppBuilder) Build() (*App, error) {
 		b.opts = append(b.opts, c.FxOptions())
 	}
 
-	fxapp, e := NewApp(b.desc[0], timeouts, b.logWriter, b.globalLogLevel, b.opts...)
+	fxapp, e := newApp(b.desc[0], timeouts, b.logWriter, b.globalLogLevel, b.opts...)
 	if b.disableLogSampling != nil {
 		zerolog.DisableSampling(true)
 	}
 	return fxapp, e
+}
+
+// newApp tries to construct a new App
+func newApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, globalLogLevel zerolog.Level, opts ...fx.Option) (*App, error) {
+	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
+	logger, e := initLogging(instanceID, desc)
+	if e != nil {
+		return nil, e
+	}
+	if logWriter != nil {
+		customLogger := logger.Output(logWriter)
+		logger = &customLogger
+	}
+	if globalLogLevel != zerolog.NoLevel {
+		zerolog.SetGlobalLevel(globalLogLevel)
+	}
+
+	appOptions := []fx.Option{
+		fx.Invoke(registerStartStoppedLifecycleEventLoggerHook),
+
+		fx.StartTimeout(timeouts.StartTimeout),
+		fx.StopTimeout(timeouts.StopTimeout),
+
+		fx.Provide(
+			func() app.Desc { return desc },
+			func() app.InstanceID { return instanceID },
+			func() *zerolog.Logger { return logger },
+			newErrorRegistry,
+			newEventRegistry,
+			comp.NewRegistry,
+			newMetricRegistry,
+		),
+
+		fx.Logger(logger),
+		fx.ErrorHook(newErrLogger(logger)),
+
+		// application specific options
+		fx.Options(opts...),
+		fx.Invoke(registerComponents),
+
+		fx.Invoke(registerRunningStoppingLifecycleEventLoggerHook),
+	}
+
+	fxapp := &App{
+		App:    fx.New(appOptions...),
+		logger: logger,
+	}
+	if e := fxapp.Err(); e != nil {
+		return nil, e
+	}
+
+	return fxapp, nil
 }

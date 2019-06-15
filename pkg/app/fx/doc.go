@@ -76,6 +76,5 @@ App Context Injections
 - metrics
    - app_start_duration - how long did it take for the app to start
    - app_stop_duration - how long did it take for the app to stop
-
 */
 package fx
