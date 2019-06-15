@@ -18,10 +18,27 @@ package fx
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/rs/zerolog"
 	"runtime/debug"
 	"testing"
 )
+
+type startLogEvent struct {
+	Build struct {
+		Path string
+		Main struct {
+			Path     string
+			Version  string
+			Checksum string
+		}
+		Deps []struct {
+			Path     string
+			Version  string
+			Checksum string
+		}
+	}
+}
 
 /*
 {
@@ -77,7 +94,40 @@ func TestLogStartEvent(t *testing.T) {
 	logEvent.Msg("")
 	t.Logf("%s", buf)
 
-	// TODO: parse JSON event and verify
+	// Verify that logged event structure
+	var event startLogEvent
+	if e := json.Unmarshal(buf.Bytes(), &event); e != nil {
+		t.Fatalf("failed to parse log event")
+	}
+	t.Logf("event: %v", event)
+	if event.Build.Path != b.path {
+		t.Errorf("path does not match: %s", event.Build.Path)
+	}
+	// check main build info matches
+	if event.Build.Main.Path != b.main.path {
+		t.Errorf("main path does not match: %s", event.Build.Main.Path)
+	}
+	if event.Build.Main.Version != b.main.version {
+		t.Errorf("main version does not match: %s", event.Build.Main.Version)
+	}
+	if event.Build.Main.Checksum != b.main.checksum {
+		t.Errorf("main checksum does not match: %s", event.Build.Main.Checksum)
+	}
+	// check dependency mod info matches
+	if len(event.Build.Deps) != len(b.deps) {
+		t.Errorf("dep count does not match: %d", len(event.Build.Deps))
+	}
+	for i, dep := range event.Build.Deps {
+		if dep.Path != b.deps[i].path {
+			t.Errorf("dep path does not match: %s", dep.Path)
+		}
+		if dep.Version != b.deps[i].version {
+			t.Errorf("dep version does not match: %s", dep.Version)
+		}
+		if dep.Checksum != b.deps[i].checksum {
+			t.Errorf("dep checksum does not match: %s", dep.Checksum)
+		}
+	}
 }
 
 /*
@@ -139,5 +189,51 @@ func TestNewBuildInfo(t *testing.T) {
 	logEvent.Msg("")
 	t.Logf("%s", buf)
 
-	// TODO: parse JSON event and verify
+	// Verify that logged event structure
+	var event startLogEvent
+	if e := json.Unmarshal(buf.Bytes(), &event); e != nil {
+		t.Fatalf("failed to parse log event")
+	}
+	t.Logf("event: %v", event)
+
+	if event.Build.Path != b.path {
+		t.Errorf("path does not match: %s", event.Build.Path)
+	}
+	// check main build info matches
+	if event.Build.Main.Path != b.main.path {
+		t.Errorf("main path does not match: %s", event.Build.Main.Path)
+	}
+	if event.Build.Main.Version != b.main.version {
+		t.Errorf("main version does not match: %s", event.Build.Main.Version)
+	}
+	if event.Build.Main.Checksum != b.main.checksum {
+		t.Errorf("main checksum does not match: %s", event.Build.Main.Checksum)
+	}
+
+	// check dependency mod info matches
+	if len(event.Build.Deps) != len(b.deps) {
+		t.Errorf("dep count does not match: %d", len(event.Build.Deps))
+	}
+	for i, dep := range event.Build.Deps {
+		if dep.Path != b.deps[i].path {
+			t.Errorf("dep path does not match: %s", dep.Path)
+		}
+		if dep.Version != b.deps[i].version {
+			t.Errorf("dep version does not match: %s", dep.Version)
+		}
+		if dep.Checksum != b.deps[i].checksum {
+			t.Errorf("dep checksum does not match: %s", dep.Checksum)
+		}
+	}
+
+	// dep[1] should be replaced
+	if event.Build.Deps[1].Path != "dep_path_3" {
+		t.Errorf("dep[1] path does not match: %s", event.Build.Deps[1].Path)
+	}
+	if event.Build.Deps[1].Version != "0.3.0" {
+		t.Errorf("dep[1] version does not match: %s", event.Build.Deps[1].Version)
+	}
+	if event.Build.Deps[1].Checksum != "dep_check_sum_3" {
+		t.Errorf("dep[1] checksum does not match: %s", event.Build.Deps[1].Checksum)
+	}
 }
