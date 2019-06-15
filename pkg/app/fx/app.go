@@ -29,7 +29,6 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"io"
-	"log"
 	"strings"
 	"time"
 )
@@ -79,46 +78,8 @@ func (a *App) Run() error {
 	return nil
 }
 
-// MustNewApp constructs a new fx.App with the specified options.
-//
-// The app is pre-configured with the following options:
-//   - app start and stop timeout options are configured from the env - see `LoadTimeouts()`
-//   - constructor functions for:
-//     - Desc - loaded from the env - see `LoadDesc()`
-//     - InstanceID
-//     - *zerolog.Logger
-//       - is used as the fx.App logger, which logs all fx.App log events using debug level
-//       - is used as the go std logger
-//     - *err.Registry
-//     - *logging.EventRegistry
-//     - *comp.Registry
-//   - lifecycle hooks are registered to log app lifecycle events
-//   - fx.ErrorHandler is registered to log invoke errors
-//
-// NOTE: Only `provide` and `invoke` options should be specified. `populate` options are useful for unit testing.
-func MustNewApp(opt fx.Option, opts ...fx.Option) *App {
-	desc := mustLoadDesc()
-	timeouts := mustLoadAppStartStopTimeouts()
-
-	var appOptions fx.Option
-	if len(opts) > 0 {
-		appOptions = fx.Options(opts...)
-		appOptions = fx.Options(opt, appOptions)
-	} else {
-		appOptions = opt
-	}
-	fxapp, e := NewApp(desc, timeouts, nil, zerolog.NoLevel, appOptions)
-	if e != nil {
-		log.Panic(e)
-	}
-
-	return fxapp
-}
-
 // NewApp tries to construct a new App
-func NewApp(desc app.Desc, timeouts app.Timeouts,
-	logWriter io.Writer, globalLogLevel zerolog.Level,
-	opts ...fx.Option) (*App, error) {
+func NewApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, globalLogLevel zerolog.Level, opts ...fx.Option) (*App, error) {
 	instanceID := app.InstanceID(ulid.MustNew(ulid.Timestamp(time.Now()), rand.Reader))
 	logger, e := initLogging(instanceID, desc)
 	if e != nil {
@@ -168,14 +129,6 @@ func NewApp(desc app.Desc, timeouts app.Timeouts,
 	return fxapp, nil
 }
 
-func mustLoadAppStartStopTimeouts() app.Timeouts {
-	timeouts, e := app.LoadTimeouts()
-	if e != nil {
-		log.Panicf("app.LoadTimeouts() failed: %v", e)
-	}
-	return timeouts
-}
-
 func newEventRegistry() *logging.EventRegistry {
 	registry := logging.NewEventRegistry()
 	registry.Register(Start, Running, Stop, Stopped, StopSignal, CompRegistered)
@@ -189,14 +142,6 @@ func newErrorRegistry() (*err.Registry, error) {
 		return nil, e
 	}
 	return registry, nil
-}
-
-func mustLoadDesc() app.Desc {
-	desc, e := app.LoadDesc()
-	if e != nil {
-		log.Panicf("failed to load app.Desc: %v", e)
-	}
-	return desc
 }
 
 func initLogging(instanceID app.InstanceID, desc app.Desc) (*zerolog.Logger, error) {

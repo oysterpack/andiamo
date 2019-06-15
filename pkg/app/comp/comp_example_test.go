@@ -113,10 +113,12 @@ func Example() {
 	}))
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(
-		foobar.FxOptions(),
-		bar.FxOptions(),
-	)
+	fxapp, e := appfx.NewAppBuilder().
+		Comps(foobar, bar).
+		Build()
+	if e != nil {
+		log.Panicf("app failed to build: %v", e)
+	}
 	go func() {
 		if e := fxapp.Run(); e != nil {
 			log.Fatal(e)

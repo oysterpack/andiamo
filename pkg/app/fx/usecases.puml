@@ -46,6 +46,8 @@ standard logger output"
 
 usecase PROVIDE_APP_DESC << Provide >> as "app.Desc"
 
+usecase PROVIDE_APP_DESC << Provide >> as "app.Desc"
+
 note top of PROVIDE_APP_DESC {
       <<envconfig>>
 The application descriptor

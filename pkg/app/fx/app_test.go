@@ -18,6 +18,7 @@ package fx_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,13 +32,13 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
 	"github.com/oysterpack/partire-k8s/pkg/app/ulidgen"
 	"github.com/oysterpack/partire-k8s/pkg/apptest"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"io"
 	"log"
 	"math/rand"
 	"os"
-	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -64,47 +65,87 @@ func TestMustNewApp(t *testing.T) {
 }
 
 func testNewAppWithInvalidLogConfig(t *testing.T) {
+	// Given the env is initialized cleanly
 	apptest.InitEnv()
+	defer apptest.ClearAppEnvSettings()
+
+	// Then the app can be built
+	buildApp := func() (*appfx.App, error) {
+		return appfx.NewAppBuilder().
+			Options(fx.Invoke(func() {})).
+			Build()
+	}
+	_, e := buildApp()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
+	// When the global log level env var is mis-configured
 	apptest.Setenv(apptest.LogGlobalLevel, "--")
-	defer func() {
-		if e := recover(); e == nil {
-			t.Error("fx.MustNewApp() should have because the app global log level was misconfigured")
-		} else {
-			t.Logf("as expected, fx.MustNewApp() failed because of: %v", e)
-		}
-	}()
-	appfx.MustNewApp(fx.Invoke(func() {}))
+	_, e = buildApp()
+
+	// Then the app should fail to build
+	if e == nil {
+		t.Fatal("*** creating the app should have failed because the app global log level was misconfigured")
+	}
+	t.Logf("as expected, the app failed to build: %v", e)
 }
 
 func testNewAppWithInvalidTimeouts(t *testing.T) {
+	// Given the env is initialized cleanly
 	apptest.InitEnv()
+	defer apptest.ClearAppEnvSettings()
+
+	// Then the app can be built
+	buildApp := func() (*appfx.App, error) {
+		return appfx.NewAppBuilder().
+			Options(fx.Invoke(func() {})).
+			Build()
+	}
+	_, e := buildApp()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
+	// When the start timeout env var is mis-configured
 	apptest.Setenv(apptest.StartTimeout, "--")
-	defer func() {
-		if e := recover(); e == nil {
-			t.Error("fx.MustNewApp() should have because the app start timeout was misconfigured")
-		} else {
-			t.Logf("as expected, fx.MustNewApp() failed because of: %v", e)
-		}
-	}()
-	appfx.MustNewApp(fx.Invoke(func() {}))
+	_, e = buildApp()
+	if e == nil {
+		t.Error("***creating the app should have failed because the app start timeout was misconfigured")
+	}
+	t.Logf("as expected, the app failed to build: %v", e)
 }
 
 func testNewAppWithCustomAppTimeouts(t *testing.T) {
+	// Given the env is initialized cleanly
+	apptest.InitEnv()
+	defer apptest.ClearAppEnvSettings()
+
+	// And the app start and stop timeouts env vars are set
 	apptest.Setenv(apptest.StartTimeout, "30s")
 	apptest.Setenv(apptest.StopTimeout, "60s")
-	fxapp := appfx.MustNewApp(fx.Invoke(func() {}))
+
+	// When the app is created
+	fxapp, e := appfx.NewAppBuilder().
+		Options(fx.Invoke(func() {})).
+		Build()
+	if e != nil {
+		t.Fatalf("*** the app failed to build: %v", e)
+	}
+	// Then app's start and stop timeouts will match what was specified via the env vars
 	if fxapp.StartTimeout() != 30*time.Second {
-		t.Error("StartTimeout did not match the default")
+		t.Error("*** StartTimeout did not match the default")
 	}
 	if fxapp.StopTimeout() != 60*time.Second {
-		t.Error("StopTimeout did not match the default")
+		t.Error("*** StopTimeout did not match the default")
 	}
+	// And the app will start and stop normally
 	if e := fxapp.Start(context.Background()); e != nil {
 		panic(e)
 	}
 	defer func() {
 		if e := fxapp.Stop(context.Background()); e != nil {
-			t.Errorf("fxapp.Stop error: %v", e)
+			t.Errorf("*** fxapp.Stop error: %v", e)
 		}
 	}()
 }
@@ -112,42 +153,48 @@ func testNewAppWithCustomAppTimeouts(t *testing.T) {
 func testNewAppWithDefaultSettings(t *testing.T) {
 	// Given the env is initialized
 	expectedDesc := apptest.InitEnv()
+	defer apptest.ClearAppEnvSettings()
 
 	// When the fx.App is created
 	var desc app.Desc
 	var instanceID app.InstanceID
-	fxapp := appfx.MustNewApp(
-		fx.Populate(&desc),
-		fx.Populate(&instanceID),
-		fx.Invoke(logTestEvents),
-	)
-	if fxapp.StartTimeout() != 15*time.Second {
-		t.Error("StartTimeout did not match the default")
-	}
-	if fxapp.StopTimeout() != 15*time.Second {
-		t.Error("StopTimeout did not match the default")
+	fxapp, e := appfx.NewAppBuilder().
+		Options(
+			fx.Populate(&desc),
+			fx.Populate(&instanceID),
+			fx.Invoke(logTestEvents),
+		).Build()
+	if e != nil {
+		t.Fatalf("*** the app failed to build: %v", e)
 	}
 
-	// Then it starts with no errors
+	// Then the app start and stop timeouts are set to defaults of 15 sec
+	if fxapp.StartTimeout() != 15*time.Second {
+		t.Error("*** StartTimeout did not match the default")
+	}
+	if fxapp.StopTimeout() != 15*time.Second {
+		t.Error("*** StopTimeout did not match the default")
+	}
+
+	// And the app starts and stops with no errors
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Fatal(e)
 	}
 	defer func() {
 		if e := fxapp.Stop(context.Background()); e != nil {
-			t.Errorf("fxapp.Stop error: %v", e)
+			t.Errorf("*** fxapp.Stop error: %v", e)
 		}
 	}()
 
 	// And app.Desc is provided in the fx.App context
-	t.Logf("Desc specified in the env: %s", &expectedDesc)
-	t.Logf("Desc loaded via fx app   : %s", &desc)
+	t.Logf("app desc: %s", &desc)
 	apptest.CheckDescsAreEqual(t, desc, expectedDesc)
 
 	// And the app.InstanceID is defined
 	t.Logf("app InstanceID: %s", ulid.ULID(instanceID))
 	var zeroULID ulid.ULID
 	if zeroULID == ulid.ULID(instanceID) {
-		t.Error("instanceID was not initialized")
+		t.Error("*** instanceID was not initialized")
 	}
 }
 
@@ -180,15 +227,17 @@ func logTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 // Feature: The app logs lifecycle events at the appropriate times.
 //
 // Given that the app log is captured
+//
 // When the app is started
 // Then it logs the Start event as the first lifecycle OnStart hook
 // And then after all other OnStart hooks are run, the Running event is logged
+//
 // When the app is stopped
 // Then the Stop event is logged as the first OnStop hook
 // Then the Stopped event is logged as the last OnStop hook
 func TestAppLifecycleEvents(t *testing.T) {
 	checkLifecycleEvents := func(t *testing.T, logFile io.Reader) {
-		events := make([]string, 0, 6)
+		eventNames := make([]string, 0, 6)
 		scanner := bufio.NewScanner(logFile)
 		for scanner.Scan() {
 			logEventJSON := scanner.Text()
@@ -202,13 +251,13 @@ func TestAppLifecycleEvents(t *testing.T) {
 
 			switch logEvent.Event {
 			case appfx.Start.Name, appfx.Running.Name, appfx.Stop.Name, appfx.Stopped.Name:
-				events = append(events, logEvent.Event)
+				eventNames = append(eventNames, logEvent.Event)
 			case LogTestEventLogEventName:
-				events = append(events, logEvent.Message)
+				eventNames = append(eventNames, logEvent.Message)
 			}
 		}
 
-		expectedEvents := []string{
+		expectedEventNamess := []string{
 			appfx.Start.Name,
 			LogTestEventOnStartMsg,
 			appfx.Running.Name,
@@ -217,78 +266,46 @@ func TestAppLifecycleEvents(t *testing.T) {
 			appfx.Stopped.Name,
 		}
 
-		t.Log(events)
-		t.Log(expectedEvents)
+		t.Log(eventNames)
+		t.Log(expectedEventNamess)
 
-		if len(expectedEvents) != len(events) {
-			t.Fatalf("the expected number of events did not match: %v != %v", len(expectedEvents), len(events))
+		if len(expectedEventNamess) != len(eventNames) {
+			t.Fatalf("*** the expected number of events did not match: %v != %v", len(expectedEventNamess), len(eventNames))
 		}
-
-		for i, event := range events {
-			if expectedEvents[i] != event {
-				t.Errorf("event did not match: %v != %v", expectedEvents[i], event)
+		// the order of events should match
+		for i, event := range eventNames {
+			if expectedEventNamess[i] != event {
+				t.Errorf("*** event did not match: %v != %v", expectedEventNamess[i], event)
 			}
 		}
 	}
 
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
-	// redirect Stderr to a log file
-	stderrBackup := os.Stderr
-	logFilePath := path.Join(os.TempDir(), ulidgen.MustNew().String()) + ".log"
-	t.Logf("log file: %v", logFilePath)
-	logFile, e := os.Create(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to create log file: %v", e)
-	}
-	os.Stderr = logFile
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-		checkLogEvents(t, logFilePath, logFile, checkLifecycleEvents)
-	}()
+	logEventsBuf := new(bytes.Buffer)
+	defer checkLifecycleEvents(t, logEventsBuf)
 
 	// Given that the app log is captured
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(logTestEvents))
+	fxapp, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(fx.Invoke(logTestEvents)).
+		Build()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
 
 	// When the app is started
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Fatal(e)
 	}
-
 	// Then it logs the Start event as the first lifecycle OnStart hook
 	// And then after all other OnStart hooks are run, the Running event is logged
+
 	// When the app is stopped
 	if e := fxapp.Stop(context.Background()); e != nil {
 		t.Errorf("fxapp.Stop error: %v", e)
 	}
-
 	// Then the Stop event is logged as the first OnStop hook
 	// Then the Stopped event is logged as the last OnStop hook
-}
-
-func checkLogEvents(t *testing.T, logFilePath string, logFile *os.File, checker func(t *testing.T, logFile io.Reader)) {
-	// close the log file to ensure it is flushed to disk
-	if e := logFile.Close(); e != nil {
-		t.Fatalf("failed to close log file: %v", e)
-	}
-	logFile, e := os.Open(logFilePath)
-	if e != nil {
-		t.Fatalf("failed to open the log file for reading: %v", e)
-	}
-	checker(t, logFile)
-	if e := logFile.Close(); e != nil {
-		t.Fatalf("failed to close log file: %v", e)
-	}
-	if e := os.Remove(logFilePath); e != nil {
-		t.Logf("failed to delete log file: %v", e)
-	}
 }
 
 var (
@@ -326,45 +343,26 @@ func TestAppInvokeErrorHandling(t *testing.T) {
 		}
 
 		if !errorLogged {
-			t.Error("Error was not logged")
+			t.Error("*** error was not logged")
 		}
 	}
 
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
+	logEventsBuf := new(bytes.Buffer)
+	defer checkErrorEvents(t, logEventsBuf)
 
-	// Given that the app log is captured
-
-	// redirect Stderr to a log file
-	stderrBackup := os.Stderr
-	logFile, logFilePath := apptest.CreateLogFile(t)
-	os.Stderr = logFile
-
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
-	}()
-
-	// When the app is created with a function that fails and returns an error when invoked
+	// When the app is created with an invoke function that fails
 	apptest.InitEnv()
-	func() {
-		defer func() {
-			e := recover()
-			if e == nil {
-				t.Fatal("app should have failed to be created because the invoked func returned an error")
-			}
-			t.Log(e)
-		}()
-		appfx.MustNewApp(fx.Invoke(func() error {
+	_, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(fx.Invoke(func() error {
 			t.Log("test func has been invoked ...")
 			return TestErr1.New()
-		}))
-	}()
+		})).
+		Build()
+	if e == nil {
+		t.Fatal("app should have failed to be created because the invoked func returned an error")
+	}
+	t.Log(e)
 }
 
 // Feature: Errors produced by app functions that are invoked by fx will be logged automatically
@@ -397,44 +395,26 @@ func TestAppInvokeErrorHandlingForNonStandardError(t *testing.T) {
 		}
 
 		if !errorLogged {
-			t.Error("Error was not logged")
+			t.Error("*** error was not logged")
 		}
 	}
 
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
-	// Given that the app log is captured
-
-	// redirect Stderr to a log file
-	stderrBackup := os.Stderr
-	logFile, logFilePath := apptest.CreateLogFile(t)
-	os.Stderr = logFile
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
-	}()
+	logEventsBuf := new(bytes.Buffer)
+	defer checkErrorEvents(t, logEventsBuf)
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	func() {
-		defer func() {
-			e := recover()
-			if e == nil {
-				t.Fatal("app should have failed to be created because the invoked func returned an error")
-			}
-			t.Log(e)
-		}()
-		appfx.MustNewApp(fx.Invoke(func() error {
+	_, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(fx.Invoke(func() error {
 			t.Log("test func has been invoked ...")
 			return errors.New("non standard error")
-		}))
-	}()
+		})).
+		Build()
+	if e == nil {
+		t.Fatal("*** app should have failed to be created because the invoked func returned an error")
+	}
+	t.Log(e)
 }
 
 // Feature: Errors produced by app functions that are invoked by fx will be logged automatically
@@ -467,45 +447,36 @@ func TestAppHookOnStartErrorHandling(t *testing.T) {
 		}
 
 		if !errorLogged {
-			t.Error("Error was not logged")
+			t.Error("error was not logged")
 		}
 	}
 
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
-	// Given that the app log is captured
-
-	// redirect Stderr to a log file
-	stderrBackup := os.Stderr
-	logFile, logFilePath := apptest.CreateLogFile(t)
-	os.Stderr = logFile
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
-	}()
+	logEventsBuf := new(bytes.Buffer)
+	defer checkErrorEvents(t, logEventsBuf)
 
 	// When the app is created with a function that fails and returns an error when invoked
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(func(lc fx.Lifecycle) error {
-		t.Log("test func has been invoked ...")
-		lc.Append(fx.Hook{
-			OnStart: func(context.Context) error {
-				t.Log("OnStart is about to fail ...")
-				return TestErr1.New()
-			},
-		})
-		return nil
-	}))
+	fxapp, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(fx.Invoke(func(lc fx.Lifecycle) error {
+			t.Log("test func has been invoked ...")
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					t.Log("OnStart is about to fail ...")
+					return TestErr1.New()
+				},
+			})
+			return nil
+		})).
+		Build()
 
-	e := fxapp.Run()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
+	e = fxapp.Run()
 	if e == nil {
-		t.Fatal("Expected the app to fail to start up")
+		t.Fatal("*** expected the app to fail to start up")
 	}
 	t.Logf("as expected, app failed to start: %v", e)
 }
@@ -544,53 +515,44 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 		}
 	}
 
-	// reset the std logger when the test is done
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
-	// Given that the app log is captured
-
-	// redirect Stderr to a log file
-	stderrBackup := os.Stderr
-	logFile, logFilePath := apptest.CreateLogFile(t)
-	os.Stderr = logFile
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-		checkLogEvents(t, logFilePath, logFile, checkErrorEvents)
-	}()
+	logEventsBuf := new(bytes.Buffer)
+	defer checkErrorEvents(t, logEventsBuf)
 
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(
-		// When the app is configured with an OnStop hook that will fail
-		fx.Invoke(func(lc fx.Lifecycle) error {
-			t.Log("test func has been invoked ...")
-			lc.Append(fx.Hook{
-				OnStop: func(context.Context) error {
-					t.Log("OnStop is about to fail ...")
-					return TestErr1.New()
-				},
-			})
-			return nil
-		}),
-		// And the app will stop itself right after it starts
-		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
-			lc.Append(fx.Hook{
-				OnStart: func(context.Context) error {
-					fmt.Println("App will be shutdown ...")
-					if e := shutdowner.Shutdown(); e != nil {
-						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
-					}
-					fmt.Println("App has been signalled to shutdown ...")
-					return nil
-				},
-			})
+	fxapp, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(
+			// When the app is configured with an OnStop hook that will fail
+			fx.Invoke(func(lc fx.Lifecycle) error {
+				t.Log("test func has been invoked ...")
+				lc.Append(fx.Hook{
+					OnStop: func(context.Context) error {
+						t.Log("OnStop is about to fail ...")
+						return TestErr1.New()
+					},
+				})
+				return nil
+			}),
+			// And the app will stop itself right after it starts
+			fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						fmt.Println("App will be shutdown ...")
+						if e := shutdowner.Shutdown(); e != nil {
+							t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+						}
+						fmt.Println("App has been signalled to shutdown ...")
+						return nil
+					},
+				})
 
-		}),
-	)
+			}),
+		).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
 
 	errChan := make(chan error)
 	go func() {
@@ -601,9 +563,9 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 		close(errChan)
 	}()
 	// wait for the app to stop
-	e := <-errChan
+	e = <-errChan
 	if e == nil {
-		t.Fatal("Expected the app to fail to start up")
+		t.Fatal("*** expected the app to fail to start up")
 	}
 	t.Logf("as expected, app failed to start: %v", e)
 }
@@ -615,28 +577,27 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 // When the app starts, it shuts itself down
 // Then the app shuts down cleanly
 func TestApp_Run(t *testing.T) {
-	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(
-		// And the app will stop itself right after it starts
-		fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
-			lc.Append(fx.Hook{
-				OnStart: func(context.Context) error {
-					if e := shutdowner.Shutdown(); e != nil {
-						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
-					}
-					return nil
-				},
-			})
+	fxapp, e := appfx.NewAppBuilder().
+		Options(
+			// And the app will stop itself right after it starts
+			fx.Invoke(func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						if e := shutdowner.Shutdown(); e != nil {
+							t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+						}
+						return nil
+					},
+				})
 
-		}),
-	)
+			}),
+		).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
 
 	errChan := make(chan error)
 	go func() {
@@ -653,35 +614,35 @@ func TestApp_Run(t *testing.T) {
 }
 
 func TestErrRegistryIsProvided(t *testing.T) {
-	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
-		logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
+	fxapp, e := appfx.NewAppBuilder().
+		Options(fx.Invoke(func(errRegistry *err.Registry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+			logger.Info().Msgf("registered errors: %v", errRegistry.Errs())
 
-		// all of the standard app errors should be registered
-		errs := []*err.Err{appfx.InvokeErr, appfx.AppStartErr, appfx.AppStopErr}
-		for _, e := range errs {
-			if !errRegistry.Registered(e.SrcID) {
-				t.Errorf("error is not registered: %v", e)
-			}
-		}
-
-		// when the app starts, shut it down
-		lc.Append(fx.Hook{
-			OnStart: func(context.Context) error {
-				if e := shutdowner.Shutdown(); e != nil {
-					t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+			// all of the standard app errors should be registered
+			errs := []*err.Err{appfx.InvokeErr, appfx.AppStartErr, appfx.AppStopErr}
+			for _, e := range errs {
+				if !errRegistry.Registered(e.SrcID) {
+					t.Errorf("error is not registered: %v", e)
 				}
-				return nil
-			},
-		})
-	}))
+			}
+
+			// when the app starts, shut it down
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					if e := shutdowner.Shutdown(); e != nil {
+						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+					}
+					return nil
+				},
+			})
+		})).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
 	errChan := make(chan error)
 	go func() {
 		e := fxapp.Run()
@@ -698,35 +659,34 @@ func TestErrRegistryIsProvided(t *testing.T) {
 }
 
 func TestEventRegistryIsProvided(t *testing.T) {
-	// reset the std logger when the test is done because the app will configure the std logger to use zerolog
-	flags := log.Flags()
-	defer func() {
-		log.SetFlags(flags)
-		log.SetOutput(os.Stderr)
-	}()
-
 	apptest.InitEnv()
-	fxapp := appfx.MustNewApp(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
-		logger.Info().Msgf("registered events: %v", registry.Events())
+	fxapp, e := appfx.NewAppBuilder().
+		Options(fx.Invoke(func(registry *logging.EventRegistry, logger *zerolog.Logger, shutdowner fx.Shutdowner, lc fx.Lifecycle) {
+			logger.Info().Msgf("registered events: %v", registry.Events())
 
-		// all of the standard app events should be registered
-		events := []*logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal, appfx.CompRegistered}
-		for _, e := range events {
-			if !registry.Registered(e) {
-				t.Errorf("event is not registered: %v", e)
-			}
-		}
-
-		// when the app starts, shut it down
-		lc.Append(fx.Hook{
-			OnStart: func(context.Context) error {
-				if e := shutdowner.Shutdown(); e != nil {
-					t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+			// all of the standard app events should be registered
+			events := []*logging.Event{appfx.Start, appfx.Running, appfx.Stop, appfx.Stopped, appfx.StopSignal, appfx.CompRegistered}
+			for _, e := range events {
+				if !registry.Registered(e) {
+					t.Errorf("event is not registered: %v", e)
 				}
-				return nil
-			},
-		})
-	}))
+			}
+
+			// when the app starts, shut it down
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					if e := shutdowner.Shutdown(); e != nil {
+						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+					}
+					return nil
+				},
+			})
+		})).
+		Build()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
+
 	errChan := make(chan error)
 	go func() {
 		e := fxapp.Run()
@@ -737,20 +697,20 @@ func TestEventRegistryIsProvided(t *testing.T) {
 	}()
 	// wait for the app to stop
 	if e := <-errChan; e != nil {
-		t.Errorf("App failed to run: %v", e)
+		t.Errorf("*** app failed to run: %v", e)
 	}
 }
 
 func testDescNotDefinedInEnv(t *testing.T) {
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("loading Desc should have failed and triggered a panic")
-		} else {
-			t.Logf("panic is expected: %v", e)
-		}
-	}()
 	apptest.ClearAppEnvSettings()
-	appfx.MustNewApp(fx.Invoke(func() {}))
+	_, e := appfx.NewAppBuilder().
+		Options(fx.Invoke(func() {})).
+		Build()
+	if e == nil {
+		t.Fatal("*** loading Desc should have failed because required app descriptor fields are missing")
+	} else {
+		t.Logf("as expected, the app failed to build: %v", e)
+	}
 }
 
 type RandomNumberGenerator func() int
@@ -824,19 +784,16 @@ func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	}))
 
 	apptest.InitEnv()
-	func() {
-		defer func() {
-			e := recover()
-			if e == nil {
-				t.Fatal("app should have failed to be created because the invoked func returned an error")
-			}
-			t.Log(e)
-		}()
-		appfx.MustNewApp(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
+	_, e := appfx.NewAppBuilder().
+		Options(foo.FxOptions(), bar.FxOptions(), fx.Invoke(func(r *comp.Registry, l *zerolog.Logger) {
 			// triggers the comp.Registry to be constructed, which should then trigger the error when comps register
 			l.Info().Msgf("%v", r.Comps())
-		}))
-	}()
+		})).
+		Build()
+	if e == nil {
+		t.Fatal("*** app should have failed to be created because the invoked func returned an error")
+	}
+	t.Log(e)
 }
 
 // app components are optional, i.e., in order for an app to run, it requires at least 1 fx.Option
@@ -847,13 +804,18 @@ func testEmptyComponentRegistry(t *testing.T) {
 	apptest.InitEnv()
 	// When the app is created with no components
 	var compRegistry *comp.Registry
-	fxapp := appfx.MustNewApp(fx.Populate(&compRegistry))
+	fxapp, e := appfx.NewAppBuilder().
+		Options(fx.Populate(&compRegistry)).
+		Build()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
 	// Then the app starts up just fine
 	if e := fxapp.Start(context.Background()); e != nil {
-		t.Errorf("failed to start app: %v", e)
+		t.Errorf("*** failed to start app: %v", e)
 	}
 	if e := fxapp.Stop(context.Background()); e != nil {
-		t.Errorf("failed to start app: %v", e)
+		t.Errorf("*** failed to start app: %v", e)
 	}
 	t.Logf("registered components: %v", compRegistry.Comps())
 }
@@ -865,6 +827,7 @@ func testEmptyComponentRegistry(t *testing.T) {
 // And the component's errors are registered with the app error registry
 func testCompRegistryWithCompsRegistered(t *testing.T) {
 	apptest.InitEnv()
+	defer apptest.ClearAppEnvSettings()
 
 	event1 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
 	event2 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
@@ -889,26 +852,25 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 		return func() string { return "greetings" }
 	}))
 
-	// redirect Stderr to a log file so that we can read the log
-	stderrBackup := os.Stderr
-	logFile, logFilePath := apptest.CreateLogFile(t)
-	os.Stderr = logFile
-	defer func() {
-		// restore stderr
-		os.Stderr = stderrBackup
-	}()
-
 	// When the app is created with the 2 components
 	var compRegistry *comp.Registry
 	var eventRegistry *logging.EventRegistry
 	var errRegistry *err.Registry
-	fxapp := appfx.MustNewApp(
-		foo.FxOptions(),
-		bar.FxOptions(),
-		fx.Populate(&compRegistry),
-		fx.Populate(&eventRegistry),
-		fx.Populate(&errRegistry),
-	)
+
+	logEventsBuf := new(bytes.Buffer)
+	fxapp, e := appfx.NewAppBuilder().
+		LogWriter(logEventsBuf).
+		Options(
+			foo.FxOptions(),
+			bar.FxOptions(),
+			fx.Populate(&compRegistry),
+			fx.Populate(&eventRegistry),
+			fx.Populate(&errRegistry),
+		).
+		Build()
+	if e != nil {
+		t.Fatalf("*** app failed to build: %v", e)
+	}
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Errorf("failed to start app: %v", e)
 	}
@@ -919,13 +881,13 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 			t.Errorf("*** component was not found in the registry: %v", c)
 		}
 	}
-
+	// And the component events were registered
 	for _, event := range []*logging.Event{event1, event2} {
 		if !eventRegistry.Registered(event) {
 			t.Errorf("*** event is not registered: %v", event)
 		}
 	}
-
+	// And the component errors were registered
 	for _, e := range []*err.Err{err1, err2} {
 		if !errRegistry.Registered(e.SrcID) {
 			t.Errorf("*** error is not registered: %v", e)
@@ -936,23 +898,59 @@ func testCompRegistryWithCompsRegistered(t *testing.T) {
 		t.Errorf("*** failed to start app: %v", e)
 	}
 
-	defer func() {
-		checkCompRegisteredEvents := func(t *testing.T, log io.Reader) {
-			compRegisteredEvents := apptest.CollectLogEvents(t, log, func(logEvent *apptest.LogEvent) bool {
-				return logEvent.Event == appfx.CompRegistered.Name
-			})
+	// check that the component registration events were logged
+	compRegisteredEvents := apptest.CollectLogEvents(t, logEventsBuf, func(logEvent *apptest.LogEvent) bool {
+		return logEvent.Event == appfx.CompRegistered.Name
+	})
 
-			if len(compRegisteredEvents) == 0 {
-				t.Errorf("no %q events were logged", appfx.CompRegistered.Name)
-			} else {
-				t.Logf("len(compRegisteredEvents) = %d", len(compRegisteredEvents))
-				checkCompRegisteredEvents(t, []*comp.Comp{foo, bar}, compRegisteredEvents)
+	if len(compRegisteredEvents) == 0 {
+		t.Errorf("no %q events were logged", appfx.CompRegistered.Name)
+	} else {
+		t.Logf("len(compRegisteredEvents) = %d", len(compRegisteredEvents))
+		checkCompRegistrationEvents(t, []*comp.Comp{foo, bar}, compRegisteredEvents)
+	}
+}
+
+// checks that all of the expected component information is logged
+func checkCompRegistrationEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {
+	findEventByCompID := func(events []*apptest.LogEvent, c *comp.Comp) *apptest.LogEvent {
+		for _, event := range events {
+			if c.ID.String() == event.Comp.ID {
+				return event
 			}
 		}
+		return nil
+	}
 
-		// And comp registration events are logged
-		checkLogEvents(t, logFilePath, logFile, checkCompRegisteredEvents)
-	}()
+	checkCompOptionsWereLogged := func(c *comp.Comp, event *apptest.LogEvent) {
+		for _, opt := range c.Options {
+			for _, eventOpt := range event.Comp.Options {
+				if !strings.Contains(eventOpt, opt.FuncType.String()) {
+					t.Error("option.Desc.FuncType did not match")
+				}
+				if !strings.Contains(eventOpt, opt.Type.String()) {
+					t.Error("option.Desc.Type did not match")
+				}
+			}
+		}
+	}
+
+	for _, c := range comps {
+		event := findEventByCompID(events, c)
+		if event == nil {
+			t.Errorf("event was not logged for: %v", c.ID)
+			continue
+		}
+		t.Logf("checking %v against %v", c, event.Comp)
+		if event.Comp.Version != c.Version.String() {
+			t.Error("comp version did not match")
+		}
+		if len(c.Options) != len(event.Comp.Options) {
+			t.Error("number of options does not match")
+			continue
+		}
+		checkCompOptionsWereLogged(c, event)
+	}
 }
 
 // When components are registered that conflict
@@ -1006,32 +1004,40 @@ func testCompRegistryWithCompsContainingConflictingErrors(t *testing.T) {
 
 }
 
-func checkCompRegisteredEvents(t *testing.T, comps []*comp.Comp, events []*apptest.LogEvent) {
-CompLoop:
-	for _, c := range comps {
-		for _, event := range events {
-			if c.ID.String() == event.Comp.ID {
-				t.Logf("checking %v against %v", c, event.Comp)
-				if event.Comp.Version != c.Version.String() {
-					t.Error("comp version did not match")
-				}
-				if len(c.Options) != len(event.Comp.Options) {
-					t.Error("number of options does not match")
-				} else {
-					for _, opt := range c.Options {
-						for _, eventOpt := range event.Comp.Options {
-							if !strings.Contains(eventOpt, opt.FuncType.String()) {
-								t.Error("option.Desc.FuncType did not match")
-							}
-							if !strings.Contains(eventOpt, opt.Type.String()) {
-								t.Error("option.Desc.Type did not match")
-							}
-						}
+func TestFxAppWithStructAndCompatiblyInterfaceInjections(t *testing.T) {
+
+	fxapp := fx.New(
+		fx.Provide(func() (*prometheus.Registry, prometheus.Registerer) {
+			registry := prometheus.NewRegistry()
+			return registry, registry
+		}),
+		fx.Invoke(func(registry prometheus.Registerer) {
+			registry.MustRegister(prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "counter2",
+			}))
+			t.Log("prometheus.Registerer : counter2")
+		}),
+		fx.Invoke(func(registry *prometheus.Registry, lc fx.Lifecycle) {
+			registry.MustRegister(prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "counter1",
+			}))
+			t.Log("*prometheus.Registry : counter1")
+			lc.Append(fx.Hook{
+				OnStart: func(i context.Context) error {
+					metrics, e := registry.Gather()
+					if e != nil {
+						return e
 					}
-				}
-				continue CompLoop
-			}
-		}
-		t.Errorf("event was not logged for: %v", c.ID)
+					t.Logf("registry: %v", metrics)
+					return nil
+				},
+			})
+		}),
+	)
+
+	e := fxapp.Start(context.Background())
+	if e != nil {
+		t.Fatalf("*** app failed to start: %v", e)
 	}
+
 }
