@@ -83,7 +83,7 @@ func TestMustParseVersion(t *testing.T) {
 			if e == nil {
 				t.Fatal("*** version should have failed to parse")
 			}
-			t.Log(e)
+			t.Logf("error: %v", e)
 		}()
 		app.MustParseVersion("---")
 	})
