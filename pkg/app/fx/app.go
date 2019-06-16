@@ -24,6 +24,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/app/err"
 	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
 	"github.com/oysterpack/partire-k8s/pkg/app/logging"
+	"github.com/oysterpack/partire-k8s/pkg/app/metric"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -89,18 +90,22 @@ func (a *App) Stopped() <-chan os.Signal {
 	return a.stopped
 }
 
-func newMetricRegistry(appDesc app.Desc) (*prometheus.Registry, prometheus.Registerer) {
+func newMetricRegistry(appDesc app.Desc, instanceID app.InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(
-		prometheus.NewGoCollector(),
-		// process metrics are prefixed with "app_<app.ID>"
-		// NOTE: `app` is used as a prefix because prometheus metric names must not start with a number
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{
-			Namespace:    fmt.Sprintf("app_%s", appDesc.ID),
-			ReportErrors: true,
-		}),
+	regsisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{
+			metric.AppID.String():         appDesc.ID.String(),
+			metric.AppReleaseID.String():  appDesc.ReleaseID.String(),
+			metric.AppInstanceID.String(): instanceID.String(),
+		},
+		registry,
 	)
-	return registry, registry
+	regsisterer.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
+	)
+
+	return registry, regsisterer
 }
 
 func newEventRegistry() *logging.EventRegistry {

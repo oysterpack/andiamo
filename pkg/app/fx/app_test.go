@@ -1043,10 +1043,11 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 	appDesc := apptest.InitEnv()
 
 	// When the app is created
-	var metricRegistry *prometheus.Registry
+	var metricRegistry prometheus.Gatherer
 	var metricRegisterer prometheus.Registerer
+	var instanceID app.InstanceID
 	_, e := appfx.NewAppBuilder().
-		Options(fx.Populate(&metricRegistry, &metricRegisterer)).
+		Options(fx.Populate(&metricRegistry, &metricRegisterer, &instanceID)).
 		Build()
 
 	if e != nil {
@@ -1073,13 +1074,40 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 	}
 	logMetrics(metrics)
 
+	// And all metrics have the standard app labels
+	{
+		appMetrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
+			for _, m := range mf.Metric {
+				labelMatchCount := 0
+				for _, labelPair := range m.Label {
+					if *labelPair.Name == metric.AppID.String() && *labelPair.Value == appDesc.ID.String() {
+						labelMatchCount++
+					}
+					if *labelPair.Name == metric.AppReleaseID.String() && *labelPair.Value == appDesc.ReleaseID.String() {
+						labelMatchCount++
+					}
+					if *labelPair.Name == metric.AppInstanceID.String() && *labelPair.Value == instanceID.String() {
+						labelMatchCount++
+					}
+					if labelMatchCount == 3 {
+						return true
+					}
+				}
+			}
+			return false
+		})
+		if len(appMetrics) != len(metrics) {
+			t.Errorf("*** Not all metrics have app labels: %v != %v", len(appMetrics), len(metrics))
+		}
+	}
+
 	// And go metrics are collected
 	{
 		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
 			return strings.HasPrefix(*mf.Name, "go_")
 		})
 		if len(metrics) == 0 {
-			t.Errorf("prometheus go collector is not registered")
+			t.Errorf("*** prometheus go collector is not registered")
 		} else {
 			t.Log("--- go metrics ---")
 			logMetrics(metrics)
@@ -1090,10 +1118,10 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 	// And process metrics are collected
 	{
 		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
-			return strings.HasPrefix(*mf.Name, fmt.Sprintf("app_%s_process_", appDesc.ID))
+			return strings.HasPrefix(*mf.Name, "process_")
 		})
 		if len(metrics) == 0 {
-			t.Errorf("prometheus go collector is not registered")
+			t.Errorf("*** prometheus process metrics collector is not registered")
 		} else {
 			t.Log("--- process metrics ---")
 			logMetrics(metrics)

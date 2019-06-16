@@ -16,14 +16,25 @@
 
 package metric
 
-import dto "github.com/prometheus/client_model/go"
+import (
+	dto "github.com/prometheus/client_model/go"
+)
 
-// FindMetricFamilyByName returns the metric family that matches the specified name
-func FindMetricFamilyByName(mfs []*dto.MetricFamily, name string) *dto.MetricFamily {
-	return FindMetricFamily(mfs, func(mf *dto.MetricFamily) bool {
-		return *mf.Name == name
-	})
+// Label is used to define standard metric label names
+type Label string
+
+func (l Label) String() string {
+	return string(l)
 }
+
+// standard application metric labels
+const (
+	AppID         Label = "a"
+	AppReleaseID  Label = "r"
+	AppInstanceID Label = "x"
+
+	ComponentID Label = "c"
+)
 
 // FindMetricFamily returns the first metric family that matches the filter
 func FindMetricFamily(mfs []*dto.MetricFamily, accept func(mf *dto.MetricFamily) bool) *dto.MetricFamily {

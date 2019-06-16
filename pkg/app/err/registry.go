@@ -29,6 +29,8 @@ var (
 )
 
 // Registry is used to register application errors. It is good to know what types of application errors can occur upfront.
+//
+// Registry is safe to use concurrently.
 type Registry struct {
 	m sync.RWMutex
 	// Err.SrcID -> *Err
