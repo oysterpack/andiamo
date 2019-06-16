@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"io"
+	"os"
 	"time"
 )
 
@@ -185,8 +186,9 @@ func newApp(desc app.Desc, timeouts app.Timeouts, logWriter io.Writer, globalLog
 	}
 
 	fxapp := &App{
-		App:    fx.New(appOptions...),
-		logger: logger,
+		App:     fx.New(appOptions...),
+		logger:  logger,
+		stopped: make(chan os.Signal, 1),
 	}
 	if e := fxapp.Err(); e != nil {
 		return nil, e

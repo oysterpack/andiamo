@@ -113,6 +113,12 @@ func (id *ReleaseID) Decode(value string) error {
 // NOTE: type alias was created in order to implement envconfig.Decoder interface
 type Version semver.Version
 
+// MustParseVersion tries to parse the version
+func MustParseVersion(version string) *Version {
+	v := Version(*semver.MustParse(version))
+	return &v
+}
+
 // Decode implements the envconfig.Decoder interface
 func (v *Version) Decode(value string) error {
 	version, err := semver.NewVersion(value)

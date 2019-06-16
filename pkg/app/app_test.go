@@ -67,3 +67,25 @@ func TestVersion_String(t *testing.T) {
 		t.Errorf("Version did not match: %s", &appVer)
 	}
 }
+
+func TestMustParseVersion(t *testing.T) {
+
+	t.Run("valid version", func(t *testing.T) {
+		version := app.MustParseVersion("0.1.0")
+		if version.String() != "0.1.0" {
+			t.Errorf("parsed version did not match: %v", version)
+		}
+	})
+
+	t.Run("invalid version", func(t *testing.T) {
+		defer func() {
+			e := recover()
+			if e == nil {
+				t.Fatal("*** version should have failed to parse")
+			}
+			t.Log(e)
+		}()
+		app.MustParseVersion("---")
+	})
+
+}

@@ -464,7 +464,7 @@ func testRunAppWithMinimalRequiredAppDescFromEnv(t *testing.T) {
 		}
 	}()
 
-	<-fxapp.Done()
+	<-fxapp.Stopped()
 }
 
 func testRunAppWithMinimalRequired(t *testing.T) {
@@ -502,5 +502,5 @@ func testRunAppWithMinimalRequired(t *testing.T) {
 		}
 	}()
 
-	<-fxapp.Done()
+	<-fxapp.Stopped()
 }

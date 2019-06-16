@@ -1040,7 +1040,7 @@ func TestFxAppWithStructAndCompatiblyInterfaceInjections(t *testing.T) {
 }
 
 func TestPrometheusRegistryIsProvided(t *testing.T) {
-	apptest.InitEnv()
+	appDesc := apptest.InitEnv()
 
 	// When the app is created
 	var metricRegistry *prometheus.Registry
@@ -1074,15 +1074,30 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 	logMetrics(metrics)
 
 	// And go metrics are collected
-	metrics = metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
-		return strings.HasPrefix(*mf.Name, "go_")
-	})
-	if len(metrics) == 0 {
-		t.Errorf("prometheus go collector is not registered")
-	} else {
-		t.Log("--- go metrics ---")
-		logMetrics(metrics)
-		t.Log("--- go metrics ---")
+	{
+		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
+			return strings.HasPrefix(*mf.Name, "go_")
+		})
+		if len(metrics) == 0 {
+			t.Errorf("prometheus go collector is not registered")
+		} else {
+			t.Log("--- go metrics ---")
+			logMetrics(metrics)
+			t.Log("=== go metrics ===")
+		}
 	}
 
+	// And process metrics are collected
+	{
+		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
+			return strings.HasPrefix(*mf.Name, fmt.Sprintf("app_%s_process_", appDesc.ID))
+		})
+		if len(metrics) == 0 {
+			t.Errorf("prometheus go collector is not registered")
+		} else {
+			t.Log("--- process metrics ---")
+			logMetrics(metrics)
+			t.Log("=== process metrics ===")
+		}
+	}
 }

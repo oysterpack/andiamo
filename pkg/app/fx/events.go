@@ -27,6 +27,24 @@ const AppTag logging.Tag = "app"
 
 var (
 	// Start signals that the app is starting.
+	//
+	// If debug build info is available, then it will be included in the event data with following structure:
+	//
+	//   type LogEvent struct {
+	//	    Build struct {
+	//		  Path string
+	//		  Main struct {
+	//		  	Path     string
+	//			Version  string
+	//			Checksum string
+	//		  }
+	//		  Deps []struct {
+	//			Path     string
+	//			Version  string
+	//			Checksum string
+	//		  }
+	//	    }
+	//   }
 	Start = logging.MustNewEvent("start", zerolog.NoLevel, AppTag)
 
 	// Running signals that the app is running.

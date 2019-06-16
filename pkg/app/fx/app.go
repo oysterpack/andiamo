@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
+	"os"
 	"strings"
 )
 
@@ -39,7 +40,8 @@ import (
 // - a StopSignal event is logged, which logs exactly what type of os.Signal was received
 type App struct {
 	*fx.App
-	logger *zerolog.Logger
+	logger  *zerolog.Logger
+	stopped chan os.Signal
 }
 
 // Run starts the application, blocks on the signals channel, and then gracefully shuts the application down.
@@ -50,6 +52,7 @@ type App struct {
 func (a *App) Run() error {
 	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
 	defer cancel()
+	defer close(a.stopped)
 
 	stopChan := a.App.Done()
 
@@ -61,6 +64,9 @@ func (a *App) Run() error {
 
 	// wait for the app to be signalled to stop
 	signal := <-stopChan
+	defer func() {
+		a.stopped <- signal
+	}()
 	StopSignal.Log(a.logger).Msg(strings.ToUpper(signal.String()))
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), a.StopTimeout())
@@ -73,6 +79,14 @@ func (a *App) Run() error {
 	}
 
 	return nil
+}
+
+// Stopped returns a chan that is used to signal when the app has stopped.
+//
+// NOTE: the stopped channel should only be used when the application is run via App.Run(), i.e., it is signalled when the
+//       the App.Run() method completes
+func (a *App) Stopped() <-chan os.Signal {
+	return a.stopped
 }
 
 func newMetricRegistry(appDesc app.Desc) (*prometheus.Registry, prometheus.Registerer) {
