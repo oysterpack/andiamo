@@ -254,3 +254,92 @@ func TestDesc_ErrorRegistry(t *testing.T) {
 	}
 
 }
+
+func TestDescBuilder(t *testing.T) {
+	type Foo func()
+	option1Desc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))
+
+	type Bar func()
+	option2Desc := option.NewDesc(option.Provide, reflect.TypeOf(Bar(nil)))
+
+	event1 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+	event2 := logging.MustNewEvent(ulidgen.MustNew().String(), zerolog.InfoLevel)
+
+	errDesc1 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc1")
+	err1 := err.New(errDesc1, ulidgen.MustNew().String())
+	err2 := err.New(errDesc1, ulidgen.MustNew().String())
+
+	errDesc2 := err.MustNewDesc(ulidgen.MustNew().String(), ulidgen.MustNew().String(), "errDesc2")
+	err3 := err.New(errDesc2, ulidgen.MustNew().String())
+
+	options := []option.Desc{option1Desc, option2Desc}
+	events := []*logging.Event{event1, event2}
+	errs := []*err.Err{err1, err2, err3}
+
+	compID := ulidgen.MustNew()
+	desc, e := comp.NewDescBuilder().
+		ID(compID.String()).
+		Name("foo").
+		Version("0.1.0").
+		Package(Package).
+		Options(options...).
+		Events(events...).
+		Errors(errs...).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** comp desc failed to build: %v", e)
+	}
+	if desc.ID != compID {
+		t.Errorf("*** comp ID did not match: %s != %s", desc.ID, compID)
+	}
+	if desc.Name != "foo" {
+		t.Errorf("*** comp Name did not match: %s", desc.Name)
+	}
+	if desc.Version.String() != "0.1.0" {
+		t.Errorf("*** comp Version did not match: %s", desc.Version)
+	}
+	if desc.Package != Package {
+		t.Errorf("*** comp Package did not match: %s", desc.Package)
+	}
+	if len(desc.OptionDescs) != 2 && desc.OptionDescs[0] != option1Desc && desc.OptionDescs[1] != option2Desc {
+		t.Errorf("comp is missing option desc")
+	}
+OPTION_LOOP:
+	for _, opt := range options {
+		for _, registeredOption := range desc.OptionDescs {
+			if opt == registeredOption {
+				continue OPTION_LOOP
+			}
+		}
+		t.Errorf("*** option not found: %v", opt)
+	}
+EVENT_LOOP:
+	for _, event := range events {
+		for _, registeredEvent := range desc.EventRegistry.Events() {
+			if event.Equals(registeredEvent) {
+				continue EVENT_LOOP
+			}
+		}
+		t.Errorf("*** event not found: %v", event)
+	}
+
+ERR_LOOP:
+	for _, e := range errs {
+		for _, registeredErr := range desc.ErrorRegistry.Errs() {
+			if registeredErr.SrcID == e.SrcID {
+				continue ERR_LOOP
+			}
+		}
+		t.Errorf("*** err not found: %v", e)
+	}
+}
+
+func TestDescBuilder_Build(t *testing.T) {
+	t.Run("Using invalid ID", func(t *testing.T) {
+		_, e := comp.NewDescBuilder().Build()
+		if e == nil {
+			t.Errorf("*** desc should have failed to build because required options are missing")
+		}
+	})
+}

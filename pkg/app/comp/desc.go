@@ -184,3 +184,71 @@ type Version string
 func (v Version) MustParse() *semver.Version {
 	return semver.MustParse(string(v))
 }
+
+type DescBuilder struct {
+	id      string
+	name    string
+	version string
+	pkg     app.Package
+	options []option.Desc
+	events  []*logging.Event
+	errs    []*err.Err
+}
+
+func (b *DescBuilder) ID(id string) *DescBuilder {
+	b.id = id
+	return b
+}
+
+func (b *DescBuilder) Name(name string) *DescBuilder {
+	b.name = name
+	return b
+}
+
+func (b *DescBuilder) Version(version string) *DescBuilder {
+	b.version = version
+	return b
+}
+
+func (b *DescBuilder) Package(pkg app.Package) *DescBuilder {
+	b.pkg = pkg
+	return b
+}
+
+func (b *DescBuilder) Options(options ...option.Desc) *DescBuilder {
+	b.options = append(b.options, options...)
+	return b
+}
+
+func (b *DescBuilder) Events(events ...*logging.Event) *DescBuilder {
+	b.events = append(b.events, events...)
+	return b
+}
+
+func (b *DescBuilder) Errors(errs ...*err.Err) *DescBuilder {
+	b.errs = append(b.errs, errs...)
+	return b
+}
+
+func (b *DescBuilder) Build() (*Desc, error) {
+	desc, e := NewDesc(
+		ID(b.id),
+		Name(b.name),
+		Version(b.version),
+		b.pkg,
+		b.options...,
+	)
+	if e != nil {
+		return nil, e
+	}
+	e = desc.ErrorRegistry.Register(b.errs...)
+	if e != nil {
+		return nil, e
+	}
+	desc.EventRegistry.Register(b.events...)
+	return desc, nil
+}
+
+func NewDescBuilder() *DescBuilder {
+	return &DescBuilder{}
+}
