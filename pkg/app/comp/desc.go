@@ -87,7 +87,7 @@ func (d *Desc) MustNewComp(options ...option.Option) *Comp {
 // - OptionDescTypeNotMatchedErr
 func (d *Desc) NewComp(options ...option.Option) (*Comp, error) {
 	if len(options) != len(d.OptionDescs) {
-		return nil, OptionCountDoesNotMatchErr.CausedBy(fmt.Errorf("expected %d options, but only %d were specified", len(d.OptionDescs), len(options)))
+		return nil, OptionCountDoesNotMatchErr.CausedBy(fmt.Errorf("expected %d options, but %d were specified", len(d.OptionDescs), len(options)))
 	}
 
 	// sort the options in the same order matching Desc.OptionDescs
