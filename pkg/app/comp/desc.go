@@ -148,7 +148,7 @@ func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...
 	desc.OptionDescs = make([]option.Desc, len(optionDescs))
 	for i, optionDesc := range optionDescs {
 		if optionType[optionDesc] {
-			return nil, UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate desc: %v", optionDesc))
+			return nil, UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate option desc: %v", optionDesc))
 		}
 		optionType[optionDesc] = true
 		desc.OptionDescs[i] = optionDesc
@@ -185,6 +185,7 @@ func (v Version) MustParse() *semver.Version {
 	return semver.MustParse(string(v))
 }
 
+// DescBuilder is used to construct a new component descriptor
 type DescBuilder struct {
 	id      string
 	name    string
@@ -195,41 +196,61 @@ type DescBuilder struct {
 	errs    []*err.Err
 }
 
+// ID sets the component ID.
+//
+// The ID must a ULID and is required
 func (b *DescBuilder) ID(id string) *DescBuilder {
 	b.id = id
 	return b
 }
 
+// Name sets the component name.
+//
+// REQUIRED
 func (b *DescBuilder) Name(name string) *DescBuilder {
 	b.name = name
 	return b
 }
 
+// Version set the component version following semver convention.
 func (b *DescBuilder) Version(version string) *DescBuilder {
 	b.version = version
 	return b
 }
 
+// Package sets the package that the component belongs to.
+//
+// REQUIRED
 func (b *DescBuilder) Package(pkg app.Package) *DescBuilder {
 	b.pkg = pkg
 	return b
 }
 
+// Options adds component option descriptors.
+//
+// At least 1 is required
 func (b *DescBuilder) Options(options ...option.Desc) *DescBuilder {
 	b.options = append(b.options, options...)
 	return b
 }
 
+// Events is used to define component log events.
+//
+// OPTIONAL
 func (b *DescBuilder) Events(events ...*logging.Event) *DescBuilder {
 	b.events = append(b.events, events...)
 	return b
 }
 
+// Errors is used to define component errors.
+//
+// OPTIONAL
 func (b *DescBuilder) Errors(errs ...*err.Err) *DescBuilder {
 	b.errs = append(b.errs, errs...)
 	return b
 }
 
+// Build tries to construct the component descriptor.s
 func (b *DescBuilder) Build() (*Desc, error) {
 	desc, e := NewDesc(
 		ID(b.id),
@@ -249,6 +270,7 @@ func (b *DescBuilder) Build() (*Desc, error) {
 	return desc, nil
 }
 
+// NewDescBuilder returns a new component descriptor builder
 func NewDescBuilder() *DescBuilder {
 	return &DescBuilder{}
 }

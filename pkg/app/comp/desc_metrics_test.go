@@ -45,14 +45,18 @@ func TestDesc_WrapRegisterer(t *testing.T) {
 	type CommandProvider func(CommandExecutionCounter) Command
 	optionDesc := option.NewDesc(option.Provide, reflect.TypeOf(CommandProvider(nil)))
 
-	compDesc := comp.MustNewDesc(
-		comp.ID(ulidgen.MustNew().String()),
-		comp.Name("foo"),
-		comp.Version("0.1.0"),
-		Package,
-		optionDesc,
-		commandExecutionCounterOptionDesc,
-	)
+	compDesc, e := comp.NewDescBuilder().
+		ID(ulidgen.MustNew().String()).
+		Name("foo").
+		Version("0.1.0").
+		Package(Package).
+		Options(optionDesc, commandExecutionCounterOptionDesc).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** comp desc failed to build: %v", e)
+	}
+
 	metricRegistry := prometheus.NewRegistry()
 	// Given a component metric registerer
 	metricRegisterer := compDesc.WrapRegisterer(metricRegistry)
@@ -127,17 +131,23 @@ func TestCompMetrics(t *testing.T) {
 		commandExecutionCounterOptionDesc = option.NewDesc(option.Provide, reflect.TypeOf(CommandExecutionCounterProvider(nil)))
 		fooCommandRunnerDesc              = option.NewDesc(option.Invoke, reflect.TypeOf(FooCommandRunner(nil)))
 		commandOptionDesc                 = option.NewDesc(option.Provide, reflect.TypeOf(CommandProvider(nil)))
+	)
 
-		fooCompDesc = comp.MustNewDesc(
-			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("foo"),
-			comp.Version("0.1.0"),
-			Package,
+	fooCompDesc, e := comp.NewDescBuilder().
+		ID(ulidgen.MustNew().String()).
+		Name("foo").
+		Version("0.1.0").
+		Package(Package).
+		Options(
 			commandOptionDesc,
 			fooCommandRunnerDesc,
 			commandExecutionCounterOptionDesc,
-		)
-	)
+		).
+		Build()
+
+	if e != nil {
+		t.Fatalf("*** comp desc failed to build: %v", e)
+	}
 
 	fooComp := fooCompDesc.MustNewComp(
 		commandOptionDesc.NewOption(func(counter CommandExecutionCounter, errorCounter GobalErrorCounter) Command {
@@ -177,7 +187,7 @@ func TestCompMetrics(t *testing.T) {
 
 	// When the app is initialized the FooCommandRunner is invoked, which depends on metrics being injected
 	var metricsGatherer prometheus.Gatherer
-	_, e := appfx.NewAppBuilder().
+	_, e = appfx.NewAppBuilder().
 		Comps(fooComp).
 		Options(
 			fx.Populate(&metricsGatherer),
@@ -211,4 +221,19 @@ func TestCompMetrics(t *testing.T) {
 		t.Fatal("*** metric is not registered")
 	}
 	t.Log(mf)
+}
+
+func TestMetricOptionFuncType(t *testing.T) {
+	// metric dependencies should be strongly typed - the type name should convey the metric's purpose
+	type CommandExecutionCounter prometheus.Counter
+	// It is the metric provider's responsibility to register the counter
+	type CommandExecutionCounterProvider func(prometheus.Registerer) (CommandExecutionCounter, error)
+
+	inTypes := []reflect.Type{reflect.TypeOf((*prometheus.Registerer)(nil)).Elem()}
+	outTypes := []reflect.Type{reflect.TypeOf((*CommandExecutionCounter)(nil)).Elem(), reflect.TypeOf((*error)(nil)).Elem()}
+	t.Log(inTypes, "->", outTypes)
+	var CommandExecutionCounterProviderType = reflect.FuncOf(inTypes, outTypes, false)
+	if !CommandExecutionCounterProviderType.ConvertibleTo(reflect.TypeOf(CommandExecutionCounterProvider(nil))) {
+		t.Errorf("types don't match: %v != %v", CommandExecutionCounterProviderType, reflect.TypeOf(CommandExecutionCounterProvider(nil)))
+	}
 }
