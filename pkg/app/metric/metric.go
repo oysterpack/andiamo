@@ -56,3 +56,72 @@ func FindMetricFamilies(mfs []*dto.MetricFamily, accept func(mf *dto.MetricFamil
 	}
 	return result
 }
+
+// Desc is used to describe the metric
+type Desc struct {
+	Name string
+	Help string
+	Type
+	Labels []string
+}
+
+// DescsFromMetricFamilies extracts metric descriptors from gathered metrics
+func DescsFromMetricFamilies(mfs []*dto.MetricFamily) []*Desc {
+	if len(mfs) == 0 {
+		return nil
+	}
+
+	metrics := make([]*Desc, len(mfs))
+	for i, mf := range mfs {
+		m := &Desc{
+			Name: *mf.Name,
+			Help: *mf.Help,
+			Type: fromMetricType(*mf.Type),
+		}
+		if len(mf.Metric) > 0 {
+			m.Labels = getLabels(mf.Metric[0])
+		}
+		metrics[i] = m
+	}
+
+	return metrics
+}
+
+// Type represents a metric type enum
+type Type uint8
+
+// metric type enum values
+const (
+	Untyped Type = iota
+	Counter
+	Gauge
+	Histogram
+	Summary
+)
+
+func fromMetricType(t dto.MetricType) Type {
+	switch t {
+	case dto.MetricType_COUNTER:
+		return Counter
+	case dto.MetricType_GAUGE:
+		return Gauge
+	case dto.MetricType_HISTOGRAM:
+		return Histogram
+	case dto.MetricType_SUMMARY:
+		return Summary
+	default:
+		return Untyped
+	}
+}
+
+func getLabels(m *dto.Metric) []string {
+	if len(m.Label) == 0 {
+		return nil
+	}
+
+	names := make([]string, len(m.Label))
+	for i, labelPair := range m.Label {
+		names[i] = *labelPair.Name
+	}
+	return names
+}

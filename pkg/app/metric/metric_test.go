@@ -133,3 +133,123 @@ func TestLabel_String(t *testing.T) {
 		t.Fatal("*** Label.String() should simply return the label as a string")
 	}
 }
+
+func TestDescsFromMetricFamilies(t *testing.T) {
+	registry := prometheus.NewRegistry()
+
+	counter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "counter",
+		Help: "counter help",
+		ConstLabels: prometheus.Labels{
+			"foo": "bar",
+		},
+	})
+
+	counterNoLabels := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "counterNoLabels",
+		Help: "counter help",
+	})
+
+	counterVec := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "counterVec",
+			Help: "counterVec help",
+			ConstLabels: prometheus.Labels{
+				"foo": "bar",
+			},
+		},
+		[]string{"x", "y", "z"},
+	)
+	// metric vecs do not get reported until at 1 metric is observed
+	counterVec.WithLabelValues("1", "2", "3").Inc()
+	counterVec.WithLabelValues("4", "5", "6").Inc()
+
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "gauge",
+		Help: "gauge help",
+		ConstLabels: prometheus.Labels{
+			"foo": "bar",
+		},
+	})
+
+	gaugeVec := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "gaugeVec",
+			Help: "gaugeVec help",
+			ConstLabels: prometheus.Labels{
+				"foo": "bar",
+			},
+		},
+		[]string{"x", "y", "z"},
+	)
+	gaugeVec.WithLabelValues("1", "2", "3").Inc()
+
+	histogram := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name: "histogram",
+		Help: "histogram help",
+		ConstLabels: prometheus.Labels{
+			"foo": "bar",
+		},
+		Buckets: []float64{1, 2, 3},
+	})
+
+	histogramVec := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "histogramVec",
+			Help: "histogramVec help",
+			ConstLabels: prometheus.Labels{
+				"foo": "bar",
+			},
+			Buckets: []float64{1, 2, 3},
+		},
+		[]string{"x", "y", "z"},
+	)
+
+	summary := prometheus.NewSummary(prometheus.SummaryOpts{
+		Name: "summary",
+		Help: "summary help",
+		ConstLabels: prometheus.Labels{
+			"foo": "bar",
+		},
+	})
+
+	summaryVec := prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name: "summaryVec",
+			Help: "summaryVec help",
+			ConstLabels: prometheus.Labels{
+				"foo": "bar",
+			},
+		},
+		[]string{"x", "y", "z"},
+	)
+
+	registry.MustRegister(
+		counter,
+		counterNoLabels,
+		counterVec,
+
+		gauge,
+		gaugeVec,
+
+		histogram,
+		histogramVec,
+
+		summary,
+		summaryVec,
+	)
+	mfs, e := registry.Gather()
+	if e != nil {
+		t.Fatalf("*** failed to gather metrics: %v", e)
+	}
+
+	metrics := metric.DescsFromMetricFamilies(nil)
+	if len(metrics) > 0 {
+		t.Errorf("*** no metrics should have been returned")
+	}
+	metrics = metric.DescsFromMetricFamilies(mfs)
+	for _, m := range metrics {
+		t.Log(m)
+	}
+
+}
