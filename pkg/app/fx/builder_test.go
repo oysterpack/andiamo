@@ -282,23 +282,23 @@ func testBuildAppUsingDupComps(t *testing.T) {
 	var (
 		CommandOptionDesc = option.NewDesc(option.Invoke, reflect.TypeOf(Command(nil)))
 
-		FooCompDesc = comp.MustNewDesc(
-			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("foo"),
-			comp.Version("0.0.1"),
-			app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
-			CommandOptionDesc,
-		)
+		FooCompDesc = comp.NewDescBuilder().
+				ID(ulidgen.MustNew().String()).
+				Name("foo").
+				Version("0.0.1").
+				Package(app.Package("github.com/oysterpack/partire-k8s/pkg/foo")).
+				Options(CommandOptionDesc).
+				MustBuild()
 
 		FooComp = FooCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("foo: ciao") }))
 
-		BarCompDesc = comp.MustNewDesc(
-			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("bar"),
-			comp.Version("0.0.1"),
-			app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
-			CommandOptionDesc,
-		)
+		BarCompDesc = comp.NewDescBuilder().
+				ID(ulidgen.MustNew().String()).
+				Name("bar").
+				Version("0.0.1").
+				Package(app.Package("github.com/oysterpack/partire-k8s/pkg/bar")).
+				Options(CommandOptionDesc).
+				MustBuild()
 
 		BarComp = BarCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("bar: ciao") }))
 	)
@@ -362,23 +362,23 @@ func testBuildAppUsingComps(t *testing.T) {
 	var (
 		CommandOptionDesc = option.NewDesc(option.Invoke, reflect.TypeOf(Command(nil)))
 
-		FooCompDesc = comp.MustNewDesc(
-			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("foo"),
-			comp.Version("0.0.1"),
-			app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
-			CommandOptionDesc,
-		)
+		FooCompDesc = comp.NewDescBuilder().
+				ID(ulidgen.MustNew().String()).
+				Name("foo").
+				Version("0.0.1").
+				Package(app.Package("github.com/oysterpack/partire-k8s/pkg/foo")).
+				Options(CommandOptionDesc).
+				MustBuild()
 
 		FooComp = FooCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("foo: ciao") }))
 
-		BarCompDesc = comp.MustNewDesc(
-			comp.ID(ulidgen.MustNew().String()),
-			comp.Name("bar"),
-			comp.Version("0.0.1"),
-			app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
-			CommandOptionDesc,
-		)
+		BarCompDesc = comp.NewDescBuilder().
+				ID(ulidgen.MustNew().String()).
+				Name("bar").
+				Version("0.0.1").
+				Package(app.Package("github.com/oysterpack/partire-k8s/pkg/bar")).
+				Options(CommandOptionDesc).
+				MustBuild()
 
 		BarComp = BarCompDesc.MustNewComp(CommandOptionDesc.NewOption(func() { t.Log("bar: ciao") }))
 	)

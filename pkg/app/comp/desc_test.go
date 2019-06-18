@@ -29,7 +29,7 @@ import (
 	"testing"
 )
 
-func NewDesc(id, name, version string) *comp.Desc {
+func newDesc(id, name, version string) *comp.Desc {
 	// define some app options
 	type Greeter func() string
 	type ProvideGreeter func() Greeter
@@ -41,15 +41,15 @@ func NewDesc(id, name, version string) *comp.Desc {
 		LogGreetingDesc = option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 	)
 
-	return comp.MustNewDesc(
-		comp.ID(id),
-		comp.Name(name),
-		comp.Version(version),
-		Package,
+	return comp.NewDescBuilder().
+		ID(id).
+		Name(name).
+		Version(version).
+		Package(Package).
 		// Specify the component's option descriptors
-		GreeterDesc,
-		LogGreetingDesc,
-	)
+		Options(GreeterDesc, LogGreetingDesc).
+		MustBuild()
+
 }
 
 func TestDesc(t *testing.T) {
@@ -65,14 +65,14 @@ func TestDesc(t *testing.T) {
 		LogGreetingDesc = option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 
 		// component descriptor
-		Foo = comp.MustNewDesc(
-			comp.ID("01DCVEMPTQRNED7XDKGB30V2CF"),
-			comp.Name("Foo"),
-			comp.Version("0.1.0"),
-			Package,
+		Foo = comp.NewDescBuilder().
+			ID("01DCVEMPTQRNED7XDKGB30V2CF").
+			Name("Foo").
+			Version("0.1.0").
+			Package(Package).
 			// Specify the component's option descriptors
-			GreeterDesc,
-			LogGreetingDesc)
+			Options(GreeterDesc, LogGreetingDesc).
+			MustBuild()
 	)
 
 	t.Log(Foo)
@@ -111,12 +111,13 @@ func TestMustNewDesc(t *testing.T) {
 				}
 			}
 		}()
-		comp.MustNewDesc(
-			comp.ID("01DCVEMPTQRNED7XDKGB30V2CF"),
-			comp.Name("Foo"),
-			comp.Version("0.1.0"),
-			Package,
-		)
+		comp.NewDescBuilder().
+			ID("01DCVEMPTQRNED7XDKGB30V2CF").
+			Name("Foo").
+			Version("0.1.0").
+			Package(Package).
+			MustBuild()
+
 	})
 
 	t.Run("duplicate option descriptor type", func(t *testing.T) {
@@ -140,15 +141,13 @@ func TestMustNewDesc(t *testing.T) {
 		GreeterDesc := option.NewDesc(option.Provide, reflect.TypeOf(ProvideGreeter(nil)))
 		LogGreetingDesc := option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 
-		comp.MustNewDesc(
-			comp.ID("01DCVEMPTQRNED7XDKGB30V2CF"),
-			comp.Name("Foo"),
-			comp.Version("0.1.0"),
-			Package,
-			GreeterDesc,
-			GreeterDesc,
-			LogGreetingDesc,
-		)
+		comp.NewDescBuilder().
+			ID("01DCVEMPTQRNED7XDKGB30V2CF").
+			Name("Foo").
+			Version("0.1.0").
+			Package(Package).
+			Options(GreeterDesc, GreeterDesc, LogGreetingDesc).
+			MustBuild()
 	})
 }
 
@@ -165,7 +164,7 @@ func TestDesc_MustNewComp(t *testing.T) {
 				}
 			}
 		}()
-		desc := NewDesc(ulidgen.MustNew().String(), "foo", "0.1.0")
+		desc := newDesc(ulidgen.MustNew().String(), "foo", "0.1.0")
 		desc.MustNewComp()
 	})
 
@@ -181,7 +180,7 @@ func TestDesc_MustNewComp(t *testing.T) {
 				}
 			}
 		}()
-		desc := NewDesc(ulidgen.MustNew().String(), "foo", "0.1.0")
+		desc := newDesc(ulidgen.MustNew().String(), "foo", "0.1.0")
 
 		type F func()
 		invalidOption := option.NewDesc(option.Provide, reflect.TypeOf(F(nil))).NewOption(func() {})
@@ -200,20 +199,18 @@ func TestDesc_EventRegistry(t *testing.T) {
 	type Foo func()
 	optionDesc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))
 
-	compDesc := comp.MustNewDesc(
-		comp.ID(ulidgen.MustNew().String()),
-		comp.Name("foo"),
-		comp.Version("0.1.0"),
-		Package,
-		optionDesc,
-	)
-	compDesc.EventRegistry.Register(
-		event1,
-		event2,
-		// dup events will get deduped
-		event1,
-		event2,
-	)
+	compDesc := comp.NewDescBuilder().
+		ID(ulidgen.MustNew().String()).
+		Name("foo").
+		Version("0.1.0").
+		Package(Package).
+		Options(optionDesc).
+		Events(event1,
+			event2,
+			// dup events will get deduped
+			event1,
+			event2).
+		MustBuild()
 
 	if compDesc.EventRegistry.Count() != 2 {
 		t.Errorf("unexpected number of events")
@@ -231,23 +228,18 @@ func TestDesc_ErrorRegistry(t *testing.T) {
 	type Foo func()
 	optionDesc := option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))
 
-	compDesc := comp.MustNewDesc(
-		comp.ID(ulidgen.MustNew().String()),
-		comp.Name("foo"),
-		comp.Version("0.1.0"),
-		Package,
-		optionDesc,
-	)
-	e := compDesc.ErrorRegistry.Register(
-		err1,
-		err2,
-		err3,
-		// dup errs will get deduped
-		err1,
-	)
-	if e != nil {
-		t.Fatal(e)
-	}
+	compDesc := comp.NewDescBuilder().
+		ID(ulidgen.MustNew().String()).
+		Name("foo").
+		Version("0.1.0").
+		Package(Package).
+		Options(optionDesc).
+		Errors(err1,
+			err2,
+			err3,
+			// dup errs will get deduped
+			err1).
+		MustBuild()
 
 	if compDesc.ErrorRegistry.Count() != 3 {
 		t.Errorf("unexpected number of errors: %v", compDesc.ErrorRegistry.Errs())
@@ -336,10 +328,80 @@ ERR_LOOP:
 }
 
 func TestDescBuilder_Build(t *testing.T) {
-	t.Run("Using invalid ID", func(t *testing.T) {
+	t.Run("with no options", func(t *testing.T) {
 		_, e := comp.NewDescBuilder().Build()
 		if e == nil {
 			t.Errorf("*** desc should have failed to build because required options are missing")
 		}
 	})
+
+	type Foo func()
+
+	t.Run("with invalid ID", func(t *testing.T) {
+		_, e := comp.NewDescBuilder().
+			ID("INVALID_ID").
+			Name("foo").
+			Version("0.1.0").
+			Package(Package).
+			Options(option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))).
+			Build()
+		if e == nil {
+			t.Fatalf("*** desc should have failed to build because ID is not a valid ULID")
+		}
+		switch e := e.(type) {
+		case *err.Instance:
+			if e.SrcID != comp.DescInvalidIDErr.SrcID {
+				t.Errorf("*** different error was retured: %v", e.SrcID)
+			}
+		default:
+			t.Errorf("unexpected error type: %[1]T : %[1]v", e)
+		}
+	})
+
+	t.Run("with invalid version", func(t *testing.T) {
+		_, e := comp.NewDescBuilder().
+			ID(ulidgen.MustNew().String()).
+			Name("foo").
+			Version("INVALID_VERSION").
+			Package(Package).
+			Options(option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))).
+			Build()
+		if e == nil {
+			t.Fatalf("*** desc should have failed to build because version is not valid")
+		}
+		switch e := e.(type) {
+		case *err.Instance:
+			if e.SrcID != comp.DescInvalidVersionErr.SrcID {
+				t.Errorf("*** different error was retured: %v", e.SrcID)
+			}
+		default:
+			t.Errorf("unexpected error type: %[1]T : %[1]v", e)
+		}
+	})
+
+	t.Run("with error conflict", func(t *testing.T) {
+		_, e := comp.NewDescBuilder().
+			ID(ulidgen.MustNew().String()).
+			Name("foo").
+			Version("0.1.0").
+			Package(Package).
+			Options(option.NewDesc(option.Invoke, reflect.TypeOf(Foo(nil)))).
+			Errors(
+				comp.DescInvalidIDErr,
+				err.New(err.InvalidVersionErrClass, comp.DescInvalidIDErr.SrcID.String()),
+			).
+			Build()
+		if e == nil {
+			t.Fatalf("*** desc should have failed to build because the errors conflict")
+		}
+		switch e := e.(type) {
+		case *err.Instance:
+			if e.SrcID != err.RegistryConflictErr.SrcID {
+				t.Errorf("*** different error was retured: %v", e.SrcID)
+			}
+		default:
+			t.Errorf("unexpected error type: %[1]T : %[1]v", e)
+		}
+	})
+
 }

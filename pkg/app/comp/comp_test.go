@@ -45,14 +45,14 @@ func TestComp(t *testing.T) {
 		LogGreetingDesc = option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 
 		// component descriptor
-		FooDesc = comp.MustNewDesc(
-			comp.ID("01DCVEMPTQRNED7XDKGB30V2CF"),
-			comp.Name("Foo"),
-			comp.Version("0.1.0"),
-			Package,
+		FooDesc = comp.NewDescBuilder().
+			ID("01DCVEMPTQRNED7XDKGB30V2CF").
+			Name("Foo").
+			Version("0.1.0").
+			Package(Package).
 			// Specify the component's option descriptors
-			GreeterDesc,
-			LogGreetingDesc)
+			Options(GreeterDesc, LogGreetingDesc).
+			MustBuild()
 
 		provideGreeter ProvideGreeter = func() Greeter {
 			return func() string {
@@ -110,14 +110,14 @@ func TestComp_Logger(t *testing.T) {
 		LogGreetingDesc = option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 
 		// component descriptor
-		FooDesc = comp.MustNewDesc(
-			comp.ID("01DCVEMPTQRNED7XDKGB30V2CF"),
-			comp.Name("Foo"),
-			comp.Version("0.1.0"),
-			Package,
+		FooDesc = comp.NewDescBuilder().
+			ID("01DCVEMPTQRNED7XDKGB30V2CF").
+			Name("Foo").
+			Version("0.1.0").
+			Package(Package).
 			// Specify the component's option descriptors
-			GreeterDesc,
-			LogGreetingDesc)
+			Options(GreeterDesc, LogGreetingDesc).
+			MustBuild()
 
 		provideGreeter ProvideGreeter = func() Greeter {
 			return func() string {
@@ -167,14 +167,14 @@ func NewComp(t *testing.T, id, name, version string) *comp.Comp {
 		LogGreetingDesc = option.NewDesc(option.Invoke, reflect.TypeOf(LogGreeting(nil)))
 
 		// component descriptor
-		FooDesc = comp.MustNewDesc(
-			comp.ID(id),
-			comp.Name(name),
-			comp.Version(version),
-			Package,
+		FooDesc = comp.NewDescBuilder().
+			ID(id).
+			Name(name).
+			Version(version).
+			Package(Package).
 			// Specify the component's option descriptors
-			GreeterDesc,
-			LogGreetingDesc)
+			Options(GreeterDesc, LogGreetingDesc).
+			MustBuild()
 
 		provideGreeter ProvideGreeter = func() Greeter {
 			return func() string {

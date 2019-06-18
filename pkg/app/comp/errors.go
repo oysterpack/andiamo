@@ -22,6 +22,9 @@ import "github.com/oysterpack/partire-k8s/pkg/app/err"
 var (
 	UniqueOptionTypeConstraintErrClass = err.MustNewDesc("01DCW50DM81QZH5E0G101DKY98", "UniqueOptionTypeConstraintErr", "option types must be unique")
 	UniqueOptionTypeConstraintErr      = err.New(UniqueOptionTypeConstraintErrClass, "01DCW5472EZFFK5YE9VT7SRG2V")
+
+	DescInvalidIDErr      = err.New(err.InvalidIDErrClass, "01DDKT67J2SD6K1P0GTDWPYQZG")
+	DescInvalidVersionErr = err.New(err.InvalidVersionErrClass, "01DDKTD6R6XEWKXM09B7J5TRCF")
 )
 
 // Comp related error descriptors

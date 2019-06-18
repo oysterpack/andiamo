@@ -110,81 +110,6 @@ OptionDescsLoop:
 	return c, nil
 }
 
-// MustNewDesc constructs a new component descriptor.
-//
-// At least 1 option is required - a component without any application options is useless.
-func MustNewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...option.Desc) *Desc {
-	desc, e := NewDesc(id, name, version, pkg, optionDescs...)
-	if e != nil {
-		panic(e)
-	}
-
-	return desc
-}
-
-// NewDesc constructs a new component descriptor.
-//
-// At least 1 option is required - a component without any application options is useless.
-//
-// Errors
-// - OptionsRequiredErr
-// - UniqueOptionTypeConstraintErr
-func NewDesc(id ID, name Name, version Version, pkg app.Package, optionDescs ...option.Desc) (*Desc, error) {
-	if len(optionDescs) == 0 {
-		return nil, OptionsRequiredErr.CausedBy(fmt.Errorf("ID: %s, Name: %s, Package: %s", id, name, pkg))
-	}
-
-	desc := &Desc{
-		ID:            id.MustParse(),
-		Name:          name.String(),
-		Version:       version.MustParse(),
-		Package:       pkg,
-		EventRegistry: logging.NewEventRegistry(),
-		ErrorRegistry: err.NewRegistry(),
-	}
-
-	// verify that option types are unique
-	optionType := make(map[option.Desc]bool, len(optionDescs))
-	desc.OptionDescs = make([]option.Desc, len(optionDescs))
-	for i, optionDesc := range optionDescs {
-		if optionType[optionDesc] {
-			return nil, UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate option desc: %v", optionDesc))
-		}
-		optionType[optionDesc] = true
-		desc.OptionDescs[i] = optionDesc
-	}
-
-	return desc, nil
-}
-
-// ID is the component ULID ID.
-type ID string
-
-// MustParse parses the ID into a ULID.
-func (id ID) MustParse() ulid.ULID {
-	return ulid.MustParseStrict(string(id))
-}
-
-func (id ID) String() string {
-	return string(id)
-}
-
-// Name is the component name.
-type Name string
-
-func (n Name) String() string {
-	return string(n)
-}
-
-// Version is the component version.
-// It must follow semver naming conventions.
-type Version string
-
-// MustParse tries to parse the version.
-func (v Version) MustParse() *semver.Version {
-	return semver.MustParse(string(v))
-}
-
 // DescBuilder is used to construct a new component descriptor
 type DescBuilder struct {
 	id      string
@@ -251,11 +176,15 @@ func (b *DescBuilder) Errors(errs ...*err.Err) *DescBuilder {
 }
 
 // Build tries to construct the component descriptor.s
+//
+// Errors
+// - OptionsRequiredErr
+// - UniqueOptionTypeConstraintErr
 func (b *DescBuilder) Build() (*Desc, error) {
-	desc, e := NewDesc(
-		ID(b.id),
-		Name(b.name),
-		Version(b.version),
+	desc, e := newDesc(
+		b.id,
+		b.name,
+		b.version,
 		b.pkg,
 		b.options...,
 	)
@@ -270,7 +199,63 @@ func (b *DescBuilder) Build() (*Desc, error) {
 	return desc, nil
 }
 
+// MustBuild tries to construct the component descriptor and panics if it fails.
+func (b *DescBuilder) MustBuild() *Desc {
+	desc, e := b.Build()
+	if e != nil {
+		panic(e)
+	}
+	return desc
+}
+
 // NewDescBuilder returns a new component descriptor builder
 func NewDescBuilder() *DescBuilder {
 	return &DescBuilder{}
+}
+
+// newDesc constructs a new component descriptor.
+//
+// At least 1 option is required - a component without any application options is useless.
+//
+// Errors
+// - DescInvalidIDErr
+// - DescInvalidVersionErr
+// - OptionsRequiredErr
+// - UniqueOptionTypeConstraintErr
+func newDesc(id, name, version string, pkg app.Package, optionDescs ...option.Desc) (*Desc, error) {
+	if len(optionDescs) == 0 {
+		return nil, OptionsRequiredErr.CausedBy(fmt.Errorf("ID: %s, Name: %s, Package: %s", id, name, pkg))
+	}
+
+	compID, e := ulid.Parse(id)
+	if e != nil {
+		return nil, DescInvalidIDErr.CausedBy(e)
+	}
+
+	compVersion, e := semver.NewVersion(version)
+	if e != nil {
+		return nil, DescInvalidVersionErr.CausedBy(e)
+	}
+
+	desc := &Desc{
+		ID:            compID,
+		Name:          name,
+		Version:       compVersion,
+		Package:       pkg,
+		EventRegistry: logging.NewEventRegistry(),
+		ErrorRegistry: err.NewRegistry(),
+	}
+
+	// verify that option types are unique
+	optionType := make(map[option.Desc]bool, len(optionDescs))
+	desc.OptionDescs = make([]option.Desc, len(optionDescs))
+	for i, optionDesc := range optionDescs {
+		if optionType[optionDesc] {
+			return nil, UniqueOptionTypeConstraintErr.CausedBy(fmt.Errorf("duplicate option desc: %v", optionDesc))
+		}
+		optionType[optionDesc] = true
+		desc.OptionDescs[i] = optionDesc
+	}
+
+	return desc, nil
 }

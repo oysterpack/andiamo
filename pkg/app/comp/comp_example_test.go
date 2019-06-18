@@ -55,24 +55,26 @@ var (
 
 // Component descriptors
 var (
-	FooBar = comp.MustNewDesc(
-		comp.ID("01DCY6DYT9CMQCAY89W42HWBGG"),
-		comp.Name("foobar"),
-		comp.Version("0.1.0"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/foobar"),
+	FooBar = comp.NewDescBuilder().
+		ID("01DCY6DYT9CMQCAY89W42HWBGG").
+		Name("foobar").
+		Version("0.1.0").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/foobar")).
 		// options declare the component functionality - options represent the component blueprint
-		ProvideFooOption,
-		ProvideBarOption,
-		InvokeFooBarOption,
-	)
+		Options(
+			ProvideFooOption,
+			ProvideBarOption,
+			InvokeFooBarOption,
+		).
+		MustBuild()
 
-	BarComp = comp.MustNewDesc(
-		comp.ID("01DCYD1X7FMSRJMVMA8RWK7HMB"),
-		comp.Name("bar"),
-		comp.Version("0.0.1"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
-		ProvideGreeterOption,
-	)
+	BarComp = comp.NewDescBuilder().
+		ID("01DCYD1X7FMSRJMVMA8RWK7HMB").
+		Name("bar").
+		Version("0.0.1").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/bar")).
+		Options(ProvideGreeterOption).
+		MustBuild()
 )
 
 func Example() {

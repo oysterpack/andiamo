@@ -31,6 +31,12 @@ var (
 	newULID = ulidgen.MonotonicULIDGenerator()
 )
 
+// common errors
+var (
+	InvalidIDErrClass      = MustNewDesc("01DDKT49ZW36AA2ADYD1THB44Y", "InvalidIDErr", "invalid ID")
+	InvalidVersionErrClass = MustNewDesc("01DDKTCMCEPQBDM1ADNMFECDCE", "InvalidVersionErr", "invalid version")
+)
+
 // Desc is used to define an error
 type Desc struct {
 	// ID is the globally unique error ID

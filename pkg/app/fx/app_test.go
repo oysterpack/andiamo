@@ -725,21 +725,21 @@ var (
 	ProvideRandomNumberGeneratorOption = option.NewDesc(option.Provide, reflect.TypeOf(ProvideRandomNumberGenerator(nil)))
 	ProvideGreeterOption               = option.NewDesc(option.Provide, reflect.TypeOf(ProvideGreeter(nil)))
 
-	FooComp = comp.MustNewDesc(
-		comp.ID("01DCYBFQBQVXG8PZ758AM9JJCD"),
-		comp.Name("foo"),
-		comp.Version("0.0.1"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
-		ProvideRandomNumberGeneratorOption,
-	)
+	FooComp = comp.NewDescBuilder().
+		ID("01DCYBFQBQVXG8PZ758AM9JJCD").
+		Name("foo").
+		Version("0.0.1").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/foo")).
+		Options(ProvideRandomNumberGeneratorOption).
+		MustBuild()
 
-	BarComp = comp.MustNewDesc(
-		comp.ID("01DCYD1X7FMSRJMVMA8RWK7HMB"),
-		comp.Name("bar"),
-		comp.Version("0.0.1"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
-		ProvideGreeterOption,
-	)
+	BarComp = comp.NewDescBuilder().
+		ID("01DCYD1X7FMSRJMVMA8RWK7HMB").
+		Name("bar").
+		Version("0.0.1").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/bar")).
+		Options(ProvideGreeterOption).
+		MustBuild()
 )
 
 func TestCompRegistryIsProvided(t *testing.T) {
@@ -761,20 +761,21 @@ func TestCompRegistryIsProvided(t *testing.T) {
 
 func testComponentRegistryWithDuplicateComps(t *testing.T) {
 	// Given 2 components conflict because they have the same ID
-	FooComp := comp.MustNewDesc(
-		comp.ID("01DCYBFQBQVXG8PZ758AM9JJCD"),
-		comp.Name("foo"),
-		comp.Version("0.0.1"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/foo"),
-		ProvideRandomNumberGeneratorOption,
-	)
-	BarComp := comp.MustNewDesc(
-		comp.ID(FooComp.ID.String()), // dup comp.ID will cause comp registration to fail
-		comp.Name("bar"),
-		comp.Version("0.0.1"),
-		app.Package("github.com/oysterpack/partire-k8s/pkg/bar"),
-		ProvideGreeterOption,
-	)
+	FooComp := comp.NewDescBuilder().
+		ID("01DCYBFQBQVXG8PZ758AM9JJCD").
+		Name("foo").
+		Version("0.0.1").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/foo")).
+		Options(ProvideRandomNumberGeneratorOption).
+		MustBuild()
+
+	BarComp := comp.NewDescBuilder().
+		ID(FooComp.ID.String()). // dup comp.ID will cause comp registration to fail
+		Name("bar").
+		Version("0.0.1").
+		Package(app.Package("github.com/oysterpack/partire-k8s/pkg/bar")).
+		Options(ProvideGreeterOption).
+		MustBuild()
 
 	foo := FooComp.MustNewComp(
 		ProvideRandomNumberGeneratorOption.NewOption(func() RandomNumberGenerator {
