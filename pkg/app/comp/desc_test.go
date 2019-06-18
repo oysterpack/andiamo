@@ -269,6 +269,7 @@ func TestDescBuilder(t *testing.T) {
 	errs := []*err.Err{err1, err2, err3}
 
 	compID := ulidgen.MustNew()
+	// When a new comp descriptor is created
 	desc, e := comp.NewDescBuilder().
 		ID(compID.String()).
 		Name("foo").
@@ -278,10 +279,10 @@ func TestDescBuilder(t *testing.T) {
 		Events(events...).
 		Errors(errs...).
 		Build()
-
 	if e != nil {
 		t.Fatalf("*** comp desc failed to build: %v", e)
 	}
+	// Then the returned descriptor fields match
 	if desc.ID != compID {
 		t.Errorf("*** comp ID did not match: %s != %s", desc.ID, compID)
 	}
@@ -297,33 +298,44 @@ func TestDescBuilder(t *testing.T) {
 	if len(desc.OptionDescs) != 2 && desc.OptionDescs[0] != option1Desc && desc.OptionDescs[1] != option2Desc {
 		t.Errorf("comp is missing option desc")
 	}
-OPTION_LOOP:
-	for _, opt := range options {
-		for _, registeredOption := range desc.OptionDescs {
-			if opt == registeredOption {
-				continue OPTION_LOOP
+	checkOptionDescsMatch(t, options, desc.OptionDescs)
+	checkEventsmatch(t, events, desc.EventRegistry.Events())
+	checkErrsMatch(t, errs, desc.ErrorRegistry.Errs())
+}
+
+func checkErrsMatch(t *testing.T, errs, registeredErrs []*err.Err) {
+ERR_LOOP:
+	for _, e := range errs {
+		for _, registeredErr := range registeredErrs {
+			if registeredErr.SrcID == e.SrcID {
+				continue ERR_LOOP
 			}
 		}
-		t.Errorf("*** option not found: %v", opt)
+		t.Errorf("*** err not found: %v", e)
 	}
+}
+
+func checkEventsmatch(t *testing.T, events, registeredEvents []*logging.Event) {
 EVENT_LOOP:
 	for _, event := range events {
-		for _, registeredEvent := range desc.EventRegistry.Events() {
+		for _, registeredEvent := range registeredEvents {
 			if event.Equals(registeredEvent) {
 				continue EVENT_LOOP
 			}
 		}
 		t.Errorf("*** event not found: %v", event)
 	}
+}
 
-ERR_LOOP:
-	for _, e := range errs {
-		for _, registeredErr := range desc.ErrorRegistry.Errs() {
-			if registeredErr.SrcID == e.SrcID {
-				continue ERR_LOOP
+func checkOptionDescsMatch(t *testing.T, options, registeredOptions []option.Desc) {
+OPTION_LOOP:
+	for _, opt := range registeredOptions {
+		for _, registeredOption := range options {
+			if opt == registeredOption {
+				continue OPTION_LOOP
 			}
 		}
-		t.Errorf("*** err not found: %v", e)
+		t.Errorf("*** option not found: %v", opt)
 	}
 }
 

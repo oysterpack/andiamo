@@ -1064,7 +1064,7 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 		t.Error("*** prometheus.Registerer was not provided")
 	}
 
-	metrics, e := metricRegistry.Gather()
+	mfs, e := metricRegistry.Gather()
 	if e != nil {
 		t.Fatalf("metrics failed to be gathereed: %v", e)
 	}
@@ -1073,60 +1073,70 @@ func TestPrometheusRegistryIsProvided(t *testing.T) {
 			t.Log(mf)
 		}
 	}
-	logMetrics(metrics)
+	logMetrics(mfs)
 
 	// And all metrics have the standard app labels
-	{
-		appMetrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
-			for _, m := range mf.Metric {
-				labelMatchCount := 0
-				for _, labelPair := range m.Label {
-					if *labelPair.Name == metric.AppID.String() && *labelPair.Value == appDesc.ID.String() {
-						labelMatchCount++
-					}
-					if *labelPair.Name == metric.AppReleaseID.String() && *labelPair.Value == appDesc.ReleaseID.String() {
-						labelMatchCount++
-					}
-					if *labelPair.Name == metric.AppInstanceID.String() && *labelPair.Value == instanceID.String() {
-						labelMatchCount++
-					}
-					if labelMatchCount == 3 {
-						return true
-					}
-				}
-			}
-			return false
-		})
-		if len(appMetrics) != len(metrics) {
-			t.Errorf("*** Not all metrics have app labels: %v != %v", len(appMetrics), len(metrics))
-		}
-	}
+	checkAllMetricsHaveStandardAppLabels(t, mfs, appDesc, instanceID)
 
 	// And go metrics are collected
-	{
-		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
-			return strings.HasPrefix(*mf.Name, "go_")
-		})
-		if len(metrics) == 0 {
-			t.Errorf("*** prometheus go collector is not registered")
-		} else {
-			t.Log("--- go metrics ---")
-			logMetrics(metrics)
-			t.Log("=== go metrics ===")
-		}
-	}
+	checkGoMetricsAreCollected(t, mfs)
 
 	// And process metrics are collected
-	{
-		metrics := metric.FindMetricFamilies(metrics, func(mf *io_prometheus_client.MetricFamily) bool {
-			return strings.HasPrefix(*mf.Name, "process_")
-		})
-		if len(metrics) == 0 {
-			t.Errorf("*** prometheus process metrics collector is not registered")
-		} else {
-			t.Log("--- process metrics ---")
-			logMetrics(metrics)
-			t.Log("=== process metrics ===")
+	checkProcessMetricsAreCollected(t, mfs)
+}
+
+func checkProcessMetricsAreCollected(t *testing.T, mfs []*io_prometheus_client.MetricFamily) {
+	metrics := metric.FindMetricFamilies(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+		return strings.HasPrefix(*mf.Name, "process_")
+	})
+	if len(metrics) == 0 {
+		t.Errorf("*** prometheus process metrics collector is not registered")
+	} else {
+		t.Log("--- process metrics ---")
+		for _, mf := range metrics {
+			t.Log(mf)
 		}
+		t.Log("=== process metrics ===")
+	}
+}
+
+func checkGoMetricsAreCollected(t *testing.T, mfs []*io_prometheus_client.MetricFamily) {
+	metrics := metric.FindMetricFamilies(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+		return strings.HasPrefix(*mf.Name, "go_")
+	})
+	if len(metrics) == 0 {
+		t.Errorf("*** prometheus go collector is not registered")
+	} else {
+		t.Log("--- go metrics ---")
+		for _, mf := range metrics {
+			t.Log(mf)
+		}
+		t.Log("=== go metrics ===")
+	}
+}
+
+func checkAllMetricsHaveStandardAppLabels(t *testing.T, mfs []*io_prometheus_client.MetricFamily, appDesc app.Desc, instanceID app.InstanceID) {
+	appMetrics := metric.FindMetricFamilies(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+		for _, m := range mf.Metric {
+			labelMatchCount := 0
+			for _, labelPair := range m.Label {
+				if *labelPair.Name == metric.AppID.String() && *labelPair.Value == appDesc.ID.String() {
+					labelMatchCount++
+				}
+				if *labelPair.Name == metric.AppReleaseID.String() && *labelPair.Value == appDesc.ReleaseID.String() {
+					labelMatchCount++
+				}
+				if *labelPair.Name == metric.AppInstanceID.String() && *labelPair.Value == instanceID.String() {
+					labelMatchCount++
+				}
+				if labelMatchCount == 3 {
+					return true
+				}
+			}
+		}
+		return false
+	})
+	if len(appMetrics) != len(mfs) {
+		t.Errorf("*** Not all metrics have app labels: %v != %v", len(appMetrics), len(mfs))
 	}
 }
