@@ -26,6 +26,12 @@ import (
 const AppTag logging.Tag = "app"
 
 var (
+	// New indicates a new app has been created, and is ready to be initialized
+	New = logging.MustNewEvent("new", zerolog.NoLevel, AppTag)
+
+	// Initialized indicates the app has been initialized and is ready to be started.
+	Initialized = logging.MustNewEvent("initialized", zerolog.NoLevel, AppTag)
+
 	// Start signals that the app is starting.
 	//
 	// If debug build info is available, then it will be included in the event data with following structure:

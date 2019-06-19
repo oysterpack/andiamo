@@ -156,7 +156,7 @@ func TestLogStartEvent(t *testing.T) {
 }
 */
 func TestNewBuildInfo(t *testing.T) {
-	b := newBuildInfo(&debug.BuildInfo{
+	build := newBuildInfo(&debug.BuildInfo{
 		Path: "build_path",
 		Main: debug.Module{
 			Path:    "main_path",
@@ -185,7 +185,7 @@ func TestNewBuildInfo(t *testing.T) {
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
 	logEvent := logger.Info()
-	appendBuildInfo(logEvent, b)
+	appendBuildInfo(logEvent, build)
 	logEvent.Msg("")
 	t.Logf("%s", buf)
 
@@ -196,32 +196,32 @@ func TestNewBuildInfo(t *testing.T) {
 	}
 	t.Logf("event: %v", event)
 
-	if event.Build.Path != b.path {
+	if event.Build.Path != build.path {
 		t.Errorf("path does not match: %s", event.Build.Path)
 	}
 	// check main build info matches
-	if event.Build.Main.Path != b.main.path {
+	if event.Build.Main.Path != build.main.path {
 		t.Errorf("main path does not match: %s", event.Build.Main.Path)
 	}
-	if event.Build.Main.Version != b.main.version {
+	if event.Build.Main.Version != build.main.version {
 		t.Errorf("main version does not match: %s", event.Build.Main.Version)
 	}
-	if event.Build.Main.Checksum != b.main.checksum {
+	if event.Build.Main.Checksum != build.main.checksum {
 		t.Errorf("main checksum does not match: %s", event.Build.Main.Checksum)
 	}
 
 	// check dependency mod info matches
-	if len(event.Build.Deps) != len(b.deps) {
+	if len(event.Build.Deps) != len(build.deps) {
 		t.Errorf("dep count does not match: %d", len(event.Build.Deps))
 	}
 	for i, dep := range event.Build.Deps {
-		if dep.Path != b.deps[i].path {
+		if dep.Path != build.deps[i].path {
 			t.Errorf("dep path does not match: %s", dep.Path)
 		}
-		if dep.Version != b.deps[i].version {
+		if dep.Version != build.deps[i].version {
 			t.Errorf("dep version does not match: %s", dep.Version)
 		}
-		if dep.Checksum != b.deps[i].checksum {
+		if dep.Checksum != build.deps[i].checksum {
 			t.Errorf("dep checksum does not match: %s", dep.Checksum)
 		}
 	}

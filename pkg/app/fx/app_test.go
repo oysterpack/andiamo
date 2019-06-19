@@ -239,7 +239,18 @@ func logTestEvents(logger *zerolog.Logger, lc fx.Lifecycle) {
 // Then the Stopped event is logged as the last OnStop hook
 func TestAppLifecycleEvents(t *testing.T) {
 	checkLifecycleEvents := func(t *testing.T, logFile io.Reader) {
-		eventNames := make([]string, 0, 6)
+		expected := []string{
+			appfx.New.Name,
+			appfx.Initialized.Name,
+			appfx.Start.Name,
+			LogTestEventOnStartMsg,
+			appfx.Running.Name,
+			appfx.Stop.Name,
+			LogTestEventOnStopMsg,
+			appfx.Stopped.Name,
+		}
+
+		actual := make([]string, 0, len(expected))
 		scanner := bufio.NewScanner(logFile)
 		for scanner.Scan() {
 			logEventJSON := scanner.Text()
@@ -252,32 +263,23 @@ func TestAppLifecycleEvents(t *testing.T) {
 			}
 
 			switch logEvent.Event {
-			case appfx.Start.Name, appfx.Running.Name, appfx.Stop.Name, appfx.Stopped.Name:
-				eventNames = append(eventNames, logEvent.Event)
+			case appfx.New.Name, appfx.Initialized.Name, appfx.Start.Name, appfx.Running.Name, appfx.Stop.Name, appfx.Stopped.Name:
+				actual = append(actual, logEvent.Event)
 			case LogTestEventLogEventName:
-				eventNames = append(eventNames, logEvent.Message)
+				actual = append(actual, logEvent.Message)
 			}
 		}
 
-		expectedEventNamess := []string{
-			appfx.Start.Name,
-			LogTestEventOnStartMsg,
-			appfx.Running.Name,
-			appfx.Stop.Name,
-			LogTestEventOnStopMsg,
-			appfx.Stopped.Name,
-		}
+		t.Log("expected logged events:", expected)
+		t.Log("observed logged events:", actual)
 
-		t.Log(eventNames)
-		t.Log(expectedEventNamess)
-
-		if len(expectedEventNamess) != len(eventNames) {
-			t.Fatalf("*** the expected number of events did not match: %v != %v", len(expectedEventNamess), len(eventNames))
+		if len(expected) != len(actual) {
+			t.Fatalf("*** the expected number of events did not match: %v != %v", len(expected), len(actual))
 		}
 		// the order of events should match
-		for i, event := range eventNames {
-			if expectedEventNamess[i] != event {
-				t.Errorf("*** event did not match: %v != %v", expectedEventNamess[i], event)
+		for i, event := range actual {
+			if expected[i] != event {
+				t.Errorf("*** event did not match: %v != %v", expected[i], event)
 			}
 		}
 	}

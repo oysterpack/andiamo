@@ -18,19 +18,21 @@ package fx
 
 import (
 	"context"
-	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/app"
-	"github.com/oysterpack/partire-k8s/pkg/app/comp"
-	"github.com/oysterpack/partire-k8s/pkg/app/err"
-	"github.com/oysterpack/partire-k8s/pkg/app/logcfg"
-	"github.com/oysterpack/partire-k8s/pkg/app/logging"
-	"github.com/oysterpack/partire-k8s/pkg/app/metric"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"os"
 	"strings"
+	"time"
 )
+
+const pkg app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
+
+// StartTime is when the app was started
+type StartTime time.Time
+
+// StartedTime is when the the app startup lifecycle phase completed
+type StartedTime time.Time
 
 // App is a wrapper around fx.App.
 //
@@ -88,134 +90,4 @@ func (a *App) Run() error {
 //       the App.Run() method completes
 func (a *App) Stopped() <-chan os.Signal {
 	return a.stopped
-}
-
-func newMetricRegistry(appDesc app.Desc, instanceID app.InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
-	registry := prometheus.NewRegistry()
-	regsisterer := prometheus.WrapRegistererWith(
-		prometheus.Labels{
-			metric.AppID.String():         appDesc.ID.String(),
-			metric.AppReleaseID.String():  appDesc.ReleaseID.String(),
-			metric.AppInstanceID.String(): instanceID.String(),
-		},
-		registry,
-	)
-	regsisterer.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
-	)
-
-	return registry, regsisterer
-}
-
-func newEventRegistry() *logging.EventRegistry {
-	registry := logging.NewEventRegistry()
-	registry.Register(Start, Running, Stop, Stopped, StopSignal, CompRegistered)
-	return registry
-}
-
-func newErrorRegistry() (*err.Registry, error) {
-	registry := err.NewRegistry()
-	if e := registry.Register(err.RegistryConflictErr, InvokeErr, AppStartErr, AppStopErr); e != nil {
-		// should never happen - if it does, then it means it is a bug
-		return nil, e
-	}
-	return registry, nil
-}
-
-func initLogging(instanceID app.InstanceID, desc app.Desc) (*zerolog.Logger, error) {
-	if e := logcfg.ConfigureZerolog(); e != nil {
-		return nil, e
-	}
-	logger := logcfg.NewLogger(instanceID, desc)
-	logcfg.UseAsStandardLoggerOutput(logger)
-	return logger, nil
-}
-
-func registerStartStoppedLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
-	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
-	appLogger := logging.PackageLogger(logger, PACKAGE)
-	lc.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			logStartEvent(appLogger)
-			return nil
-		},
-		OnStop: func(context.Context) error {
-			Stopped.Log(appLogger).Msg("")
-			return nil
-		},
-	})
-}
-
-func registerRunningStoppingLifecycleEventLoggerHook(lc fx.Lifecycle, logger *zerolog.Logger) {
-	const PACKAGE app.Package = "github.com/oysterpack/partire-k8s/pkg/app/fx"
-	appLogger := logging.PackageLogger(logger, PACKAGE)
-	lc.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			Running.Log(appLogger).Msg("")
-			return nil
-		},
-		OnStop: func(context.Context) error {
-			Stop.Log(appLogger).Msg("")
-			return nil
-		},
-	})
-}
-
-type errLogger struct {
-	*zerolog.Logger
-}
-
-// implements fx.ErrorHandler
-func (l *errLogger) HandleError(e error) {
-	logError(l.Logger, e)
-}
-
-func newErrLogger(logger *zerolog.Logger) *errLogger {
-	return &errLogger{logger}
-}
-
-func logError(logger *zerolog.Logger, e error) {
-	switch e := e.(type) {
-	case *err.Instance:
-		e.Log(logger).Msg("")
-	default:
-		InvokeErr.CausedBy(e).Log(logger).Msg("")
-	}
-}
-
-type components struct {
-	fx.In
-
-	// NOTE: the group name must match the constant: comp.CompRegistry
-	Comps []*comp.Comp `group:"comp.Registry"`
-}
-
-func registerComponents(registry *comp.Registry, comps components, logger *zerolog.Logger, eventRegistry *logging.EventRegistry, errRegistry *err.Registry) error {
-	for _, c := range comps.Comps {
-		if e := registry.Register(c); e != nil {
-			return e
-		}
-		logCompRegisteredEvent(c, logger)
-		eventRegistry.Register(c.EventRegistry.Events()...)
-		if e := errRegistry.Register(c.ErrorRegistry.Errs()...); e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
-func logCompRegisteredEvent(c *comp.Comp, logger *zerolog.Logger) {
-	options := make([]string, len(c.Options))
-	for i := 0; i < len(options); i++ {
-		optionDesc := c.Options[i].Desc
-		options[i] = fmt.Sprintf("%s => %v", optionDesc.Type, optionDesc.FuncType)
-	}
-
-	CompRegistered.Log(c.Logger(logger)).
-		Dict(logging.Comp.String(), zerolog.Dict().
-			Str(logging.CompID.String(), c.ID.String()).
-			Str(logging.CompVersion.String(), c.Version.String()).
-			Strs(logging.CompOptions.String(), options),
-		).Msg("")
 }

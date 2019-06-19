@@ -98,6 +98,8 @@ APP .up..> PROVIDE_PROMETHEUS_REGISTERER
 usecase LOG_APP_LIFECYCLE_EVENTS as "App lifecycle
 events are logged
 ---
+New
+Initialized
 Start
 Running
 StopSignal
