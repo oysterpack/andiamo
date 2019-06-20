@@ -81,6 +81,7 @@ func (d *Desc) MustNewComp(options ...option.Option) *Comp {
 }
 
 // NewComp builds a new Comp using the specified options.
+// The options are sorted to align with the option desc order.
 //
 // Errors
 // - OptionCountDoesNotMatchErr

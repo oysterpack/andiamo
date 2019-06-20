@@ -24,7 +24,9 @@ import (
 
 // CompRegistry is used as the fx value group name for components.
 // Components will tag themselves with this group in order to auto-registered with the comp.Registry.
-const CompRegistry = "comp.Registry"
+const (
+	CompRegistry = "comp.Registry"
+)
 
 // Comp represents an application component. Components are constructed using component descriptors.
 //
@@ -40,9 +42,9 @@ func (c *Comp) String() string {
 
 // FxOptions returns component's application options
 func (c *Comp) FxOptions() fx.Option {
-	options := make([]fx.Option, len(c.Options), len(c.Options)+1)
-	for i, opt := range c.Options {
-		options[i] = opt.Option
+	options := make([]fx.Option, 0, len(c.Options)+1)
+	for _, opt := range c.Options {
+		options = append(options, opt.FxOption())
 	}
 	// provide itself, which will register the component
 	options = append(options, fx.Provide(fx.Annotated{

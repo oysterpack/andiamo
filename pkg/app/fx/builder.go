@@ -230,7 +230,20 @@ func newEventRegistry() *logging.EventRegistry {
 
 func newErrorRegistry() (*err.Registry, error) {
 	registry := err.NewRegistry()
-	if e := registry.Register(err.RegistryConflictErr, InvokeErr, AppStartErr, AppStopErr); e != nil {
+	e := registry.Register(
+		err.RegistryConflictErr,
+
+		// App related errors
+		InvokeErr,
+		AppStartErr,
+		AppStopErr,
+
+		// AppBuilder related errors
+		OptionsRequiredErr,
+		InvalidDescErr,
+		InvalidTimeoutsErr,
+	)
+	if e != nil {
 		// should never happen - if it does, then it means it is a bug
 		return nil, e
 	}

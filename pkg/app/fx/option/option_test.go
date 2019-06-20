@@ -54,7 +54,7 @@ func TestDesc(t *testing.T) {
 	})
 
 	// Then the option can be used within the fx.App
-	fxapp := fx.New(fooOption.Option, barOption.Option)
+	fxapp := fx.New(fooOption.FxOption(), barOption.FxOption())
 	if e := fxapp.Start(context.Background()); e != nil {
 		t.Errorf("failed to start the app")
 	}

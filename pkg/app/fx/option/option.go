@@ -83,7 +83,7 @@ func (d Desc) Bind(f interface{}) (option Option, e error) {
 		return
 	}
 	option.Desc = d
-	option.Option = d.Type.Option(f)
+	option.Func = f
 	return
 }
 
@@ -100,9 +100,14 @@ func (d Desc) NewOption(f interface{}) Option {
 // Option binds an option descriptor to the option function
 type Option struct {
 	Desc
-	fx.Option
+	Func interface{}
 }
 
 func (o Option) String() string {
 	return fmt.Sprintf("%s => %v", o.Type, o.FuncType)
+}
+
+// FxOption converts the option into an fx.Option
+func (o Option) FxOption() fx.Option {
+	return o.Type.Option(o.Func)
 }
