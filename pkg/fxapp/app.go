@@ -18,18 +18,40 @@ package fxapp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"github.com/oklog/ulid"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
+	"os"
 	"reflect"
 	"time"
 )
 
+// InstanceID is used to assign an app instance a unique ULID.
+// The instance ID can be used to identify the app instance in logs, metrics, events, etc.
+type InstanceID ulid.ULID
+
+// NewInstanceID returns a new unique InstanceID
+func NewInstanceID() InstanceID {
+	return InstanceID(ulidgen.MustNew())
+}
+
+// ULID returns the InstanceID's underlying ULID
+func (id InstanceID) ULID() ulid.ULID {
+	return ulid.ULID(id)
+}
+
+func (id InstanceID) String() string {
+	return id.ULID().String()
+}
+
 // App represents an application container.
 //
 // Dependency injection is provided via registered constructors.
-// Application workloads are run via registered functions.
+// Application workloads are run via registered functions. At least 1 function must be registered.
 //
 // Application lifecycle states are:
 // - Initialized
@@ -38,14 +60,35 @@ import (
 // - Stopping
 // - Done
 type App interface {
+	// Desc returns the app descriptor
 	Desc() Desc
 
+	// InstanceID returns the app unique instance ID
+	InstanceID() InstanceID
+
+	// StartTimeout returns the app start timeout. If the app takes longer than the specified timeout, then the app will
+	// fail to run.
 	StartTimeout() time.Duration
+	// StopTimeout returns the app shutdown timeout. If the app takes longer than the specified timeout, then the app shutdown
+	// will be aborted.
 	StopTimeout() time.Duration
 
+	// ConstructorTypes returns the registered constructor types
+	ConstructorTypes() []reflect.Type
+	// FuncTypes returns the registered function types
+	FuncTypes() []reflect.Type
+
+	// Err returns any error encountered during the app's initialization or while it is running.
 	Err() error
+
+	// Run will start running the application and blocks until the app is shutdown.
+	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
+	Run() error
+
+	Done() <-chan os.Signal
 }
 
+// AppBuilder is used to construct a new App instance.
 type AppBuilder interface {
 	Build() (App, error)
 
@@ -58,14 +101,17 @@ type AppBuilder interface {
 
 func NewAppBuilder(desc Desc) AppBuilder {
 	return &app{
+		instanceID:   NewInstanceID(),
 		desc:         desc,
 		startTimeout: 15 * time.Second,
 		stopTimeout:  15 * time.Second,
+		stopped:      make(chan os.Signal, 1),
 	}
 }
 
 type app struct {
-	desc Desc
+	desc       Desc
+	instanceID InstanceID
 
 	startTimeout time.Duration
 	stopTimeout  time.Duration
@@ -74,6 +120,9 @@ type app struct {
 	funcs        []interface{}
 
 	*fx.App
+	stopped chan os.Signal
+
+	err error
 }
 
 func (a *app) String() string {
@@ -103,17 +152,38 @@ func (a *app) String() string {
 	)
 }
 
+func (a *app) ConstructorTypes() []reflect.Type {
+	return types(a.constructors)
+}
+
+func (a *app) FuncTypes() []reflect.Type {
+	return types(a.funcs)
+}
+
+func types(values []interface{}) []reflect.Type {
+	if len(values) == 0 {
+		return nil
+	}
+	valueTypes := make([]reflect.Type, 0, len(values))
+	for _, value := range values {
+		valueTypes = append(valueTypes, reflect.TypeOf(value))
+	}
+
+	return valueTypes
+}
+
 func (a *app) Desc() Desc {
 	return a.desc
 }
 
+// Build tries to construct and initialize a new App instance.
+// All of the app's functions are run as part of the app initialization phase.
 func (a *app) Build() (App, error) {
-	var err error
 	if a.desc == nil {
-		err = multierr.Append(err, a.desc.Validate())
+		a.err = a.appendErr(a.desc.Validate())
 	}
 	if len(a.constructors) == 0 && len(a.funcs) == 0 {
-		err = multierr.Append(err, errors.New("at least 1 functional option is required"))
+		a.err = a.appendErr(errors.New("at least 1 functional option is required"))
 	}
 
 	compOptions := make([]fx.Option, 0, len(a.constructors)+len(a.funcs))
@@ -125,14 +195,16 @@ func (a *app) Build() (App, error) {
 	}
 
 	a.App = fx.New(
+		fx.Provide(func() Desc { return a.desc }),
+		fx.Provide(func() InstanceID { return a.instanceID }),
 		fx.StartTimeout(a.startTimeout),
 		fx.StopTimeout(a.stopTimeout),
 		fx.Options(compOptions...),
 	)
-	err = multierr.Append(err, a.App.Err())
+	a.err = a.appendErr(a.App.Err())
 
-	if err != nil {
-		return nil, err
+	if a.err != nil {
+		return nil, a.err
 	}
 
 	return a, nil
@@ -156,4 +228,52 @@ func (a *app) Constructors(constructors ...interface{}) AppBuilder {
 func (a *app) Funcs(funcs ...interface{}) AppBuilder {
 	a.funcs = append(a.funcs, funcs...)
 	return a
+}
+
+func (a *app) InstanceID() InstanceID {
+	return a.instanceID
+}
+
+func (a *app) Run() error {
+	if a.Err() != nil {
+		return a.Err()
+	}
+
+	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
+	defer cancel()
+	defer close(a.stopped)
+
+	stopChan := a.App.Done()
+
+	if e := a.Start(startCtx); e != nil {
+		return a.appendErr(e)
+	}
+
+	// wait for the app to be signalled to stop
+	signal := <-stopChan
+	defer func() {
+		a.stopped <- signal
+	}()
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), a.StopTimeout())
+	defer cancel()
+
+	if e := a.Stop(stopCtx); e != nil {
+		return a.appendErr(e)
+	}
+
+	return nil
+}
+
+func (a *app) Done() <-chan os.Signal {
+	return a.stopped
+}
+
+func (a *app) Err() error {
+	return a.err
+}
+
+func (a *app) appendErr(err error) error {
+	a.err = multierr.Append(a.err, err)
+	return a.err
 }

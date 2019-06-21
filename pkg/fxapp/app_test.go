@@ -17,6 +17,7 @@
 package fxapp_test
 
 import (
+	"context"
 	"errors"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
@@ -24,6 +25,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"go.uber.org/fx"
 	"log"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -153,20 +155,29 @@ func GatherLogins(logins Logins) {
 	}
 }
 
-func TestAppBuilder(t *testing.T) {
-	// Given an App descriptor
+func newDesc(name, version string) fxapp.Desc {
 	desc, e := fxapp.NewDescBuilder().
 		SetID(ulidgen.MustNew()).
-		SetName("foo").
-		SetVersion(semver.MustParse("0.1.0")).
+		SetName(name).
+		SetVersion(semver.MustParse(version)).
 		SetReleaseID(ulidgen.MustNew()).
 		Build()
-
 	if e != nil {
-		t.Fatalf("*** app failed to build desc: %v", e)
+		panic(e)
 	}
-	t.Logf("%v", desc)
+	return desc
+}
 
+// - constructors can be registered with the app
+// - functions can be registered with the app
+//   - at least 1 function must be registered
+// - app start and stop time outs can be configured
+// - a new app instance is assigned a unique instance ID
+func TestAppBuilder(t *testing.T) {
+	// Given an App descriptor
+	desc := newDesc("foo", "0.1.0")
+
+	timeBeforeBuildingApp := time.Now()
 	fooID := NewFooID()
 	app, e := fxapp.NewAppBuilder(desc).
 		SetStartTimeout(30*time.Second).
@@ -175,16 +186,20 @@ func TestAppBuilder(t *testing.T) {
 			ProvideBar,
 			ProvideBaz,
 			fooID.ProvideFooID,
-			ProvidePasswordLogin,
-			ProvideMFALogin,
-			GroupMFALogin,
-			GroupPasswordLogin,
 		).
 		Funcs(
 			InvokePrintBaz,
 			InvokePrintBar,
 			fooID.InvokeLogInstanceID,
 			fooID.InvokeLogSelf,
+		).
+		Constructors(
+			ProvidePasswordLogin,
+			ProvideMFALogin,
+			GroupMFALogin,
+			GroupPasswordLogin,
+		).
+		Funcs(
 			InvokeLogin,
 			GatherLogins,
 		).
@@ -198,7 +213,6 @@ func TestAppBuilder(t *testing.T) {
 	if app.StartTimeout() != 30*time.Second {
 		t.Errorf("*** start timeout did not match: %v", app.StartTimeout())
 	}
-
 	if app.StopTimeout() != 60*time.Second {
 		t.Errorf("*** stop timeout did not match: %v", app.StopTimeout())
 	}
@@ -206,4 +220,123 @@ func TestAppBuilder(t *testing.T) {
 		t.Fatalf("*** since the app was successfully built, then it should have no error")
 	}
 
+	appInstanceID := app.InstanceID()
+	// subtract 1 millisecond because the ULID time is only millisecond precision
+	if ulid.Time(appInstanceID.ULID().Time()).Before(timeBeforeBuildingApp.Add(-1 * time.Millisecond)) {
+		t.Errorf("*** the app instance ULID time should not be before the time that the app was created: %v is not before %v",
+			ulid.Time(appInstanceID.ULID().Time()),
+			timeBeforeBuildingApp.Add(-1*time.Millisecond),
+		)
+	}
+
+	checkConstructorsAreRegistered(t, app,
+		ProvideBar,
+		ProvideBaz,
+		fooID.ProvideFooID,
+		ProvidePasswordLogin,
+		ProvideMFALogin,
+		GroupMFALogin,
+		GroupPasswordLogin,
+	)
+
+	checkFuncsAreRegistered(t, app,
+		InvokePrintBaz,
+		InvokePrintBar,
+		fooID.InvokeLogInstanceID,
+		fooID.InvokeLogSelf,
+		InvokeLogin,
+		GatherLogins,
+	)
+
+}
+
+func checkConstructorsAreRegistered(t *testing.T, app fxapp.App, constructors ...interface{}) {
+Loop:
+	for _, c := range constructors {
+		for _, t := range app.ConstructorTypes() {
+			if t == reflect.TypeOf(c) {
+				continue Loop
+			}
+		}
+		t.Errorf("*** constructor was not registered: %v", reflect.TypeOf(c))
+	}
+}
+
+func checkFuncsAreRegistered(t *testing.T, app fxapp.App, funcs ...interface{}) {
+Loop:
+	for _, f := range funcs {
+		for _, t := range app.FuncTypes() {
+			if t == reflect.TypeOf(f) {
+				continue Loop
+			}
+		}
+		t.Errorf("*** func was not registered: %v", reflect.TypeOf(f))
+	}
+}
+
+func TestRunningApp(t *testing.T) {
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Funcs(
+			// app InstanceID is automatically provided
+			func(instanceID fxapp.InstanceID) {
+				t.Logf("app instance ID: %v", instanceID)
+			},
+			// app Desc is automatically provided
+			func(desc fxapp.Desc) {
+				t.Logf("app desc: %v", desc)
+			},
+			// trigger shutdown
+			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						t.Logf("shutting down ...")
+						err := shutdowner.Shutdown()
+						if err != nil {
+							t.Logf("*** shutdown failed: %v", err)
+						}
+						return err
+					},
+				})
+			},
+		).
+		Build()
+
+	if err != nil {
+		t.Fatalf("*** app failed to build: %v", err)
+	}
+
+	err = app.Run()
+	if err != nil {
+		t.Errorf("*** app failed to run: %v", err)
+	}
+
+	<-app.Done()
+	if app.Err() != nil {
+		t.Errorf("*** the app failed: %v", app.Err())
+	}
+}
+
+// When the application is run, the registered functions are invoked in the order that they are registered.
+func TestFuncInvokeOrder(t *testing.T) {
+	t.Fatal("TODO")
+}
+
+// error handlers can be registered with the application. They are executed on function invocation failures.
+func TestFuncErrorHandling(t *testing.T) {
+	t.Fatal("TODO")
+}
+
+// app default start and stop timeout is 15 sec
+func TestAppDefaultStartStopTimeouts(t *testing.T) {
+	t.Fatal("TODO")
+}
+
+// app can populate targets with values from the dependency injection container
+func TestPopulate(t *testing.T) {
+	t.Fatal("TODO")
+}
+
+// By default, the app logs to stderr. However, an alternative writer can be provided for logging when the app is being built.
+func TestAppLogWriter(t *testing.T) {
+	t.Fatal("TODO")
 }
