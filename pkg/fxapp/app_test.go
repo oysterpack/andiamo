@@ -17,10 +17,12 @@
 package fxapp_test
 
 import (
+	"errors"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"go.uber.org/fx"
 	"log"
 	"testing"
 	"time"
@@ -63,6 +65,94 @@ func (_ FooID) InvokeLogInstanceID(id FooID) {
 	log.Printf("InvokeLogInstanceID: %s", ulid.ULID(id))
 }
 
+type Subject struct{}
+
+type Login func(credentials interface{}) (*Subject, error)
+
+type PasswordLogin struct {
+	fx.Out
+
+	Login `name:"PasswordLogin"`
+}
+
+func ProvidePasswordLogin() PasswordLogin {
+	return PasswordLogin{
+		Login: func(credentials interface{}) (subject *Subject, e error) {
+			return nil, errors.New("password login not implemented")
+		},
+	}
+}
+
+type MFALogin struct {
+	fx.Out
+
+	Login `name:"MFALogin"`
+}
+
+func ProvideMFALogin() MFALogin {
+	return MFALogin{
+		Login: func(credentials interface{}) (subject *Subject, e error) {
+			return nil, errors.New("MFA login not implemented")
+		},
+	}
+}
+
+type MFALoginParam struct {
+	fx.In
+
+	Login `name:"MFALogin"`
+}
+
+type PasswordLoginParam struct {
+	fx.In
+
+	Login `name:"PasswordLogin"`
+}
+
+// demonstrates use of named dependencies
+func InvokeLogin(login MFALoginParam) {
+	subject, err := login.Login("credentials")
+	if err != nil {
+		log.Printf("login failed: %v\n", err)
+		return
+	}
+	log.Printf("logged in: %v\n", subject)
+}
+
+type LoginCommands struct {
+	fx.Out
+
+	Login `group:"Login"`
+}
+
+// demonstrates use of named dependencies
+func GroupMFALogin(login MFALoginParam) LoginCommands {
+	return LoginCommands{
+		Login: login.Login,
+	}
+}
+
+// demonstrates use of named dependencies
+func GroupPasswordLogin(login PasswordLoginParam) LoginCommands {
+	return LoginCommands{
+		Login: login.Login,
+	}
+}
+
+type Logins struct {
+	fx.In
+
+	Logins []Login `group:"Login"`
+}
+
+// demonstrates use of named groups and how to grouped named dependencies
+func GatherLogins(logins Logins) {
+	log.Println("Login count = ", len(logins.Logins))
+	for _, login := range logins.Logins {
+		log.Println(login("credentials"))
+	}
+}
+
 func TestAppBuilder(t *testing.T) {
 	// Given an App descriptor
 	desc, e := fxapp.NewDescBuilder().
@@ -85,12 +175,18 @@ func TestAppBuilder(t *testing.T) {
 			ProvideBar,
 			ProvideBaz,
 			fooID.ProvideFooID,
+			ProvidePasswordLogin,
+			ProvideMFALogin,
+			GroupMFALogin,
+			GroupPasswordLogin,
 		).
 		Funcs(
 			InvokePrintBaz,
 			InvokePrintBar,
 			fooID.InvokeLogInstanceID,
 			fooID.InvokeLogSelf,
+			InvokeLogin,
+			GatherLogins,
 		).
 		Build()
 
@@ -105,6 +201,9 @@ func TestAppBuilder(t *testing.T) {
 
 	if app.StopTimeout() != 60*time.Second {
 		t.Errorf("*** stop timeout did not match: %v", app.StopTimeout())
+	}
+	if app.Err() != nil {
+		t.Fatalf("*** since the app was successfully built, then it should have no error")
 	}
 
 }

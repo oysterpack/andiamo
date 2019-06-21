@@ -17,17 +17,33 @@
 package fxapp
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
+	"reflect"
 	"time"
 )
 
+// App represents an application container.
+//
+// Dependency injection is provided via registered constructors.
+// Application workloads are run via registered functions.
+//
+// Application lifecycle states are:
+// - Initialized
+// - Starting
+// - Running
+// - Stopping
+// - Done
 type App interface {
 	Desc() Desc
 
 	StartTimeout() time.Duration
 	StopTimeout() time.Duration
+
+	Err() error
 }
 
 type AppBuilder interface {
@@ -58,6 +74,33 @@ type app struct {
 	funcs        []interface{}
 
 	*fx.App
+}
+
+func (a *app) String() string {
+	funcTypes := func(funcs []interface{}) string {
+		if len(funcs) == 0 {
+			return "[]"
+		}
+		s := new(bytes.Buffer)
+		s.WriteString("[")
+		s.WriteString(reflect.TypeOf(funcs[0]).String())
+		for i := 1; i < len(funcs); i++ {
+			s.WriteString("|")
+			s.WriteString(reflect.TypeOf(funcs[i]).String())
+		}
+
+		s.WriteString("]")
+		return s.String()
+	}
+
+	return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Constructors: %s, Funcs: %s, Err: %v}",
+		a.desc,
+		a.startTimeout,
+		a.stopTimeout,
+		funcTypes(a.constructors),
+		funcTypes(a.funcs),
+		a.Err(),
+	)
 }
 
 func (a *app) Desc() Desc {
