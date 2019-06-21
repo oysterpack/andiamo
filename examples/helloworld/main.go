@@ -56,15 +56,17 @@ var (
 	HelloServiceOptionDesc         = option.NewDesc(option.Invoke, reflect.TypeOf(HelloService(nil)))
 	HelloCounterProviderOptionDesc = option.NewDesc(option.Provide, reflect.TypeOf(HelloCounterProvider(nil)))
 
-	HelloCompDesc = comp.MustNewDesc(
-		comp.ID("01DDER5DK2KA7AC0S4YYWFD73V"),
-		comp.Name("hello"),
-		comp.Version("0.1.0"),
-		app.GetPackage(empty{}),
-		HelloProviderOptionDesc,
-		HelloServiceOptionDesc,
-		HelloCounterProviderOptionDesc,
-	)
+	HelloCompDesc = comp.NewDescBuilder().
+			ID("01DDER5DK2KA7AC0S4YYWFD73V").
+			Name("hello").
+			Version("0.1.0").
+			Package(app.GetPackage(empty{})).
+			Options(
+			HelloProviderOptionDesc,
+			HelloServiceOptionDesc,
+			HelloCounterProviderOptionDesc,
+		).
+		MustBuild()
 
 	HelloComp = HelloCompDesc.MustNewComp(
 		HelloProviderOptionDesc.NewOption(func(logger *zerolog.Logger, counter HelloCounter) Hello {

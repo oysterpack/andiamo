@@ -1,0 +1,90 @@
+{
+  "path": "github.com/oysterpack/partire-k8s/examples/helloworld",
+  "main": {
+    "path": "github.com/oysterpack/partire-k8s",
+    "version": "(devel)",
+    "checksum": ""
+  },
+  "deps": [
+    {
+      "path": "github.com/Masterminds/semver",
+      "version": "v1.4.2",
+      "checksum": "h1:WBLTQ37jOCzSLtXNdoo8bNM8876KhNqOKvrlGITgsTc="
+    },
+    {
+      "path": "github.com/beorn7/perks",
+      "version": "v1.0.0",
+      "checksum": "h1:HWo1m869IqiPhD389kmkxeTalrjNbbJTC8LXupb+sl0="
+    },
+    {
+      "path": "github.com/golang/protobuf",
+      "version": "v1.3.1",
+      "checksum": "h1:YF8+flBXS5eO826T4nzqPrxfhQThhXl0YzfuUPu4SBg="
+    },
+    {
+      "path": "github.com/kelseyhightower/envconfig",
+      "version": "v1.4.0",
+      "checksum": "h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8="
+    },
+    {
+      "path": "github.com/matttproud/golang_protobuf_extensions",
+      "version": "v1.0.1",
+      "checksum": "h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU="
+    },
+    {
+      "path": "github.com/oklog/ulid",
+      "version": "v1.3.1",
+      "checksum": "h1:EGfNDEx6MqHz8B3uNV6QAib1UR2Lm97sHi3ocA6ESJ4="
+    },
+    {
+      "path": "github.com/pkg/errors",
+      "version": "v0.8.1",
+      "checksum": "h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I="
+    },
+    {
+      "path": "github.com/prometheus/client_golang",
+      "version": "v0.9.4",
+      "checksum": "h1:Y8E/JaaPbmFSW2V81Ab/d8yZFYQQGbni1b1jPcG9Y6A="
+    },
+    {
+      "path": "github.com/prometheus/client_model",
+      "version": "v0.0.0-20190129233127-fd36f4220a90",
+      "checksum": "h1:S/YWwWx/RA8rT8tKFRuGUZhuA90OyIBpPCXkcbwU8DE="
+    },
+    {
+      "path": "github.com/prometheus/common",
+      "version": "v0.4.1",
+      "checksum": "h1:K0MGApIoQvMw27RTdJkPbr3JZ7DNbtxQNyi5STVM6Kw="
+    },
+    {
+      "path": "github.com/prometheus/procfs",
+      "version": "v0.0.2",
+      "checksum": "h1:6LJUbpNm42llc4HRCuvApCSWB/WfhuNo9K98Q9sNGfs="
+    },
+    {
+      "path": "github.com/rs/zerolog",
+      "version": "v1.14.3",
+      "checksum": "h1:4EGfSkR2hJDB0s3oFfrlPqjU1e4WLncergLil3nEKW0="
+    },
+    {
+      "path": "go.uber.org/atomic",
+      "version": "v1.4.0",
+      "checksum": "h1:cxzIVoETapQEqDhQu3QfnvXAV4AlzcvUCxkVUFw3+EU="
+    },
+    {
+      "path": "go.uber.org/dig",
+      "version": "v1.7.0",
+      "checksum": "h1:E5/L92iQTNJTjfgJF2KgU+/JpMaiuvK2DHLBj0+kSZk="
+    },
+    {
+      "path": "go.uber.org/fx",
+      "version": "v1.9.0",
+      "checksum": "h1:7OAz8ucp35AU8eydejpYG7QrbE8rLKzGhHbZlJi5LYY="
+    },
+    {
+      "path": "go.uber.org/multierr",
+      "version": "v1.1.0",
+      "checksum": "h1:HoEmRHQPVSqub6w2z2d2EOVs2fjyFRGyofhKuyDq0QI="
+    }
+  ]
+}
