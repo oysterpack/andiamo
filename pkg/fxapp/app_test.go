@@ -19,6 +19,7 @@ package fxapp_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
@@ -289,12 +290,7 @@ func TestRunningApp(t *testing.T) {
 			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 				lc.Append(fx.Hook{
 					OnStart: func(context.Context) error {
-						t.Logf("shutting down ...")
-						err := shutdowner.Shutdown()
-						if err != nil {
-							t.Logf("*** shutdown failed: %v", err)
-						}
-						return err
+						return shutdowner.Shutdown()
 					},
 				})
 			},
@@ -310,15 +306,112 @@ func TestRunningApp(t *testing.T) {
 		t.Errorf("*** app failed to run: %v", err)
 	}
 
-	<-app.Done()
+	t.Logf("stop signal: %v", <-app.Done())
 	if app.Err() != nil {
 		t.Errorf("*** the app failed: %v", app.Err())
 	}
 }
 
+func TestAppLifeCycleSignals(t *testing.T) {
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Funcs(
+			// trigger shutdown
+			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						return shutdowner.Shutdown()
+					},
+				})
+			},
+		).
+		Build()
+
+	if err != nil {
+		t.Fatalf("*** app failed to build: %v", err)
+	}
+
+	// When the app is run async
+	go app.Run()
+
+	var lifecycleEvents []string
+	<-app.Starting()
+	lifecycleEvents = append(lifecycleEvents, "starting")
+	t.Log("app is starting")
+
+	<-app.Started()
+	lifecycleEvents = append(lifecycleEvents, "started")
+	t.Log("app has started")
+
+	stopSignal := <-app.Stopping()
+	lifecycleEvents = append(lifecycleEvents, "stopping")
+	t.Logf("app is stopping: %v", stopSignal)
+
+	doneDignal := <-app.Done()
+	if doneDignal != stopSignal {
+		t.Errorf("*** stop and done signals should be the same: %v : %v", stopSignal, doneDignal)
+	}
+	lifecycleEvents = append(lifecycleEvents, "stopped")
+	t.Logf("app is stopped: %v", doneDignal)
+
+	if app.Err() != nil {
+		t.Errorf("*** the app failed: %v", app.Err())
+	}
+
+	t.Logf("lifecycleEvents: %v", lifecycleEvents)
+	if len(lifecycleEvents) != 4 {
+		t.Errorf("lifecycle event count should be 4 but was : %d", len(lifecycleEvents))
+	}
+}
+
 // When the application is run, the registered functions are invoked in the order that they are registered.
 func TestFuncInvokeOrder(t *testing.T) {
-	t.Fatal("TODO")
+	var funcInvokes []string
+	var funcs []interface{}
+	for i := 0; i < 10; i++ {
+		ii := i
+		funcs = append(funcs, func() {
+			funcInvokes = append(funcInvokes, fmt.Sprintf("%d", ii))
+		})
+	}
+
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Funcs(funcs...).
+		Funcs(
+			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
+				funcInvokes = append(funcInvokes, "shutdown")
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						return shutdowner.Shutdown()
+					},
+				})
+			},
+		).
+		Build()
+
+	// functions are invoked when the app is built
+	t.Logf("funcInvokes: %v", funcInvokes)
+	if len(funcInvokes) != 11 {
+		t.Errorf("the number of invoked functions should be 11 but was: %v", len(funcInvokes))
+	}
+	if funcInvokes[10] != "shutdown" {
+		t.Errorf("the last func to be invoked should have been `shutdown`, but was %q", funcInvokes[10])
+	}
+	for i := 0; i < 10; i++ {
+		funcs = append(funcs, func() {
+			if funcInvokes[i] != fmt.Sprintf("%d", i) {
+				t.Errorf("func[%d] invoked out of expected order: %v", i, funcInvokes[i])
+			}
+		})
+	}
+
+	if err != nil {
+		t.Fatalf("*** app failed to build: %v", err)
+	}
+
+	err = app.Run()
+	if err != nil {
+		t.Errorf("*** app failed to run: %v", err)
+	}
 }
 
 // error handlers can be registered with the application. They are executed on function invocation failures.

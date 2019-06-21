@@ -60,6 +60,35 @@ func (id InstanceID) String() string {
 // - Stopping
 // - Done
 type App interface {
+	Options
+	LifeCycle
+
+	// Run will start running the application and blocks until the app is shutdown.
+	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
+	Run() error
+
+	// Err returns any app error that occurred during the app's lifetime.
+	// Multiple errors may be returned as a single aggregated error.
+	Err() error
+}
+
+// LifeCycle defines the application lifecycle.
+type LifeCycle interface {
+	// Starting signals that the app is starting.
+	// Closing the channel is the signal.
+	Starting() <-chan struct{}
+	// Started signals that the app has fully started
+	Started() <-chan struct{}
+	// Stopping signals that app is stopping.
+	// The channel is closed after the stop signal is sent.
+	Stopping() <-chan os.Signal
+	// Done signals that the app has shutdown.
+	// The channel is closed after the stop signal is sent.
+	Done() <-chan os.Signal
+}
+
+// Options represent application options that were used to configure and build app.
+type Options interface {
 	// Desc returns the app descriptor
 	Desc() Desc
 
@@ -77,15 +106,6 @@ type App interface {
 	ConstructorTypes() []reflect.Type
 	// FuncTypes returns the registered function types
 	FuncTypes() []reflect.Type
-
-	// Err returns any error encountered during the app's initialization or while it is running.
-	Err() error
-
-	// Run will start running the application and blocks until the app is shutdown.
-	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
-	Run() error
-
-	Done() <-chan os.Signal
 }
 
 // AppBuilder is used to construct a new App instance.
@@ -99,12 +119,16 @@ type AppBuilder interface {
 	Funcs(funcs ...interface{}) AppBuilder
 }
 
+// NewAppBuilder constructs a new AppBuilder
 func NewAppBuilder(desc Desc) AppBuilder {
 	return &app{
 		instanceID:   NewInstanceID(),
 		desc:         desc,
 		startTimeout: 15 * time.Second,
 		stopTimeout:  15 * time.Second,
+		starting:     make(chan struct{}),
+		started:      make(chan struct{}),
+		stopping:     make(chan os.Signal, 1),
 		stopped:      make(chan os.Signal, 1),
 	}
 }
@@ -120,7 +144,8 @@ type app struct {
 	funcs        []interface{}
 
 	*fx.App
-	stopped chan os.Signal
+	starting, started chan struct{}
+	stopping, stopped chan os.Signal
 
 	err error
 }
@@ -235,6 +260,13 @@ func (a *app) InstanceID() InstanceID {
 }
 
 func (a *app) Run() error {
+	select {
+	case <-a.starting:
+		return errors.New("app cannot be run again after it has already been started")
+	default:
+		// app has not been started yet
+	}
+
 	if a.Err() != nil {
 		return a.Err()
 	}
@@ -245,12 +277,16 @@ func (a *app) Run() error {
 
 	stopChan := a.App.Done()
 
+	close(a.starting)
 	if e := a.Start(startCtx); e != nil {
 		return a.appendErr(e)
 	}
+	close(a.started)
 
 	// wait for the app to be signalled to stop
 	signal := <-stopChan
+	a.stopping <- signal
+	close(a.stopping)
 	defer func() {
 		a.stopped <- signal
 	}()
@@ -263,6 +299,18 @@ func (a *app) Run() error {
 	}
 
 	return nil
+}
+
+func (a *app) Starting() <-chan struct{} {
+	return a.starting
+}
+
+func (a *app) Started() <-chan struct{} {
+	return a.started
+}
+
+func (a *app) Stopping() <-chan os.Signal {
+	return a.stopping
 }
 
 func (a *app) Done() <-chan os.Signal {

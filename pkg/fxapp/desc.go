@@ -57,6 +57,7 @@ type Desc interface {
 	Validate() error
 }
 
+// DescBuilder constructs a new Desc
 type DescBuilder interface {
 	SetID(id ulid.ULID) DescBuilder
 	SetName(name string) DescBuilder
@@ -66,6 +67,7 @@ type DescBuilder interface {
 	Build() (Desc, error)
 }
 
+// NewDescBuilder constructs a new DescBuilder
 func NewDescBuilder() DescBuilder {
 	return &desc{}
 }
