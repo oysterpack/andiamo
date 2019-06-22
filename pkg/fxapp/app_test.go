@@ -183,24 +183,24 @@ func TestAppBuilder(t *testing.T) {
 	app, e := fxapp.NewAppBuilder(desc).
 		SetStartTimeout(30*time.Second).
 		SetStopTimeout(60*time.Second).
-		Constructors(
+		Provide(
 			ProvideBar,
 			ProvideBaz,
 			fooID.ProvideFooID,
 		).
-		Funcs(
+		Invoke(
 			InvokePrintBaz,
 			InvokePrintBar,
 			fooID.InvokeLogInstanceID,
 			fooID.InvokeLogSelf,
 		).
-		Constructors(
+		Provide(
 			ProvidePasswordLogin,
 			ProvideMFALogin,
 			GroupMFALogin,
 			GroupPasswordLogin,
 		).
-		Funcs(
+		Invoke(
 			InvokeLogin,
 			GatherLogins,
 		).
@@ -216,9 +216,6 @@ func TestAppBuilder(t *testing.T) {
 	}
 	if app.StopTimeout() != 60*time.Second {
 		t.Errorf("*** stop timeout did not match: %v", app.StopTimeout())
-	}
-	if app.Err() != nil {
-		t.Fatalf("*** since the app was successfully built, then it should have no error")
 	}
 
 	appInstanceID := app.InstanceID()
@@ -277,7 +274,7 @@ Loop:
 
 func TestRunningApp(t *testing.T) {
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
-		Funcs(
+		Invoke(
 			// app InstanceID is automatically provided
 			func(instanceID fxapp.InstanceID) {
 				t.Logf("app instance ID: %v", instanceID)
@@ -307,14 +304,11 @@ func TestRunningApp(t *testing.T) {
 	}
 
 	t.Logf("stop signal: %v", <-app.Done())
-	if app.Err() != nil {
-		t.Errorf("*** the app failed: %v", app.Err())
-	}
 }
 
 func TestAppLifeCycleSignals(t *testing.T) {
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
-		Funcs(
+		Invoke(
 			// trigger shutdown
 			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 				lc.Append(fx.Hook{
@@ -331,7 +325,12 @@ func TestAppLifeCycleSignals(t *testing.T) {
 	}
 
 	// When the app is run async
-	go app.Run()
+	go func() {
+		err := app.Run()
+		if err != nil {
+			t.Errorf("*** app failed to run: %v", err)
+		}
+	}()
 
 	var lifecycleEvents []string
 	<-app.Starting()
@@ -353,13 +352,9 @@ func TestAppLifeCycleSignals(t *testing.T) {
 	lifecycleEvents = append(lifecycleEvents, "stopped")
 	t.Logf("app is stopped: %v", doneDignal)
 
-	if app.Err() != nil {
-		t.Errorf("*** the app failed: %v", app.Err())
-	}
-
 	t.Logf("lifecycleEvents: %v", lifecycleEvents)
 	if len(lifecycleEvents) != 4 {
-		t.Errorf("lifecycle event count should be 4 but was : %d", len(lifecycleEvents))
+		t.Errorf("*** lifecycle event count should be 4 but was : %d", len(lifecycleEvents))
 	}
 }
 
@@ -375,8 +370,8 @@ func TestFuncInvokeOrder(t *testing.T) {
 	}
 
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
-		Funcs(funcs...).
-		Funcs(
+		Invoke(funcs...).
+		Invoke(
 			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
 				funcInvokes = append(funcInvokes, "shutdown")
 				lc.Append(fx.Hook{
@@ -391,15 +386,15 @@ func TestFuncInvokeOrder(t *testing.T) {
 	// functions are invoked when the app is built
 	t.Logf("funcInvokes: %v", funcInvokes)
 	if len(funcInvokes) != 11 {
-		t.Errorf("the number of invoked functions should be 11 but was: %v", len(funcInvokes))
+		t.Errorf("*** the number of invoked functions should be 11 but was: %v", len(funcInvokes))
 	}
 	if funcInvokes[10] != "shutdown" {
-		t.Errorf("the last func to be invoked should have been `shutdown`, but was %q", funcInvokes[10])
+		t.Errorf("*** the last func to be invoked should have been `shutdown`, but was %q", funcInvokes[10])
 	}
 	for i := 0; i < 10; i++ {
 		funcs = append(funcs, func() {
 			if funcInvokes[i] != fmt.Sprintf("%d", i) {
-				t.Errorf("func[%d] invoked out of expected order: %v", i, funcInvokes[i])
+				t.Errorf("*** func[%d] invoked out of expected order: %v", i, funcInvokes[i])
 			}
 		})
 	}
@@ -416,7 +411,60 @@ func TestFuncInvokeOrder(t *testing.T) {
 
 // error handlers can be registered with the application. They are executed on function invocation failures.
 func TestFuncErrorHandling(t *testing.T) {
-	t.Fatal("TODO")
+	funcInvocations := make(map[int]time.Time)
+	var errHandleCount uint
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(
+			func() error {
+				funcInvocations[1] = time.Now()
+				return nil
+			},
+			func() error {
+				funcInvocations[2] = time.Now()
+				return errors.New("func 2 failed")
+			},
+			func() error {
+				funcInvocations[3] = time.Now()
+				return errors.New("func 3 failed")
+			}).
+		HandleInvokeError(
+			func(err error) {
+				t.Logf("handler 1 received error: %v", err)
+				errHandleCount++
+			},
+			func(err error) {
+				t.Logf("handler 2 received error: %v", err)
+				errHandleCount++
+			},
+		).
+		Build()
+
+	if app != nil {
+		t.Error("*** app should be nil because it failed to build")
+	}
+
+	t.Logf("err: %v", err)
+	if err == nil {
+		t.Error("*** app should have failed to build")
+	}
+
+	t.Logf("funcInvocations: %v", funcInvocations)
+	if funcInvocations[1].IsZero() {
+		t.Error("*** func 1 should have ran")
+	}
+	if funcInvocations[2].IsZero() {
+		t.Error("*** func 2 should have ran")
+	}
+	if !funcInvocations[3].IsZero() {
+		t.Error("*** func 3 should not have run because func 2 should have failed before")
+	}
+	if !funcInvocations[1].Before(funcInvocations[2]) {
+		t.Error("*** func 1 should have run before func 2")
+	}
+
+	if errHandleCount != 2 {
+		t.Errorf("not all error handlers were invoked: %d", errHandleCount)
+	}
 }
 
 // app default start and stop timeout is 15 sec

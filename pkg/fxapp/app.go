@@ -24,7 +24,6 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"go.uber.org/fx"
-	"go.uber.org/multierr"
 	"os"
 	"reflect"
 	"time"
@@ -48,6 +47,13 @@ func (id InstanceID) String() string {
 	return id.ULID().String()
 }
 
+// used to implement the fx.ErrorHandler interface
+type errorHandler func(err error)
+
+func (f errorHandler) HandleError(err error) {
+	f(err)
+}
+
 // App represents an application container.
 //
 // Dependency injection is provided via registered constructors.
@@ -66,10 +72,6 @@ type App interface {
 	// Run will start running the application and blocks until the app is shutdown.
 	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
 	Run() error
-
-	// Err returns any app error that occurred during the app's lifetime.
-	// Multiple errors may be returned as a single aggregated error.
-	Err() error
 }
 
 // LifeCycle defines the application lifecycle.
@@ -108,37 +110,9 @@ type Options interface {
 	FuncTypes() []reflect.Type
 }
 
-// AppBuilder is used to construct a new App instance.
-type AppBuilder interface {
-	Build() (App, error)
-
-	SetStartTimeout(timeout time.Duration) AppBuilder
-	SetStopTimeout(timeout time.Duration) AppBuilder
-
-	Constructors(constructors ...interface{}) AppBuilder
-	Funcs(funcs ...interface{}) AppBuilder
-}
-
-// NewAppBuilder constructs a new AppBuilder
-func NewAppBuilder(desc Desc) AppBuilder {
-	return &app{
-		instanceID:   NewInstanceID(),
-		desc:         desc,
-		startTimeout: 15 * time.Second,
-		stopTimeout:  15 * time.Second,
-		starting:     make(chan struct{}),
-		started:      make(chan struct{}),
-		stopping:     make(chan os.Signal, 1),
-		stopped:      make(chan os.Signal, 1),
-	}
-}
-
 type app struct {
 	desc       Desc
 	instanceID InstanceID
-
-	startTimeout time.Duration
-	stopTimeout  time.Duration
 
 	constructors []interface{}
 	funcs        []interface{}
@@ -146,8 +120,6 @@ type app struct {
 	*fx.App
 	starting, started chan struct{}
 	stopping, stopped chan os.Signal
-
-	err error
 }
 
 func (a *app) String() string {
@@ -167,14 +139,22 @@ func (a *app) String() string {
 		return s.String()
 	}
 
-	return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Constructors: %s, Funcs: %s, Err: %v}",
+	return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
 		a.desc,
-		a.startTimeout,
-		a.stopTimeout,
+		a.StartTimeout(),
+		a.StopTimeout(),
 		funcTypes(a.constructors),
 		funcTypes(a.funcs),
 		a.Err(),
 	)
+}
+
+func (a *app) Desc() Desc {
+	return a.desc
+}
+
+func (a *app) InstanceID() InstanceID {
+	return a.instanceID
 }
 
 func (a *app) ConstructorTypes() []reflect.Type {
@@ -185,90 +165,12 @@ func (a *app) FuncTypes() []reflect.Type {
 	return types(a.funcs)
 }
 
-func types(values []interface{}) []reflect.Type {
-	if len(values) == 0 {
-		return nil
-	}
-	valueTypes := make([]reflect.Type, 0, len(values))
-	for _, value := range values {
-		valueTypes = append(valueTypes, reflect.TypeOf(value))
-	}
-
-	return valueTypes
-}
-
-func (a *app) Desc() Desc {
-	return a.desc
-}
-
-// Build tries to construct and initialize a new App instance.
-// All of the app's functions are run as part of the app initialization phase.
-func (a *app) Build() (App, error) {
-	if a.desc == nil {
-		a.err = a.appendErr(a.desc.Validate())
-	}
-	if len(a.constructors) == 0 && len(a.funcs) == 0 {
-		a.err = a.appendErr(errors.New("at least 1 functional option is required"))
-	}
-
-	compOptions := make([]fx.Option, 0, len(a.constructors)+len(a.funcs))
-	for _, f := range a.constructors {
-		compOptions = append(compOptions, fx.Provide(f))
-	}
-	for _, f := range a.funcs {
-		compOptions = append(compOptions, fx.Invoke(f))
-	}
-
-	a.App = fx.New(
-		fx.Provide(func() Desc { return a.desc }),
-		fx.Provide(func() InstanceID { return a.instanceID }),
-		fx.StartTimeout(a.startTimeout),
-		fx.StopTimeout(a.stopTimeout),
-		fx.Options(compOptions...),
-	)
-	a.err = a.appendErr(a.App.Err())
-
-	if a.err != nil {
-		return nil, a.err
-	}
-
-	return a, nil
-}
-
-func (a *app) SetStartTimeout(timeout time.Duration) AppBuilder {
-	a.startTimeout = timeout
-	return a
-}
-
-func (a *app) SetStopTimeout(timeout time.Duration) AppBuilder {
-	a.stopTimeout = timeout
-	return a
-}
-
-func (a *app) Constructors(constructors ...interface{}) AppBuilder {
-	a.constructors = append(a.constructors, constructors...)
-	return a
-}
-
-func (a *app) Funcs(funcs ...interface{}) AppBuilder {
-	a.funcs = append(a.funcs, funcs...)
-	return a
-}
-
-func (a *app) InstanceID() InstanceID {
-	return a.instanceID
-}
-
 func (a *app) Run() error {
 	select {
 	case <-a.starting:
 		return errors.New("app cannot be run again after it has already been started")
 	default:
 		// app has not been started yet
-	}
-
-	if a.Err() != nil {
-		return a.Err()
 	}
 
 	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
@@ -279,7 +181,7 @@ func (a *app) Run() error {
 
 	close(a.starting)
 	if e := a.Start(startCtx); e != nil {
-		return a.appendErr(e)
+		return e
 	}
 	close(a.started)
 
@@ -295,7 +197,7 @@ func (a *app) Run() error {
 	defer cancel()
 
 	if e := a.Stop(stopCtx); e != nil {
-		return a.appendErr(e)
+		return e
 	}
 
 	return nil
@@ -315,13 +217,4 @@ func (a *app) Stopping() <-chan os.Signal {
 
 func (a *app) Done() <-chan os.Signal {
 	return a.stopped
-}
-
-func (a *app) Err() error {
-	return a.err
-}
-
-func (a *app) appendErr(err error) error {
-	a.err = multierr.Append(a.err, err)
-	return a.err
 }
