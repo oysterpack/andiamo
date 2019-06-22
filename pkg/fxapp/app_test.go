@@ -17,6 +17,7 @@
 package fxapp_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"go.uber.org/fx"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -747,5 +749,44 @@ func TestShutdownApp(t *testing.T) {
 
 // By default, the app logs to stderr. However, an alternative writer can be provided for logging when the app is being built.
 func TestAppLogWriter(t *testing.T) {
-	t.Fatal("TODO")
+	logStream := new(bytes.Buffer)
+
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {}).
+		Logger(func(msg string, args ...interface{}) {
+			fmt.Fprintf(logStream, msg, args...)
+			fmt.Fprintln(logStream)
+		}).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build error: %v", err)
+	default:
+		go app.Run()
+		<-app.Started()
+		app.Shutdown()
+
+		t.Logf("\n%s", logStream)
+		var provideCount, invokeCount, runningCount int
+		for _, line := range strings.Split(logStream.String(), "\n") {
+			switch {
+			case strings.Contains(line, "PROVIDE"):
+				provideCount++
+			case strings.Contains(line, "INVOKE"):
+				invokeCount++
+			case strings.Contains(line, "RUNNING"):
+				runningCount++
+			}
+		}
+		if provideCount == 0 {
+			t.Error("*** no PROVIDE events were logged")
+		}
+		if invokeCount == 0 {
+			t.Error("*** no INVOKE events were logged")
+		}
+		if runningCount != 1 {
+			t.Error("*** RUNNING event was not logged")
+		}
+	}
 }

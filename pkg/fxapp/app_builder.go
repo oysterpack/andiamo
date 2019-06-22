@@ -42,6 +42,8 @@ type AppBuilder interface {
 	// Pointers to structs that embed fx.In are supported, which can be used to populate multiple values in a struct.
 	Populate(targets ...interface{}) AppBuilder
 
+	Logger(logger func(msg string, args ...interface{})) AppBuilder
+
 	HandleInvokeError(errorHandlers ...func(error)) AppBuilder
 	HandleStartupError(errorHandlers ...func(error)) AppBuilder
 	HandleShutdownError(errorHandlers ...func(error)) AppBuilder
@@ -67,6 +69,8 @@ type appBuilder struct {
 	constructors    []interface{}
 	funcs           []interface{}
 	populateTargets []interface{}
+
+	logger func(msg string, args ...interface{})
 
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 }
@@ -179,7 +183,16 @@ func (a *appBuilder) buildOptions() []fx.Option {
 	for _, target := range a.populateTargets {
 		compOptions = append(compOptions, fx.Populate(target))
 	}
+	if a.logger != nil {
+		compOptions = append(compOptions, fx.Logger(logger(a.logger)))
+	}
 	return compOptions
+}
+
+type logger func(msg string, args ...interface{})
+
+func (l logger) Printf(msg string, args ...interface{}) {
+	l(msg, args...)
 }
 
 func (a *appBuilder) SetStartTimeout(timeout time.Duration) AppBuilder {
@@ -226,5 +239,10 @@ func (a *appBuilder) HandleError(errorHandlers ...func(error)) AppBuilder {
 	a.HandleInvokeError(errorHandlers...)
 	a.HandleStartupError(errorHandlers...)
 	a.HandleShutdownError(errorHandlers...)
+	return a
+}
+
+func (a *appBuilder) Logger(logger func(msg string, args ...interface{})) AppBuilder {
+	a.logger = logger
 	return a
 }
