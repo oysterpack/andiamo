@@ -180,7 +180,7 @@ func TestAppBuilder(t *testing.T) {
 
 	timeBeforeBuildingApp := time.Now()
 	fooID := NewFooID()
-	app, e := fxapp.NewAppBuilder(desc).
+	builder := fxapp.NewAppBuilder(desc).
 		SetStartTimeout(30*time.Second).
 		SetStopTimeout(60*time.Second).
 		Provide(
@@ -203,8 +203,10 @@ func TestAppBuilder(t *testing.T) {
 		Invoke(
 			InvokeLogin,
 			GatherLogins,
-		).
-		Build()
+		)
+	t.Log(builder)
+
+	app, e := builder.Build()
 
 	if e != nil {
 		t.Fatalf("*** app failed to build app: %v", e)
@@ -412,7 +414,7 @@ func TestFuncInvokeOrder(t *testing.T) {
 // error handlers can be registered with the application. They are executed on function invocation failures.
 func TestFuncErrorHandling(t *testing.T) {
 	funcInvocations := make(map[int]time.Time)
-	var errHandleCount uint
+	var errHandlerInvocations []int
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
 		Invoke(
 			func() error {
@@ -430,11 +432,17 @@ func TestFuncErrorHandling(t *testing.T) {
 		HandleInvokeError(
 			func(err error) {
 				t.Logf("handler 1 received error: %v", err)
-				errHandleCount++
+				errHandlerInvocations = append(errHandlerInvocations, 1)
 			},
 			func(err error) {
 				t.Logf("handler 2 received error: %v", err)
-				errHandleCount++
+				errHandlerInvocations = append(errHandlerInvocations, 2)
+			},
+		).
+		HandleInvokeError(
+			func(err error) {
+				t.Logf("handler 3 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 3)
 			},
 		).
 		Build()
@@ -462,19 +470,279 @@ func TestFuncErrorHandling(t *testing.T) {
 		t.Error("*** func 1 should have run before func 2")
 	}
 
-	if errHandleCount != 2 {
-		t.Errorf("not all error handlers were invoked: %d", errHandleCount)
+	if len(errHandlerInvocations) != 3 {
+		t.Errorf("*** not all error handlers were invoked: %d", errHandlerInvocations)
+	}
+	if errHandlerInvocations[0] != 1 && errHandlerInvocations[1] != 2 && errHandlerInvocations[2] != 3 {
+		t.Errorf("*** error handlers were not called in the order they were registered: %v", errHandlerInvocations)
+	}
+}
+
+// error handlers can be registered to handle application startup errors
+func TestAppStartErrorHandler(t *testing.T) {
+	var errHandlerInvocations []int
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func(lc fx.Lifecycle) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					return errors.New("OnStart failure")
+				},
+			})
+		}).
+		HandleStartupError(
+			func(err error) {
+				t.Logf("handler 1 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 1)
+			},
+			func(err error) {
+				t.Logf("handler 2 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 2)
+			},
+		).
+		HandleStartupError(
+			func(err error) {
+				t.Logf("handler 3 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 3)
+			},
+		).
+		Build()
+
+	if err != nil {
+		t.Errorf("*** app build error: %v", err)
+	}
+
+	err = app.Run()
+	t.Logf("app run error: %v", err)
+	if err == nil {
+		t.Error("app should have failed to run")
+	}
+
+	switch {
+	case len(errHandlerInvocations) != 3:
+		t.Errorf("*** not all error handlers were invoked: %d", errHandlerInvocations)
+	case len(errHandlerInvocations) == 3:
+		if errHandlerInvocations[0] != 1 && errHandlerInvocations[1] != 2 && errHandlerInvocations[2] != 3 {
+			t.Errorf("*** error handlers were not called in the order they were registered: %v", errHandlerInvocations)
+		}
+	}
+}
+
+// error handlers can be registered to handle application shutdown errors
+func TestAppStopErrorHandler(t *testing.T) {
+	var errHandlerInvocations []int
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func(lc fx.Lifecycle, s fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					return s.Shutdown()
+				},
+				OnStop: func(context.Context) error {
+					return errors.New("OnStart failure")
+				},
+			})
+		}).
+		HandleShutdownError(
+			func(err error) {
+				t.Logf("handler 1 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 1)
+			},
+			func(err error) {
+				t.Logf("handler 2 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 2)
+			},
+		).
+		HandleShutdownError(
+			func(err error) {
+				t.Logf("handler 3 received error: %v", err)
+				errHandlerInvocations = append(errHandlerInvocations, 3)
+			},
+		).
+		Build()
+
+	if err != nil {
+		t.Errorf("*** app build error: %v", err)
+	}
+
+	err = app.Run()
+	t.Logf("app run error: %v", err)
+	if err == nil {
+		t.Error("app should have failed to run")
+	}
+
+	switch {
+	case len(errHandlerInvocations) != 3:
+		t.Errorf("*** not all error handlers were invoked: %d", errHandlerInvocations)
+	case len(errHandlerInvocations) == 3:
+		if errHandlerInvocations[0] != 1 && errHandlerInvocations[1] != 2 && errHandlerInvocations[2] != 3 {
+			t.Errorf("*** error handlers were not called in the order they were registered: %v", errHandlerInvocations)
+		}
+	}
+}
+
+// error handlers can be registered to handle any application errors
+func TestAppErrorHandler(t *testing.T) {
+	var errHandled bool
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() error { return errors.New("invoke error") }).
+		HandleError(func(err error) { errHandled = true }).
+		Build()
+
+	switch {
+	case err == nil:
+		t.Error("app should have failed to build")
+	default:
+		if !errHandled {
+			t.Error("invoke error was not handled")
+		}
+	}
+
+	errHandled = false
+	app, err = fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func(lc fx.Lifecycle) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					return errors.New("OnStart failure")
+				},
+			})
+		}).
+		HandleError(func(err error) { errHandled = true }).
+		Build()
+
+	if err != nil {
+		t.Fatalf("*** app build error: %v", err)
+	}
+
+	err = app.Run()
+
+	switch {
+	case err == nil:
+		t.Error("app should have failed to run")
+	default:
+		if !errHandled {
+			t.Error("shutdown error was not handled")
+		}
+	}
+
+	errHandled = false
+	app, err = fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func(lc fx.Lifecycle, s fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error {
+					return s.Shutdown()
+				},
+				OnStop: func(context.Context) error {
+					return errors.New("OnStart failure")
+				},
+			})
+		}).
+		HandleError(func(err error) { errHandled = true }).
+		Build()
+
+	if err != nil {
+		t.Fatalf("*** app build error: %v", err)
+	}
+
+	err = app.Run()
+
+	switch {
+	case err == nil:
+		t.Error("app should have failed to run")
+	default:
+		if !errHandled {
+			t.Error("shutdown error was not handled")
+		}
 	}
 }
 
 // app default start and stop timeout is 15 sec
-func TestAppDefaultStartStopTimeouts(t *testing.T) {
-	t.Fatal("TODO")
+func TestAppDefaultTimeouts(t *testing.T) {
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func(s fx.Shutdowner) error { return s.Shutdown() }).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failure: %v", err)
+	default:
+		t.Logf("default timeout: %v", fx.DefaultTimeout)
+		if app.StartTimeout() != fx.DefaultTimeout {
+			t.Errorf("*** start timeout did not match: %v", app.StartTimeout())
+		}
+		if app.StopTimeout() != fx.DefaultTimeout {
+			t.Errorf("*** stop timeout did not match: %v", app.StopTimeout())
+		}
+	}
 }
 
 // app can populate targets with values from the dependency injection container
 func TestPopulate(t *testing.T) {
-	t.Fatal("TODO")
+	var shutdowner fx.Shutdowner
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {}).
+		Populate(&shutdowner).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build error: %v", err)
+	case shutdowner == nil:
+		t.Error("*** shutdowner was not populated")
+	default:
+		go func() {
+			t.Log("starting app ...")
+			e := app.Run()
+			if e != nil {
+				t.Errorf("*** app failed to run: %v", e)
+			}
+		}()
+		go func() {
+			// shutdown needs to be invoked after the app has started
+			// invoking shutdown before the app is started has no effect
+			<-app.Started()
+			t.Log("stopping app ...")
+			e := shutdowner.Shutdown()
+			if e != nil {
+				t.Errorf("*** shutdown failed: %v", e)
+			}
+		}()
+		<-app.Done()
+	}
+
+}
+
+func TestShutdownApp(t *testing.T) {
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {}).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build error: %v", err)
+	default:
+		if e := app.Shutdown(); e == nil {
+			t.Error("*** error should have been returned because the app has not been started")
+		} else {
+			t.Logf("shutdown error: %v", e)
+		}
+		go app.Run()
+		go func() {
+			// shutdown needs to be invoked after the app has started
+			// invoking shutdown before the app is started has no effect
+			<-app.Started()
+			t.Log("stopping app ...")
+			e := app.Shutdown()
+			if e != nil {
+				t.Errorf("*** shutdown failed: %v", e)
+			}
+		}()
+		<-app.Done()
+
+		// invoking shutdown after the app has been shutdown should have no effect
+		e := app.Shutdown()
+		if e != nil {
+			t.Errorf("*** shutdown failed: %v", e)
+		}
+	}
 }
 
 // By default, the app logs to stderr. However, an alternative writer can be provided for logging when the app is being built.

@@ -72,6 +72,8 @@ type App interface {
 	// Run will start running the application and blocks until the app is shutdown.
 	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
 	Run() error
+
+	Shutdown() error
 }
 
 // LifeCycle defines the application lifecycle.
@@ -117,7 +119,10 @@ type app struct {
 	constructors []interface{}
 	funcs        []interface{}
 
+	startErrorHandlers, stopErrorHandlers []func(error)
+
 	*fx.App
+	fx.Shutdowner
 	starting, started chan struct{}
 	stopping, stopped chan os.Signal
 }
@@ -181,7 +186,7 @@ func (a *app) Run() error {
 
 	close(a.starting)
 	if e := a.Start(startCtx); e != nil {
-		return e
+		return a.handleStartError(e)
 	}
 	close(a.started)
 
@@ -197,10 +202,24 @@ func (a *app) Run() error {
 	defer cancel()
 
 	if e := a.Stop(stopCtx); e != nil {
-		return e
+		return a.handleStopError(e)
 	}
 
 	return nil
+}
+
+func (a *app) handleStartError(err error) error {
+	for _, f := range a.startErrorHandlers {
+		f(err)
+	}
+	return err
+}
+
+func (a *app) handleStopError(err error) error {
+	for _, f := range a.stopErrorHandlers {
+		f(err)
+	}
+	return err
 }
 
 func (a *app) Starting() <-chan struct{} {
@@ -217,4 +236,14 @@ func (a *app) Stopping() <-chan os.Signal {
 
 func (a *app) Done() <-chan os.Signal {
 	return a.stopped
+}
+
+func (a *app) Shutdown() error {
+	select {
+	case <-a.started:
+		return a.Shutdowner.Shutdown()
+	default:
+		return errors.New("app can only be shutdown after it has started")
+	}
+
 }

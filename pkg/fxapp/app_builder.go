@@ -37,15 +37,24 @@ type AppBuilder interface {
 	Provide(constructors ...interface{}) AppBuilder
 	Invoke(funcs ...interface{}) AppBuilder
 
+	// Populate sets targets with values from the dependency injection container during application initialization.
+	// All targets must be pointers to the values that must be populated.
+	// Pointers to structs that embed fx.In are supported, which can be used to populate multiple values in a struct.
+	Populate(targets ...interface{}) AppBuilder
+
 	HandleInvokeError(errorHandlers ...func(error)) AppBuilder
+	HandleStartupError(errorHandlers ...func(error)) AppBuilder
+	HandleShutdownError(errorHandlers ...func(error)) AppBuilder
+	// HandleError will handle any app error, i.e., app function invoke errors, app startup errors, and app shutdown errors.
+	HandleError(errorHandlers ...func(error)) AppBuilder
 }
 
 // NewAppBuilder constructs a new AppBuilder
 func NewAppBuilder(desc Desc) AppBuilder {
 	return &appBuilder{
 		desc:         desc,
-		startTimeout: 15 * time.Second,
-		stopTimeout:  15 * time.Second,
+		startTimeout: fx.DefaultTimeout,
+		stopTimeout:  fx.DefaultTimeout,
 	}
 }
 
@@ -55,34 +64,39 @@ type appBuilder struct {
 	startTimeout time.Duration
 	stopTimeout  time.Duration
 
-	constructors        []interface{}
-	funcs               []interface{}
-	invokeErrorHandlers []func(error)
+	constructors    []interface{}
+	funcs           []interface{}
+	populateTargets []interface{}
+
+	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 }
 
 func (a *appBuilder) String() string {
-	funcTypes := func(funcs []interface{}) string {
-		if len(funcs) == 0 {
+	types := func(objs []interface{}) string {
+		if len(objs) == 0 {
 			return "[]"
 		}
 		s := new(bytes.Buffer)
 		s.WriteString("[")
-		s.WriteString(reflect.TypeOf(funcs[0]).String())
-		for i := 1; i < len(funcs); i++ {
+		s.WriteString(reflect.TypeOf(objs[0]).String())
+		for i := 1; i < len(objs); i++ {
 			s.WriteString("|")
-			s.WriteString(reflect.TypeOf(funcs[i]).String())
+			s.WriteString(reflect.TypeOf(objs[i]).String())
 		}
 
 		s.WriteString("]")
 		return s.String()
 	}
 
-	return fmt.Sprintf("AppBuilder{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s}",
+	return fmt.Sprintf("AppBuilder{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Populate: %s, InvokeErrHandlerCount: %d, StartErrHandlerCount: %d}",
 		a.desc,
 		a.startTimeout,
 		a.startTimeout,
-		funcTypes(a.constructors),
-		funcTypes(a.funcs),
+		types(a.constructors),
+		types(a.funcs),
+		types(a.populateTargets),
+		len(a.invokeErrorHandlers),
+		len(a.startErrorHandlers),
 	)
 }
 
@@ -106,11 +120,16 @@ func (a *appBuilder) Build() (App, error) {
 	}
 
 	instanceID := NewInstanceID()
+	var shutdowner fx.Shutdowner
+	a.populateTargets = append(a.populateTargets, &shutdowner)
 	app := &app{
 		instanceID:   instanceID,
 		desc:         a.desc,
 		constructors: a.constructors,
 		funcs:        a.funcs,
+
+		startErrorHandlers: a.startErrorHandlers,
+		stopErrorHandlers:  a.stopErrorHandlers,
 
 		starting: make(chan struct{}),
 		started:  make(chan struct{}),
@@ -124,6 +143,8 @@ func (a *appBuilder) Build() (App, error) {
 			fx.StopTimeout(a.stopTimeout),
 			fx.Options(a.buildOptions()...),
 		),
+
+		Shutdowner: shutdowner,
 	}
 
 	if err := app.Err(); err != nil {
@@ -155,6 +176,9 @@ func (a *appBuilder) buildOptions() []fx.Option {
 	for _, f := range a.invokeErrorHandlers {
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 	}
+	for _, target := range a.populateTargets {
+		compOptions = append(compOptions, fx.Populate(target))
+	}
 	return compOptions
 }
 
@@ -178,7 +202,29 @@ func (a *appBuilder) Invoke(funcs ...interface{}) AppBuilder {
 	return a
 }
 
+func (a *appBuilder) Populate(targets ...interface{}) AppBuilder {
+	a.populateTargets = append(a.populateTargets, targets...)
+	return a
+}
+
 func (a *appBuilder) HandleInvokeError(errorHandlers ...func(error)) AppBuilder {
 	a.invokeErrorHandlers = append(a.invokeErrorHandlers, errorHandlers...)
+	return a
+}
+
+func (a *appBuilder) HandleStartupError(errorHandlers ...func(error)) AppBuilder {
+	a.startErrorHandlers = append(a.startErrorHandlers, errorHandlers...)
+	return a
+}
+
+func (a *appBuilder) HandleShutdownError(errorHandlers ...func(error)) AppBuilder {
+	a.stopErrorHandlers = append(a.stopErrorHandlers, errorHandlers...)
+	return a
+}
+
+func (a *appBuilder) HandleError(errorHandlers ...func(error)) AppBuilder {
+	a.HandleInvokeError(errorHandlers...)
+	a.HandleStartupError(errorHandlers...)
+	a.HandleShutdownError(errorHandlers...)
 	return a
 }
