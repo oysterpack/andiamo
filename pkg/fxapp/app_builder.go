@@ -104,18 +104,6 @@ func (a *appBuilder) String() string {
 	)
 }
 
-func types(values []interface{}) []reflect.Type {
-	if len(values) == 0 {
-		return nil
-	}
-	valueTypes := make([]reflect.Type, 0, len(values))
-	for _, value := range values {
-		valueTypes = append(valueTypes, reflect.TypeOf(value))
-	}
-
-	return valueTypes
-}
-
 // Build tries to construct and initialize a new App instance.
 // All of the app's functions are run as part of the app initialization phase.
 func (a *appBuilder) Build() (App, error) {
@@ -161,6 +149,8 @@ func (a *appBuilder) Build() (App, error) {
 func (a *appBuilder) validate() error {
 	var err error
 	if a.desc == nil {
+		err = multierr.Append(err, errors.New("app descriptor is required"))
+	} else {
 		err = multierr.Append(err, a.desc.Validate())
 	}
 	if len(a.constructors) == 0 && len(a.funcs) == 0 {

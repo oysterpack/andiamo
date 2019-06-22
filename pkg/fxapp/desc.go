@@ -55,6 +55,8 @@ type Desc interface {
 
 	// Validates checks if the app descriptor is valid
 	Validate() error
+
+	fmt.Stringer
 }
 
 // DescBuilder constructs a new Desc

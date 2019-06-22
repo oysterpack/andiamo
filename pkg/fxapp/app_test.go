@@ -206,6 +206,7 @@ func TestAppBuilder(t *testing.T) {
 			InvokeLogin,
 			GatherLogins,
 		)
+
 	t.Log(builder)
 
 	app, e := builder.Build()
@@ -214,6 +215,9 @@ func TestAppBuilder(t *testing.T) {
 		t.Fatalf("*** app failed to build app: %v", e)
 	}
 	t.Logf("%v", app)
+	if app.Desc().Name() != "foo" {
+		t.Errorf("*** desc name did not match")
+	}
 
 	if app.StartTimeout() != 30*time.Second {
 		t.Errorf("*** start timeout did not match: %v", app.StartTimeout())
@@ -249,7 +253,28 @@ func TestAppBuilder(t *testing.T) {
 		InvokeLogin,
 		GatherLogins,
 	)
+}
 
+func TestBuildingAppWithNoFunctions(t *testing.T) {
+	_, e := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).Build()
+
+	switch {
+	case e == nil:
+		t.Error("*** app should have failed to build because at least 1 app function is required")
+	default:
+		t.Log(e)
+	}
+}
+
+func TestBuildingAppWithNoDesc(t *testing.T) {
+	_, e := fxapp.NewAppBuilder(nil).Build()
+
+	switch {
+	case e == nil:
+		t.Error("*** app should have failed to build because a Desc cannot be nil")
+	default:
+		t.Log(e)
+	}
 }
 
 func checkConstructorsAreRegistered(t *testing.T, app fxapp.App, constructors ...interface{}) {
@@ -308,6 +333,15 @@ func TestRunningApp(t *testing.T) {
 	}
 
 	t.Logf("stop signal: %v", <-app.Done())
+
+	err = app.Run()
+	switch {
+	case err == nil:
+		t.Errorf("*** app run should have failed because it has laready been shutdown")
+	default:
+		t.Log(err)
+	}
+
 }
 
 func TestAppLifeCycleSignals(t *testing.T) {

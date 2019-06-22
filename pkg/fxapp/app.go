@@ -144,14 +144,26 @@ func (a *app) String() string {
 		return s.String()
 	}
 
-	return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
-		a.desc,
-		a.StartTimeout(),
-		a.StopTimeout(),
-		funcTypes(a.constructors),
-		funcTypes(a.funcs),
-		a.Err(),
-	)
+	switch {
+	case a.App != nil:
+		return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
+			a.desc,
+			a.StartTimeout(),
+			a.StopTimeout(),
+			funcTypes(a.constructors),
+			funcTypes(a.funcs),
+			a.Err(),
+		)
+	default:
+		return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
+			a.desc,
+			fx.DefaultTimeout,
+			fx.DefaultTimeout,
+			funcTypes(a.constructors),
+			funcTypes(a.funcs),
+			nil,
+		)
+	}
 }
 
 func (a *app) Desc() Desc {
@@ -160,6 +172,18 @@ func (a *app) Desc() Desc {
 
 func (a *app) InstanceID() InstanceID {
 	return a.instanceID
+}
+
+func types(values []interface{}) []reflect.Type {
+	if len(values) == 0 {
+		return nil
+	}
+	valueTypes := make([]reflect.Type, 0, len(values))
+	for _, value := range values {
+		valueTypes = append(valueTypes, reflect.TypeOf(value))
+	}
+
+	return valueTypes
 }
 
 func (a *app) ConstructorTypes() []reflect.Type {
