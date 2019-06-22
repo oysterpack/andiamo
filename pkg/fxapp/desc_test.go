@@ -17,10 +17,12 @@
 package fxapp_test
 
 import (
+	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"os"
 	"strings"
 	"testing"
 )
@@ -146,4 +148,85 @@ func TestDesc_InvalidName(t *testing.T) {
 	default:
 		t.Log(err)
 	}
+}
+
+func setenv(key, value string) {
+	e := os.Setenv(fmt.Sprintf("%s_%s", fxapp.EnvconfigPrefix, strings.ToUpper(key)), value)
+	if e != nil {
+		panic(e)
+	}
+}
+
+func unsetenv(keys ...string) {
+	for _, key := range keys {
+		e := os.Unsetenv(fmt.Sprintf("%s_%s", fxapp.EnvconfigPrefix, strings.ToUpper(key)))
+		if e != nil {
+			panic(e)
+		}
+	}
+}
+
+func TestLoadDescFromEnv(t *testing.T) {
+	keys := []string{"ID", "NAME", "VERSION", "RELEASE_ID"}
+	unsetenv(keys...)
+	defer unsetenv(keys...)
+
+	desc, e := fxapp.LoadDescFromEnv()
+	switch {
+	case e == nil:
+		t.Error("*** desc should have failed to load")
+	default:
+		t.Log(e)
+	}
+
+	id := ulidgen.MustNew()
+	releaseID := ulidgen.MustNew()
+	setenv("ID", id.String())
+	setenv("NAME", "foo")
+	setenv("VERSION", "0.1.0")
+	setenv("RELEASE_ID", releaseID.String())
+
+	desc, e = fxapp.LoadDescFromEnv()
+
+	switch {
+	case e != nil:
+		t.Errorf("*** desc failed to load from env: %v", e)
+	default:
+		t.Log(desc)
+		if desc.Name() != "foo" {
+			t.Error("*** name did not match")
+		}
+		if !desc.Version().Equal(semver.MustParse("0.1.0")) {
+			t.Error("*** version did not match")
+		}
+		if desc.ID() != id {
+			t.Error("*** ID did not match")
+		}
+		if desc.ReleaseID() != releaseID {
+			t.Error("*** ReleaseID did not match")
+		}
+	}
+
+	checkLoadDescFromEnvFailed := func(e error) {
+		switch {
+		case e == nil:
+			t.Error("*** desc should have failed to load")
+		default:
+			t.Log(e)
+		}
+	}
+
+	setenv("ID", "INVALID")
+	_, e = fxapp.LoadDescFromEnv()
+	checkLoadDescFromEnvFailed(e)
+
+	setenv("ID", id.String())
+	setenv("VERSION", "INVALID")
+	_, e = fxapp.LoadDescFromEnv()
+	checkLoadDescFromEnvFailed(e)
+
+	setenv("VERSION", "0.1.0")
+	setenv("RELEASE_ID", "INVALID")
+	_, e = fxapp.LoadDescFromEnv()
+	checkLoadDescFromEnvFailed(e)
 }

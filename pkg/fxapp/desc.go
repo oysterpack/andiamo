@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Masterminds/semver"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/oklog/ulid"
 	"go.uber.org/multierr"
 	"regexp"
@@ -142,4 +143,46 @@ func (d *desc) ReleaseID() ulid.ULID {
 func (d *desc) SetReleaseID(releaseID ulid.ULID) DescBuilder {
 	d.releaseID = releaseID
 	return d
+}
+
+type envconfigDesc struct {
+	ID        string `required:"true"`
+	Name      string `required:"true"`
+	Version   string `required:"true"`
+	ReleaseID string `required:"true" split_words:"true"`
+}
+
+// LoadDescFromEnv tries to load the app descriptor from env vars:
+//
+//   - APP12X_ID
+//   - APP12X_NAME
+//   - APP12X_VERSION
+//   - APP12X_RELEASE_ID
+func LoadDescFromEnv() (Desc, error) {
+	var cfg envconfigDesc
+	err := envconfig.Process(EnvconfigPrefix, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	id, e := ulid.Parse(cfg.ID)
+	err = multierr.Append(err, e)
+
+	version, e := semver.NewVersion(cfg.Version)
+	err = multierr.Append(err, e)
+
+	releaseID, e := ulid.Parse(cfg.ReleaseID)
+	err = multierr.Append(err, e)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDescBuilder().
+		SetID(id).
+		SetName(cfg.Name).
+		SetVersion(version).
+		SetReleaseID(releaseID).
+		Build()
+
 }

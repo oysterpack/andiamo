@@ -16,5 +16,25 @@
 
 /*
 Package fxapp builds upon https://godoc.org/go.uber.org/fx to provide a standardized functional driven application container.
+
+DevOps Application Aspects
+
+  - all app deployments must have an identity defined by a descriptor
+    - each app is assigned a unique ID
+      - the app ID is used to catalog the application
+    - each app has a unique name within the given namespace
+    - each app is assigned version
+    - each app deployment is assigned a release ID, which maps to related app information, e.g.,
+	  - release notes
+      - who were the persons involved - developers, testers, product managers, etc
+      - discussions
+      - test reports
+        - unit test reports
+        - acceptance test reports
+        - performance test reports
+          - performance profiles
+      - etc
+  - all running application deployment instances must be identified via an instance ID
+    - used for troubleshooting, e.g., querying for application instance logs, metrics, etc
 */
 package fxapp
