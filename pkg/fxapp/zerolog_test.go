@@ -89,7 +89,7 @@ func TestComponentLogger(t *testing.T) {
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
 	componentLogger := fxapp.ComponentLogger(&logger, "foo")
-	componentLogger.Info().Msg("")
+	componentLogger.Log().Msg("")
 
 	type LogEvent struct {
 		Component string `json:"c"`
@@ -112,7 +112,7 @@ func TestEventLogger(t *testing.T) {
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
 	eventLogger := fxapp.EventLogger(&logger, "foo")
-	eventLogger.Info().Msg("")
+	eventLogger.Log().Msg("")
 
 	type LogEvent struct {
 		Name string `json:"n"`

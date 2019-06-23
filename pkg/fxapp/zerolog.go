@@ -55,3 +55,28 @@ func ComponentLogger(logger *zerolog.Logger, id string) *zerolog.Logger {
 	l := logger.With().Str("c", id).Logger()
 	return &l
 }
+
+// LogLevel defines the supported app log levels
+type LogLevel uint
+
+// LogLevel enum
+const (
+	DebugLogLevel LogLevel = iota
+	InfoLogLevel
+	WarnLogLevel
+	ErrorLogLevel
+)
+
+// ZerologLevel maps LogLevel to a zerolog.Level
+func (level LogLevel) ZerologLevel() zerolog.Level {
+	switch level {
+	case InfoLogLevel:
+		return zerolog.InfoLevel
+	case WarnLogLevel:
+		return zerolog.WarnLevel
+	case ErrorLogLevel:
+		return zerolog.ErrorLevel
+	default:
+		return zerolog.DebugLevel
+	}
+}

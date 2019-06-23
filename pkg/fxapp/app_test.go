@@ -797,6 +797,10 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 	// logger is populated by the app dependency injection container
 	logger.Info().Msg("logger has been populated")
 
+	if zerolog.GlobalLevel() != zerolog.InfoLevel {
+		t.Errorf("*** default app log level should be INFO: %v", zerolog.GlobalLevel())
+	}
+
 	type LogEvent struct {
 		AppID      string `json:"a"`
 		ReleaseID  string `json:"r"`
@@ -856,4 +860,29 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 			t.Error("*** RUNNING event was not logged")
 		}
 	}
+}
+
+// By default, the app log level is INFO, but it can be overridden.
+func TestAppBuilder_LogLevel(t *testing.T) {
+	for _, level := range []fxapp.LogLevel{fxapp.DebugLogLevel, fxapp.InfoLogLevel, fxapp.WarnLogLevel, fxapp.ErrorLogLevel} {
+		var logger *zerolog.Logger
+		_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+			Invoke(func() {}).
+			Populate(&logger).
+			LogLevel(level).
+			Build()
+
+		switch {
+		case err != nil:
+			t.Errorf("*** app build error: %v", err)
+		default:
+			// logger is populated by the app dependency injection container
+			logger.WithLevel(level.ZerologLevel()).Msg("logger has been populated")
+
+			if zerolog.GlobalLevel() != level.ZerologLevel() {
+				t.Errorf("*** app log level did not match: %v", zerolog.GlobalLevel())
+			}
+		}
+	}
+
 }

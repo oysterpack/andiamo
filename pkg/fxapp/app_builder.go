@@ -45,6 +45,7 @@ type AppBuilder interface {
 	//
 	// By default, stderr is used.
 	LogWriter(w io.Writer) AppBuilder
+	LogLevel(level LogLevel) AppBuilder
 
 	// Error handlers
 	HandleInvokeError(errorHandlers ...func(error)) AppBuilder
@@ -275,5 +276,10 @@ func (b *appBuilder) HandleError(errorHandlers ...func(error)) AppBuilder {
 
 func (b *appBuilder) LogWriter(w io.Writer) AppBuilder {
 	b.logWriter = w
+	return b
+}
+
+func (b *appBuilder) LogLevel(level LogLevel) AppBuilder {
+	b.globalLogLevel = level.ZerologLevel()
 	return b
 }
