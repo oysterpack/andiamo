@@ -189,7 +189,7 @@ func (b *appBuilder) buildOptions() []fx.Option {
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
 	compOptions = append(compOptions, fx.Populate(b.populateTargets...))
-	compOptions = append(compOptions, fx.Logger(fxlogger{logger}))
+	compOptions = append(compOptions, fx.Logger(newFxLogger(logger)))
 
 	for _, f := range b.invokeErrorHandlers {
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
@@ -200,6 +200,10 @@ func (b *appBuilder) buildOptions() []fx.Option {
 
 type fxlogger struct {
 	*zerolog.Logger
+}
+
+func newFxLogger(logger *zerolog.Logger) fxlogger {
+	return fxlogger{ComponentLogger(logger, "fx")}
 }
 
 func (l fxlogger) Printf(msg string, params ...interface{}) {

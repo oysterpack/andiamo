@@ -19,6 +19,7 @@ package fxapp_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Masterminds/semver"
@@ -796,6 +797,17 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 	// logger is populated by the app dependency injection container
 	logger.Info().Msg("logger has been populated")
 
+	type LogEvent struct {
+		AppID      string `json:"a"`
+		ReleaseID  string `json:"r"`
+		InstanceID string `json:"x"`
+		Timestamp  uint   `json:"t"`
+		Message    string `json:"m"`
+		Level      string `json:"l"`
+		Name       string `json:"n"`
+		Component  string `json:"c"`
+	}
+
 	switch {
 	case err != nil:
 		t.Errorf("*** app build error: %v", err)
@@ -808,12 +820,29 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 		t.Logf("\n%s", logStream)
 		var provideCount, invokeCount, runningCount int
 		for _, line := range strings.Split(logStream.String(), "\n") {
+			if len(line) == 0 {
+				break
+			}
+			var logEvent LogEvent
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %q", err, line)
+				continue
+			}
+
+			// verify that app fields are logged
+			if logEvent.AppID != app.Desc().ID().String() ||
+				logEvent.ReleaseID != app.Desc().ReleaseID().String() ||
+				logEvent.InstanceID != app.InstanceID().String() {
+				t.Errorf("*** app fields are missing: %#v", logEvent)
+			}
+
 			switch {
-			case strings.Contains(line, "PROVIDE"):
+			case strings.Contains(logEvent.Message, "PROVIDE"):
 				provideCount++
-			case strings.Contains(line, "INVOKE"):
+			case strings.Contains(logEvent.Message, "INVOKE"):
 				invokeCount++
-			case strings.Contains(line, "RUNNING"):
+			case strings.Contains(logEvent.Message, "RUNNING"):
 				runningCount++
 			}
 		}

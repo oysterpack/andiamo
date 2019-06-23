@@ -36,10 +36,22 @@ func init() {
 	zerolog.TimestampFieldName = "t"
 	zerolog.LevelFieldName = "l"
 	zerolog.MessageFieldName = "m"
-	zerolog.ErrorFieldName = "err"
+	zerolog.ErrorFieldName = "e"
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.DurationFieldInteger = true
 
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+}
+
+// EventLogger returns a new logger with the event name field 'n' set to the specified value.
+func EventLogger(logger *zerolog.Logger, id string) *zerolog.Logger {
+	l := logger.With().Str("n", id).Logger()
+	return &l
+}
+
+// ComponentLogger returns a new logger with the component field 'c' set to the specified value.
+func ComponentLogger(logger *zerolog.Logger, id string) *zerolog.Logger {
+	l := logger.With().Str("c", id).Logger()
+	return &l
 }
