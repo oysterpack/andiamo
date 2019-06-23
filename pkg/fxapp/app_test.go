@@ -25,6 +25,7 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
 	"reflect"
@@ -782,16 +783,18 @@ func TestShutdownApp(t *testing.T) {
 }
 
 // By default, the app logs to stderr. However, an alternative writer can be provided for logging when the app is being built.
-func TestAppLogWriter(t *testing.T) {
+func TestAppBuilder_LogWriter(t *testing.T) {
 	logStream := new(bytes.Buffer)
 
+	var logger *zerolog.Logger
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
-		Logger(func(msg string, args ...interface{}) {
-			fmt.Fprintf(logStream, msg, args...)
-			fmt.Fprintln(logStream)
-		}).
+		Populate(&logger).
+		LogWriter(logStream).
 		Build()
+
+	// logger is populated by the app dependency injection container
+	logger.Info().Msg("logger has been populated")
 
 	switch {
 	case err != nil:
@@ -800,6 +803,7 @@ func TestAppLogWriter(t *testing.T) {
 		go app.Run()
 		<-app.Started()
 		app.Shutdown()
+		<-app.Done()
 
 		t.Logf("\n%s", logStream)
 		var provideCount, invokeCount, runningCount int

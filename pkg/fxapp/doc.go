@@ -36,5 +36,8 @@ DevOps Application Aspects
       - etc
   - all running application deployment instances must be identified via an instance ID
     - used for troubleshooting, e.g., querying for application instance logs, metrics, etc
+  - application logging is structured
+    - zerolog is used to provided structured JSON logging
+    - log events are strongly typed
 */
 package fxapp

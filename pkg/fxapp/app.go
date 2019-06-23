@@ -65,6 +65,27 @@ func (f errorHandler) HandleError(err error) {
 // - Running
 // - Stopping
 // - Done
+//
+// The following are automatically provided for the app:
+// - Desc - app descriptor
+// - InstanceID - app instance ID
+// - *zerolog.Logger - for application logging
+//   - the logger is used as the go standard log - logged with Debug level
+//   - fx log events are logged with no level, i.e., which means they are always logged
+//   - the log event timestamp is in Unix time format
+//   - the logger context is augmented with the app ID, release ID, and instance ID. For example:
+//
+//     {"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","t":1561304912,"m":"[Fx] RUNNING"}
+//
+//     where a -> app ID
+//           r -> app release ID
+//           x -> app instance ID
+//           t -> timestamp
+//           m -> message
+//
+// - fx.Lifecycle - for components to use to bind to the app lifecycle
+// - fx.Shutdowner - used to trigger app shutdown
+// - fx.Dotgraph - contains a DOT language visualization of the app dependency graph
 type App interface {
 	Options
 	LifeCycle
@@ -73,6 +94,9 @@ type App interface {
 	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
 	Run() error
 
+	// Shutdown signals the app to shutdown. This method does not block, i.e., application shutdown occurs async.
+	//
+	// Shutdown can only be called after the app has been started - otherwise an error is returned.
 	Shutdown() error
 }
 

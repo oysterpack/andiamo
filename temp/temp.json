@@ -1,0 +1,12 @@
+{
+  "l": "info",
+  "a": "01DE2G5CC3XYZ7TRB6AFZBH68C",
+  "r": "01DE2G5CC3E5GY8K7C1JK7H425",
+  "x": "01DE2G5CC3K6ZKVJWY2S59JQHJ",
+  "LoginEvent": {
+    "user_id": "01DE2G5CC33E19V8P3CCA41ZRF",
+    "success": true
+  },
+  "t": 1561304674,
+  "m": "logger has been populated"
+}
