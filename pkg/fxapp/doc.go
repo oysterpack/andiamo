@@ -38,6 +38,6 @@ DevOps Application Aspects
     - used for troubleshooting, e.g., querying for application instance logs, metrics, etc
   - application logging is structured
     - zerolog is used to provided structured JSON logging
-    - log events are strongly typed
+    - log events are strongly typed, i.e., domain specific
 */
 package fxapp

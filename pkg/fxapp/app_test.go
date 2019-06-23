@@ -810,6 +810,7 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 		Level      string `json:"l"`
 		Name       string `json:"n"`
 		Component  string `json:"c"`
+		EventID    string `json:"z"`
 	}
 
 	switch {
@@ -839,6 +840,11 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 				logEvent.ReleaseID != app.Desc().ReleaseID().String() ||
 				logEvent.InstanceID != app.InstanceID().String() {
 				t.Errorf("*** app fields are missing: %#v", logEvent)
+			}
+
+			// every log event should have an event ID
+			if logEvent.EventID == "" {
+				t.Errorf("*** event ID is missing: %v", line)
 			}
 
 			switch {

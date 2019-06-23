@@ -17,6 +17,7 @@
 package fxapp
 
 import (
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
 )
@@ -79,4 +80,11 @@ func (level LogLevel) ZerologLevel() zerolog.Level {
 	default:
 		return zerolog.DebugLevel
 	}
+}
+
+// SetEventID injects an event ID field named 'z'. The log event will assigned a ULID event ID.
+//
+// Use Case: Enables log event to be referenced.
+func SetEventID(e *zerolog.Event, _ zerolog.Level, _ string) {
+	e.Str("z", ulidgen.MustNew().String())
 }

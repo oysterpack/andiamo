@@ -75,11 +75,12 @@ func (f errorHandler) HandleError(err error) {
 //   - the log event timestamp is in Unix time format
 //   - the logger context is augmented with the app ID, release ID, and instance ID. For example:
 //
-//     {"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","t":1561304912,"m":"[Fx] RUNNING"}
+//     {"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","z":"01DE30RAEQGQBS0THBCVKVHFSW","t":1561304912,"m":"[Fx] RUNNING"}
 //
 //     where a -> app ID
 //           r -> app release ID
 //           x -> app instance ID
+//           z -> event ID
 //           t -> timestamp
 //           m -> message
 //

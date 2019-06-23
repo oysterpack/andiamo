@@ -213,7 +213,9 @@ func (l fxlogger) Printf(msg string, params ...interface{}) {
 
 func (b *appBuilder) initZerolog() *zerolog.Logger {
 	zerolog.SetGlobalLevel(b.globalLogLevel)
-	logger := zerolog.New(b.logWriter).With().
+	logger := zerolog.New(b.logWriter).
+		Hook(zerolog.HookFunc(SetEventID)).
+		With().
 		Timestamp().
 		Str("a", b.desc.ID().String()).
 		Str("r", b.desc.ReleaseID().String()).
