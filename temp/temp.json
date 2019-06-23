@@ -1,12 +1,18 @@
 {
-  "l": "info",
-  "a": "01DE2G5CC3XYZ7TRB6AFZBH68C",
-  "r": "01DE2G5CC3E5GY8K7C1JK7H425",
-  "x": "01DE2G5CC3K6ZKVJWY2S59JQHJ",
-  "LoginEvent": {
-    "user_id": "01DE2G5CC33E19V8P3CCA41ZRF",
-    "success": true
+  "l": "error",
+  "a": "01DE37Z8X41QS1BX4TBM3MB0TS",
+  "r": "01DE37Z8X4B5P7CF32XXQZKP5J",
+  "x": "01DE37Z8X41YQNCMATMB7YKXSP",
+  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0",
+  "01DE2Z4E07E4T0GJJXCG8NN6A0": {
+    "id": "01DE37Z8X59E3RSBE781E47WJP",
+    "e": "failure to connect"
   },
-  "t": 1561304674,
-  "m": "logger has been populated"
+  "g": [
+    "tag-a",
+    "tag-b"
+  ],
+  "z": "01DE37Z8X5FF92SSC6T7TTPSK0",
+  "t": 1561329640,
+  "m": "healthcheck failed"
 }
