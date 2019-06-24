@@ -53,7 +53,7 @@ func TestDesc_Build(t *testing.T) {
 			t.Error("*** ReleaseID did not match")
 		}
 		if !desc.Version().Equal(semver.MustParse("0.1.0")) {
-			t.Errorf("*** version did not match: %v", desc.Version())
+			t.Errorf("*** Version did not match: %v", desc.Version())
 		}
 	}
 }
@@ -197,7 +197,7 @@ func TestLoadDescFromEnv(t *testing.T) {
 			t.Error("*** name did not match")
 		}
 		if !desc.Version().Equal(semver.MustParse("0.1.0")) {
-			t.Error("*** version did not match")
+			t.Error("*** Version did not match")
 		}
 		if desc.ID() != id {
 			t.Error("*** ID did not match")

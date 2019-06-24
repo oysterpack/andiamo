@@ -23,7 +23,7 @@ DevOps Application Aspects
     - each app is assigned a unique ID
       - the app ID is used to catalog the application
     - each app has a unique name within the given namespace
-    - each app is assigned version
+    - each app is assigned Version
     - each app deployment is assigned a release ID, which maps to related app information, e.g.,
 	  - release notes
       - who were the persons involved - developers, testers, product managers, etc

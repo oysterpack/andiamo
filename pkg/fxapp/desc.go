@@ -48,7 +48,7 @@ type Desc interface {
 	// - min len = 3, max len = 50
 	Name() string
 
-	// Version returns the app version
+	// Version returns the app Version
 	Version() *semver.Version
 
 	// ReleaseID returns the app release ID

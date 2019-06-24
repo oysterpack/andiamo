@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"os"
 	"reflect"
@@ -150,6 +151,8 @@ type app struct {
 	fx.Shutdowner
 	starting, started chan struct{}
 	stopping, stopped chan os.Signal
+
+	logger *zerolog.Logger
 }
 
 func (a *app) String() string {
@@ -226,6 +229,7 @@ func (a *app) Run() error {
 	default:
 		// app has not been started yet
 	}
+	logAppStarting(a.logger)
 
 	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
 	defer cancel()
@@ -234,9 +238,11 @@ func (a *app) Run() error {
 	stopChan := a.App.Done()
 
 	close(a.starting)
+	mark := time.Now()
 	if e := a.Start(startCtx); e != nil {
 		return a.handleStartError(e)
 	}
+	logAppStarted(a.logger, time.Since(mark))
 	close(a.started)
 
 	// wait for the app to be signalled to stop
@@ -247,9 +253,12 @@ func (a *app) Run() error {
 		a.stopped <- signal
 	}()
 
+	logAppStopping(a.logger)
+
 	stopCtx, cancel := context.WithTimeout(context.Background(), a.StopTimeout())
 	defer cancel()
-
+	mark = time.Now()
+	defer logAppStopped(a.logger, time.Since(mark))
 	if e := a.Stop(stopCtx); e != nil {
 		return a.handleStopError(e)
 	}

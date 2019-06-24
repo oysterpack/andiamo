@@ -131,7 +131,8 @@ func (b *appBuilder) Build() (App, error) {
 	}
 
 	var shutdowner fx.Shutdowner
-	b.populateTargets = append(b.populateTargets, &shutdowner)
+	var logger *zerolog.Logger
+	b.populateTargets = append(b.populateTargets, &shutdowner, &logger)
 	app := &app{
 		instanceID:   b.instanceID,
 		desc:         b.desc,
@@ -158,7 +159,8 @@ func (b *appBuilder) Build() (App, error) {
 	if err := app.Err(); err != nil {
 		return nil, err
 	}
-
+	app.logger = logger
+	logAppInitialized(logger, app)
 	return app, nil
 }
 
