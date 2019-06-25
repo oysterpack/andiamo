@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
@@ -195,6 +197,7 @@ func (b *builder) buildOptions() []fx.Option {
 		func() Desc { return desc },
 		func() InstanceID { return instanceID },
 		func() *zerolog.Logger { return logger },
+		newMetricRegistry,
 	))
 
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
@@ -227,13 +230,16 @@ func (l fxlogger) Printf(msg string, params ...interface{}) {
 
 func (b *builder) initZerolog() *zerolog.Logger {
 	zerolog.SetGlobalLevel(b.globalLogLevel)
+	var newEventID = ulidgen.MonotonicULIDGenerator()
 	logger := zerolog.New(b.logWriter).
-		Hook(zerolog.HookFunc(SetEventID)).
+		Hook(zerolog.HookFunc(func(e *zerolog.Event, _ zerolog.Level, _ string) {
+			e.Str(EventLabel, newEventID().String())
+		})).
 		With().
 		Timestamp().
-		Str("a", b.desc.ID().String()).
-		Str("r", b.desc.ReleaseID().String()).
-		Str("x", b.instanceID.String()).
+		Str(AppIDLabel, b.desc.ID().String()).
+		Str(AppReleaseIDLabel, b.desc.ReleaseID().String()).
+		Str(AppInstanceIDLabel, b.instanceID.String()).
 		Logger()
 
 	// use the logger as the go standard log output
@@ -241,6 +247,24 @@ func (b *builder) initZerolog() *zerolog.Logger {
 	log.SetOutput(&logger)
 
 	return &logger
+}
+
+func newMetricRegistry(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
+	registry := prometheus.NewRegistry()
+	regsisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{
+			AppIDLabel:         appDesc.ID().String(),
+			AppReleaseIDLabel:  appDesc.ReleaseID().String(),
+			AppInstanceIDLabel: instanceID.String(),
+		},
+		registry,
+	)
+	regsisterer.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
+	)
+
+	return registry, regsisterer
 }
 
 func (b *builder) SetStartTimeout(timeout time.Duration) Builder {

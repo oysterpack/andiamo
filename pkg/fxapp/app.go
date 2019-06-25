@@ -114,6 +114,7 @@ type LifeCycle interface {
 	Stopping() <-chan os.Signal
 	// Done signals that the app has shutdown.
 	// The channel is closed after the stop signal is sent.
+	// If the app fails to startup, then the channel is simply closed, i.e., no stop signal will be sent on the channel.
 	Done() <-chan os.Signal
 }
 
