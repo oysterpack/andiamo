@@ -84,9 +84,11 @@ func (level LogLevel) ZerologLevel() zerolog.Level {
 	}
 }
 
+var newEventID = ulidgen.MonotonicULIDGenerator()
+
 // SetEventID injects an event ID field named 'z'. The log event will assigned a ULID event ID.
 //
 // Use Case: Enables log event to be referenced.
 func SetEventID(e *zerolog.Event, _ zerolog.Level, _ string) {
-	e.Str("z", ulidgen.MustNew().String())
+	e.Str("z", newEventID().String())
 }

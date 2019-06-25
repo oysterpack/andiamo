@@ -31,24 +31,10 @@ func (e EventTypeID) String() string {
 	return string(e)
 }
 
-// LogEvent logs events using a standardized structure, e.g.,
-func (e EventTypeID) LogEvent(logger *zerolog.Logger, level zerolog.Level, eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
-	event := logger.WithLevel(level)
+// LogEvent is a function used to log events.
+type LogEvent func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string)
 
-	if eventObject != nil {
-		data := zerolog.Dict()
-		eventObject.MarshalZerologObject(data)
-		event.Dict(string(e), data)
-	}
-
-	if len(tags) > 0 {
-		event.Strs("g", tags)
-	}
-
-	event.Msg(msg)
-}
-
-// NewLogEventFunc creates a new function used to log events using a standardized structure, e.g., app event
+// NewLogEvent creates a new function used to log events using a standardized structure, e.g., app event
 //
 //	{
 //	  "l": "error", -------------------------------------- event level
@@ -67,10 +53,22 @@ func (e EventTypeID) LogEvent(logger *zerolog.Logger, level zerolog.Level, event
 //	}
 //
 // the event object data is logged as an event dictionary, using the event type ID as the key
-func (e EventTypeID) NewLogEventFunc(logger *zerolog.Logger, level zerolog.Level) func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
-	eventLogger := EventLogger(logger, string(e))
+func (e EventTypeID) NewLogEvent(logger *zerolog.Logger, level zerolog.Level) LogEvent {
+	eventLogger := EventLogger(logger, e.String())
 	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
-		e.LogEvent(eventLogger, level, eventObject, msg, tags...)
+		event := eventLogger.WithLevel(level)
+
+		if eventObject != nil {
+			data := zerolog.Dict()
+			eventObject.MarshalZerologObject(data)
+			event.Dict(e.String(), data)
+		}
+
+		if len(tags) > 0 {
+			event.Strs("g", tags)
+		}
+
+		event.Msg(msg)
 	}
 }
 

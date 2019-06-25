@@ -44,7 +44,7 @@ type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
 
 func NewHealthCheckFailure(logger *zerolog.Logger) LogHealthCheckFailure {
 	const HealthCheckEventID fxapp.EventTypeID = "01DE2Z4E07E4T0GJJXCG8NN6A0"
-	logEvent := HealthCheckEventID.NewLogEventFunc(logger, zerolog.ErrorLevel)
+	logEvent := HealthCheckEventID.NewLogEvent(logger, zerolog.ErrorLevel)
 	return func(event HealthCheckFailure, tags ...string) {
 		logEvent(&event, "healthcheck failed", tags...)
 	}
