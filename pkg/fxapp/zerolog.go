@@ -94,13 +94,13 @@ func SetEventID(e *zerolog.Event, _ zerolog.Level, _ string) {
 // LogEvent logs events using a standardized structure, e.g.,
 //
 //
-func LogEvent(logger *zerolog.Logger, level zerolog.Level, eventTypeID string, eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
+func LogEvent(logger *zerolog.Logger, level zerolog.Level, eventTypeID EventTypeID, eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
 	event := logger.WithLevel(level)
 
 	if eventObject != nil {
 		data := zerolog.Dict()
 		eventObject.MarshalZerologObject(data)
-		event.Dict(eventTypeID, data)
+		event.Dict(string(eventTypeID), data)
 	}
 
 	if len(tags) > 0 {
@@ -110,28 +110,27 @@ func LogEvent(logger *zerolog.Logger, level zerolog.Level, eventTypeID string, e
 	event.Msg(msg)
 }
 
-/* NewLogEventFunc creates a new function used to log events using a standardized structure, e.g., app event
-
-	{
-	  "l": "error", -------------------------------------- event level
-	  "a": "01DE379HHM9Y3QYBDB4MSY7YYQ",
-	  "r": "01DE379HHNRJ4YS4NY4CMJX5YE",
-	  "x": "01DE379HHN2RRX9YQCG2DN9CHG",
-	  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0", ----------------- event type ID
-	  "01DE2Z4E07E4T0GJJXCG8NN6A0": { -------------------- event type ID is used as event object dictionary key (optional)
-		"id": "01DE379HHNVHQE5G6NHN2BBKAT", -------------- event object data (optional)
-		"e": "failure to connect" ------------------------ event object data (optional)
-	  }, ------------------------------------------------- event object data (optional)
-	  "g": ["tag-a","tag-b"], ---------------------------- event tags (optional)
-	  "z": "01DE379HHNM87XT4PBHXYYBTYS",
-	  "t": 1561328928,
-	  "m": "healthcheck failed" -------------------------- event short description
-	}
-
-the event object data is logged as an event dictionary, using the event type ID as the key
-*/
-func NewLogEventFunc(logger *zerolog.Logger, level zerolog.Level, eventTypeID string) func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
-	eventLogger := EventLogger(logger, eventTypeID)
+// NewLogEventFunc creates a new function used to log events using a standardized structure, e.g., app event
+//
+//	{
+//	  "l": "error", -------------------------------------- event level
+//	  "a": "01DE379HHM9Y3QYBDB4MSY7YYQ",
+//	  "r": "01DE379HHNRJ4YS4NY4CMJX5YE",
+//	  "x": "01DE379HHN2RRX9YQCG2DN9CHG",
+//	  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0", ----------------- event type ID
+//	  "01DE2Z4E07E4T0GJJXCG8NN6A0": { -------------------- event type ID is used as event object dictionary key (optional)
+//		"id": "01DE379HHNVHQE5G6NHN2BBKAT", -------------- event object data (optional)
+//		"e": "failure to connect" ------------------------ event object data (optional)
+//	  }, ------------------------------------------------- event object data (optional)
+//	  "g": ["tag-a","tag-b"], ---------------------------- event tags (optional)
+//	  "z": "01DE379HHNM87XT4PBHXYYBTYS",
+//	  "t": 1561328928,
+//	  "m": "healthcheck failed" -------------------------- event short description
+//	}
+//
+// the event object data is logged as an event dictionary, using the event type ID as the key
+func NewLogEventFunc(logger *zerolog.Logger, level zerolog.Level, eventTypeID EventTypeID) func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
+	eventLogger := EventLogger(logger, string(eventTypeID))
 	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
 		LogEvent(eventLogger, level, eventTypeID, eventObject, msg, tags...)
 	}

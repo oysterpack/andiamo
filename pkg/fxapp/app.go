@@ -229,7 +229,7 @@ func (a *app) Run() error {
 	default:
 		// app has not been started yet
 	}
-	logAppStarting(a.logger)
+	a.logAppStarting()
 
 	startCtx, cancel := context.WithTimeout(context.Background(), a.StartTimeout())
 	defer cancel()
@@ -238,11 +238,11 @@ func (a *app) Run() error {
 	stopChan := a.App.Done()
 
 	close(a.starting)
-	mark := time.Now()
+	startingTime := time.Now()
 	if e := a.Start(startCtx); e != nil {
 		return a.handleStartError(e)
 	}
-	logAppStarted(a.logger, time.Since(mark))
+	a.logAppStarted(time.Since(startingTime))
 	close(a.started)
 
 	// wait for the app to be signalled to stop
@@ -253,12 +253,12 @@ func (a *app) Run() error {
 		a.stopped <- signal
 	}()
 
-	logAppStopping(a.logger)
+	a.logAppStopping()
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), a.StopTimeout())
 	defer cancel()
-	mark = time.Now()
-	defer logAppStopped(a.logger, time.Since(mark))
+	stoppingTime := time.Now()
+	defer func() { a.logAppStopped(time.Since(stoppingTime)) }()
 	if e := a.Stop(stopCtx); e != nil {
 		return a.handleStopError(e)
 	}
@@ -304,4 +304,29 @@ func (a *app) Shutdown() error {
 		return errors.New("app can only be shutdown after it has started")
 	}
 
+}
+
+func (a *app) logAppInitialized() {
+	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppInitializedEventID)
+	logEvent(AppInitialized{App: a}, "app initialized")
+}
+
+func (a *app) logAppStarting() {
+	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStartingEventID)
+	logEvent(nil, "app starting")
+}
+
+func (a *app) logAppStarted(startupTime time.Duration) {
+	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStartedEventID)
+	logEvent(AppStarted{startupTime}, "app started")
+}
+
+func (a *app) logAppStopping() {
+	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStoppingEventID)
+	logEvent(nil, "app stopping")
+}
+
+func (a *app) logAppStopped(shutdownDuration time.Duration) {
+	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStoppedEventID)
+	logEvent(AppStopped{shutdownDuration}, "app stopped")
 }

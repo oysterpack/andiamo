@@ -84,8 +84,6 @@ func TestDomainEvent(t *testing.T) {
 func TestAppInitializedEventLogged(t *testing.T) {
 	type Foo struct{}
 
-	type Run func()
-
 	buf := new(bytes.Buffer)
 	_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
@@ -120,12 +118,12 @@ func TestAppInitializedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppInitializedEventID {
+			if logEvent.Name == fxapp.AppInitializedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppInitializedEventID:
+		case logEvent.Name == fxapp.AppInitializedEventID.String():
 			if logEvent.Message != "app initialized" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -152,8 +150,6 @@ func TestAppInitializedEventLogged(t *testing.T) {
 
 func TestAppStartingEventLogged(t *testing.T) {
 	type Foo struct{}
-
-	type Run func()
 
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
@@ -189,12 +185,12 @@ func TestAppStartingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartingEventID {
+			if logEvent.Name == fxapp.AppStartingEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartingEventID:
+		case logEvent.Name == fxapp.AppStartingEventID.String():
 			if logEvent.Message != "app starting" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -207,8 +203,6 @@ func TestAppStartingEventLogged(t *testing.T) {
 
 func TestAppStartedEventLogged(t *testing.T) {
 	type Foo struct{}
-
-	type Run func()
 
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
@@ -257,12 +251,12 @@ func TestAppStartedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartedEventID {
+			if logEvent.Name == fxapp.AppStartedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartedEventID:
+		case logEvent.Name == fxapp.AppStartedEventID.String():
 			if logEvent.Message != "app started" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -279,8 +273,6 @@ func TestAppStartedEventLogged(t *testing.T) {
 
 func TestAppStoppingEventLogged(t *testing.T) {
 	type Foo struct{}
-
-	type Run func()
 
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
@@ -316,12 +308,12 @@ func TestAppStoppingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStoppingEventID {
+			if logEvent.Name == fxapp.AppStoppingEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStoppingEventID:
+		case logEvent.Name == fxapp.AppStoppingEventID.String():
 			if logEvent.Message != "app stopping" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -335,8 +327,6 @@ func TestAppStoppingEventLogged(t *testing.T) {
 func TestAppStoppedEventLogged(t *testing.T) {
 	type Foo struct{}
 
-	type Run func()
-
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
@@ -344,6 +334,9 @@ func TestAppStoppedEventLogged(t *testing.T) {
 		Provide(func() Foo { return Foo{} }).
 		Invoke(func(lc fx.Lifecycle) {
 			lc.Append(fx.Hook{
+				OnStart: func(i context.Context) error {
+					return nil
+				},
 				OnStop: func(context.Context) error {
 					// simulate some work that consumes some time
 					time.Sleep(time.Millisecond)
@@ -384,12 +377,12 @@ func TestAppStoppedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStoppedEventID {
+			if logEvent.Name == fxapp.AppStoppedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStoppedEventID:
+		case logEvent.Name == fxapp.AppStoppedEventID.String():
 			if logEvent.Message != "app stopped" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -399,6 +392,280 @@ func TestAppStoppedEventLogged(t *testing.T) {
 			}
 		default:
 			t.Error("*** app stopped event was not logged")
+		}
+
+	}
+}
+
+func TestAppInitFailedEventLogged(t *testing.T) {
+	type Foo struct{}
+
+	buf := new(bytes.Buffer)
+	_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(buf).
+		SetStopTimeout(time.Minute).
+		Provide(func() Foo { return Foo{} }).
+		Invoke(func() error {
+			return errors.New("BOOM!!!")
+		}).
+		Build()
+
+	switch {
+	case err == nil:
+		t.Error("*** app should have failed to build")
+	default:
+		t.Logf("\n%v", buf)
+
+		type Data struct {
+			Err string `json:"e"`
+		}
+
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+			Data    Data   `json:"01DE4SWMZXD1ZB40QRT7RGQVPN"`
+		}
+
+		var logEvent LogEvent
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if line == "" {
+				break
+			}
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %v", err, line)
+				continue
+			}
+			if logEvent.Name == fxapp.AppInitFailedEventID.String() {
+				break
+			}
+		}
+		switch {
+		case logEvent.Name == fxapp.AppInitFailedEventID.String():
+			if logEvent.Message != "app init failed" {
+				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			}
+
+			if logEvent.Level != zerolog.ErrorLevel.String() {
+				t.Errorf("*** log level should be error: %v", logEvent.Level)
+			}
+
+			if logEvent.Data.Err == "" {
+				t.Error("*** error was not logged")
+			}
+		default:
+			t.Error("*** app event was not logged")
+		}
+
+	}
+}
+
+func TestAppStartFailedEventLogged(t *testing.T) {
+	type Foo struct{}
+
+	buf := new(bytes.Buffer)
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(buf).
+		SetStopTimeout(time.Minute).
+		Provide(func() Foo { return Foo{} }).
+		Invoke(
+			func(lc fx.Lifecycle, logger *zerolog.Logger) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						logger.Info().Msg("OnStart #1")
+						return nil
+					},
+					// when OnStart #2 fails, the app will rollback, i.e., invoke order app shutdown by stopping all prior
+					// services that were started
+					OnStop: func(i context.Context) error {
+						logger.Info().Msg("OnStop #1")
+						return nil
+					},
+				})
+			},
+			func(lc fx.Lifecycle, logger *zerolog.Logger) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						return errors.New("OnStart #2: BOOM!!!")
+					},
+					OnStop: func(i context.Context) error {
+						logger.Info().Msg("OnStop #2")
+						return nil
+					},
+				})
+			},
+		).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app failed to build: %v", err)
+	default:
+		err := app.Run()
+		if err == nil {
+			t.Error("*** app should have failed to run")
+			break
+		}
+		t.Logf("app failed to run: %v", err)
+		// since app failed to run, then it means it is done
+		<-app.Done()
+
+		t.Logf("\n%v", buf)
+
+		type Data struct {
+			Err string `json:"e"`
+		}
+
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+			Data    Data   `json:"01DE4SY6RYCD0356KYJV7G7THW"`
+		}
+
+		var logEvent LogEvent
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if line == "" {
+				break
+			}
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %v", err, line)
+				continue
+			}
+			if logEvent.Name == fxapp.AppStartFailedEventID.String() {
+				break
+			}
+		}
+		switch {
+		case logEvent.Name == fxapp.AppStartFailedEventID.String():
+			if logEvent.Message != "app start failed" {
+				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			}
+
+			if logEvent.Level != zerolog.ErrorLevel.String() {
+				t.Errorf("*** log level should be error: %v", logEvent.Level)
+			}
+
+			if logEvent.Data.Err == "" {
+				t.Error("*** error was not logged")
+			}
+		default:
+			t.Error("*** app event was not logged")
+		}
+
+	}
+}
+
+// Given 1 Lifecycle Hook runs successfully, followed by one that fails
+// Then the first Lifecycle hook will be rolled back, i.e., it's OnStop hook will be called
+// When the first Lifecycle OnStop hook fails
+// Then the start and stop errors will be combined into a single mutli-error and logged as an AppStartFailedEvent
+func TestAppStartFailedAndStopFailed(t *testing.T) {
+	type Foo struct{}
+
+	buf := new(bytes.Buffer)
+	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(buf).
+		SetStopTimeout(time.Minute).
+		Provide(func() Foo { return Foo{} }).
+		Invoke(
+			func(lc fx.Lifecycle, logger *zerolog.Logger) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						logger.Info().Msg("OnStart #1")
+						return nil
+					},
+					// when OnStart #2 fails, the app will rollback, i.e., invoke order app shutdown by stopping all prior
+					// services that were started
+					OnStop: func(i context.Context) error {
+						logger.Info().Msg("OnStop #1")
+						return errors.New("OnStop #1: BOOM!!!")
+					},
+				})
+			},
+			func(lc fx.Lifecycle, logger *zerolog.Logger) {
+				lc.Append(fx.Hook{
+					OnStart: func(context.Context) error {
+						return errors.New("OnStart #2: BOOM!!!")
+					},
+					OnStop: func(i context.Context) error {
+						logger.Info().Msg("OnStop #2")
+						return nil
+					},
+				})
+			},
+		).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app failed to build: %v", err)
+	default:
+		err := app.Run()
+		if err == nil {
+			t.Error("*** app should have failed to run")
+			break
+		}
+		t.Logf("app failed to run: %v", err)
+		// since app failed to run, then it means it is done
+		<-app.Done()
+
+		t.Logf("\n%v", buf)
+
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+		}
+
+		var logEvent LogEvent
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if line == "" {
+				break
+			}
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %v", err, line)
+				continue
+			}
+			if logEvent.Name == fxapp.AppStartFailedEventID.String() {
+				break
+			}
+		}
+		switch {
+		case logEvent.Name == fxapp.AppStartFailedEventID.String():
+			if logEvent.Message != "app start failed" {
+				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			}
+
+			if logEvent.Level != zerolog.ErrorLevel.String() {
+				t.Errorf("*** log level should be error: %v", logEvent.Level)
+			}
+		default:
+			t.Error("*** app event was not logged")
+		}
+
+		// And the AppStopFailedEvent is not logged
+		{
+			var logEvent LogEvent
+			for _, line := range strings.Split(buf.String(), "\n") {
+				if line == "" {
+					break
+				}
+				err := json.Unmarshal([]byte(line), &logEvent)
+				if err != nil {
+					t.Errorf("*** failed to parse log event: %v : %v", err, line)
+					continue
+				}
+				if logEvent.Name == fxapp.AppStopFailedEventID.String() {
+					break
+				}
+			}
+			if logEvent.Name == fxapp.AppStopFailedEventID.String() {
+				t.Error("*** the app failed to start - thus the AppStopFailedEvent should not have been logged")
+			}
 		}
 
 	}

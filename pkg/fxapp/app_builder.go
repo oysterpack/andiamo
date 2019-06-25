@@ -155,12 +155,20 @@ func (b *appBuilder) Build() (App, error) {
 
 		Shutdowner: shutdowner,
 	}
+	app.startErrorHandlers = append(app.startErrorHandlers, func(e error) {
+		logEvent := NewLogEventFunc(logger, zerolog.ErrorLevel, AppStartFailedEventID)
+		logEvent(AppFailed{e}, "app start failed")
+	})
+	app.stopErrorHandlers = append(app.stopErrorHandlers, func(e error) {
+		logEvent := NewLogEventFunc(logger, zerolog.ErrorLevel, AppStopFailedEventID)
+		logEvent(AppFailed{e}, "app stop failed")
+	})
 
 	if err := app.Err(); err != nil {
 		return nil, err
 	}
 	app.logger = logger
-	logAppInitialized(logger, app)
+	app.logAppInitialized()
 	return app, nil
 }
 
@@ -197,6 +205,10 @@ func (b *appBuilder) buildOptions() []fx.Option {
 	for _, f := range b.invokeErrorHandlers {
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 	}
+	compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
+		logEvent := NewLogEventFunc(logger, zerolog.ErrorLevel, AppInitFailedEventID)
+		logEvent(AppFailed{err}, "app init failed")
+	})))
 
 	return compOptions
 }

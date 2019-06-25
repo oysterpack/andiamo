@@ -22,12 +22,14 @@ import (
 	"runtime/debug"
 )
 
+// BuildInfo  represents the build information read from the running binary.
 type BuildInfo struct {
 	Path string    // The main package Path
 	Main Module    // The main module information
 	Deps []*Module // Module dependencies
 }
 
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
 func (b *BuildInfo) MarshalZerologObject(e *zerolog.Event) {
 	e.Dict("build", zerolog.Dict().
 		Str("path", b.Path).
@@ -65,12 +67,14 @@ func ReadBuildInfo() (*BuildInfo, error) {
 	}, nil
 }
 
+// Module represents an app module dependency
 type Module struct {
 	Path     string
 	Version  string
 	Checksum string
 }
 
+// NewModule constructs a new Module
 func NewModule(m *debug.Module) *Module {
 	d := m
 	if m.Replace != nil {
@@ -79,6 +83,7 @@ func NewModule(m *debug.Module) *Module {
 	return &Module{d.Path, d.Version, d.Sum}
 }
 
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
 func (m *Module) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("path", m.Path)
 	e.Str("version", m.Version)
