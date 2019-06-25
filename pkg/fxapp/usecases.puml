@@ -1,0 +1,93 @@
+@startuml
+:App Builder: as Builder
+actor App
+
+(Build App) as (Build)
+(Provide Constructors) as (Provide)
+(Register Invoke Functions) as (Invoke)
+
+(Register Error Handlers) as (ErrorHandlers)
+(Invoke Error Handlers) as (InvokeErrorHandlers)
+(Startup Error Handlers) as (StartupErrorHandlers)
+(Shutdown Error Handlers) as (ShutdownErrorHandlers)
+
+(Populate Targets) as (Populate)
+
+(Configure Logging) as (Logging)
+(Set Log Writer) as (LogWriter)
+(Set Log Level) as (LogLevel)
+
+(Configure Start/Stop Timeouts) as (Timeouts)
+
+Builder -> Build
+Build ..> Provide
+Build ..> Invoke
+Build ..> ErrorHandlers
+ErrorHandlers ..> InvokeErrorHandlers
+ErrorHandlers ..> StartupErrorHandlers
+ErrorHandlers ..> ShutdownErrorHandlers
+Build .up.> Populate
+
+Build .up.> Logging
+Logging .up.> LogWriter
+Logging .up.> LogLevel
+
+Build .up.> Timeouts
+
+Build .> App
+
+(Provide Desc) as (Desc)
+(Provide Instance ID) as (InstanceID)
+(Provide App Logger) as (AppLogger)
+
+note bottom
+app logger context fields:
+- app ID
+- app release ID
+- app instance ID
+- event ID
+end note
+
+(Run)
+(Shutdown)
+usecase Lifecycle as "
+Lifecycle Events
+---
+Initialized
+Starting
+Started
+Stopping
+Stopped
+---
+<<errors>>
+Init Failed
+Start Failed
+Stop Failed
+"
+
+note top
+- events are logged
+- event channels are provided for:
+  Starting, Started, Stopping, Stopped
+end note
+
+(Get Options) as (Options)
+
+note bottom
+Desc
+InstanceID
+Start Timeout
+Stop Timeout
+Constructor Types
+Invoke Function Types
+end note
+
+App --> Desc
+App --> InstanceID
+App --> AppLogger
+App -> Options
+App -up-> Run
+App -up-> Shutdown
+App -up-> Lifecycle
+
+@enduml

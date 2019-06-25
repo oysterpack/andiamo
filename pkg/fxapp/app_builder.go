@@ -30,43 +30,43 @@ import (
 	"time"
 )
 
-// AppBuilder is used to construct a new App instance.
-type AppBuilder interface {
+// Builder is used to construct a new App instance.
+type Builder interface {
 	// Provide is used to provide dependency injection
-	Provide(constructors ...interface{}) AppBuilder
+	Provide(constructors ...interface{}) Builder
 	// Invoke is used to register application functions, which will be invoked to to initialize the app.
 	// The functions are invoked in the order that they are registered.
-	Invoke(funcs ...interface{}) AppBuilder
+	Invoke(funcs ...interface{}) Builder
 
-	SetStartTimeout(timeout time.Duration) AppBuilder
-	SetStopTimeout(timeout time.Duration) AppBuilder
+	SetStartTimeout(timeout time.Duration) Builder
+	SetStopTimeout(timeout time.Duration) Builder
 
 	// LogWriter is used as the zerolog writer.
 	//
 	// By default, stderr is used.
-	LogWriter(w io.Writer) AppBuilder
-	LogLevel(level LogLevel) AppBuilder
+	LogWriter(w io.Writer) Builder
+	LogLevel(level LogLevel) Builder
 
 	// Error handlers
-	HandleInvokeError(errorHandlers ...func(error)) AppBuilder
-	HandleStartupError(errorHandlers ...func(error)) AppBuilder
-	HandleShutdownError(errorHandlers ...func(error)) AppBuilder
+	HandleInvokeError(errorHandlers ...func(error)) Builder
+	HandleStartupError(errorHandlers ...func(error)) Builder
+	HandleShutdownError(errorHandlers ...func(error)) Builder
 	// HandleError will handle any app error, i.e., app function invoke errors, app startup errors, and app shutdown errors.
-	HandleError(errorHandlers ...func(error)) AppBuilder
+	HandleError(errorHandlers ...func(error)) Builder
 
 	// Populate sets targets with values from the dependency injection container during application initialization.
 	// All targets must be pointers to the values that must be populated.
 	// Pointers to structs that embed fx.In are supported, which can be used to populate multiple values in a struct.
 	//
 	// NOTE: this is useful for unit testing
-	Populate(targets ...interface{}) AppBuilder
+	Populate(targets ...interface{}) Builder
 
 	Build() (App, error)
 }
 
-// NewAppBuilder constructs a new AppBuilder
-func NewAppBuilder(desc Desc) AppBuilder {
-	return &appBuilder{
+// NewBuilder constructs a new Builder
+func NewBuilder(desc Desc) Builder {
+	return &builder{
 		instanceID:   NewInstanceID(),
 		desc:         desc,
 		startTimeout: fx.DefaultTimeout,
@@ -77,7 +77,7 @@ func NewAppBuilder(desc Desc) AppBuilder {
 	}
 }
 
-type appBuilder struct {
+type builder struct {
 	instanceID InstanceID
 	desc       Desc
 
@@ -94,7 +94,7 @@ type appBuilder struct {
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 }
 
-func (b *appBuilder) String() string {
+func (b *builder) String() string {
 	types := func(objs []interface{}) string {
 		if len(objs) == 0 {
 			return "[]"
@@ -111,7 +111,7 @@ func (b *appBuilder) String() string {
 		return s.String()
 	}
 
-	return fmt.Sprintf("AppBuilder{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Populate: %s, InvokeErrHandlerCount: %d, StartErrHandlerCount: %d}",
+	return fmt.Sprintf("Builder{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Populate: %s, InvokeErrHandlerCount: %d, StartErrHandlerCount: %d}",
 		b.desc,
 		b.startTimeout,
 		b.startTimeout,
@@ -125,7 +125,7 @@ func (b *appBuilder) String() string {
 
 // Build tries to construct and initialize a new App instance.
 // All of the app's functions are run as part of the app initialization phase.
-func (b *appBuilder) Build() (App, error) {
+func (b *builder) Build() (App, error) {
 	if err := b.validate(); err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (b *appBuilder) Build() (App, error) {
 	return app, nil
 }
 
-func (b *appBuilder) validate() error {
+func (b *builder) validate() error {
 	var err error
 	if b.desc == nil {
 		err = multierr.Append(err, errors.New("app descriptor is required"))
@@ -185,7 +185,7 @@ func (b *appBuilder) validate() error {
 	return err
 }
 
-func (b *appBuilder) buildOptions() []fx.Option {
+func (b *builder) buildOptions() []fx.Option {
 	compOptions := make([]fx.Option, 0, 5+len(b.invokeErrorHandlers))
 
 	instanceID := b.instanceID
@@ -225,7 +225,7 @@ func (l fxlogger) Printf(msg string, params ...interface{}) {
 	l.Log().Msgf(msg, params...)
 }
 
-func (b *appBuilder) initZerolog() *zerolog.Logger {
+func (b *builder) initZerolog() *zerolog.Logger {
 	zerolog.SetGlobalLevel(b.globalLogLevel)
 	logger := zerolog.New(b.logWriter).
 		Hook(zerolog.HookFunc(SetEventID)).
@@ -243,59 +243,59 @@ func (b *appBuilder) initZerolog() *zerolog.Logger {
 	return &logger
 }
 
-func (b *appBuilder) SetStartTimeout(timeout time.Duration) AppBuilder {
+func (b *builder) SetStartTimeout(timeout time.Duration) Builder {
 	b.startTimeout = timeout
 	return b
 }
 
-func (b *appBuilder) SetStopTimeout(timeout time.Duration) AppBuilder {
+func (b *builder) SetStopTimeout(timeout time.Duration) Builder {
 	b.stopTimeout = timeout
 	return b
 }
 
-func (b *appBuilder) Provide(constructors ...interface{}) AppBuilder {
+func (b *builder) Provide(constructors ...interface{}) Builder {
 	b.constructors = append(b.constructors, constructors...)
 	return b
 }
 
-func (b *appBuilder) Invoke(funcs ...interface{}) AppBuilder {
+func (b *builder) Invoke(funcs ...interface{}) Builder {
 	b.funcs = append(b.funcs, funcs...)
 	return b
 }
 
-func (b *appBuilder) Populate(targets ...interface{}) AppBuilder {
+func (b *builder) Populate(targets ...interface{}) Builder {
 	b.populateTargets = append(b.populateTargets, targets...)
 	return b
 }
 
-func (b *appBuilder) HandleInvokeError(errorHandlers ...func(error)) AppBuilder {
+func (b *builder) HandleInvokeError(errorHandlers ...func(error)) Builder {
 	b.invokeErrorHandlers = append(b.invokeErrorHandlers, errorHandlers...)
 	return b
 }
 
-func (b *appBuilder) HandleStartupError(errorHandlers ...func(error)) AppBuilder {
+func (b *builder) HandleStartupError(errorHandlers ...func(error)) Builder {
 	b.startErrorHandlers = append(b.startErrorHandlers, errorHandlers...)
 	return b
 }
 
-func (b *appBuilder) HandleShutdownError(errorHandlers ...func(error)) AppBuilder {
+func (b *builder) HandleShutdownError(errorHandlers ...func(error)) Builder {
 	b.stopErrorHandlers = append(b.stopErrorHandlers, errorHandlers...)
 	return b
 }
 
-func (b *appBuilder) HandleError(errorHandlers ...func(error)) AppBuilder {
+func (b *builder) HandleError(errorHandlers ...func(error)) Builder {
 	b.HandleInvokeError(errorHandlers...)
 	b.HandleStartupError(errorHandlers...)
 	b.HandleShutdownError(errorHandlers...)
 	return b
 }
 
-func (b *appBuilder) LogWriter(w io.Writer) AppBuilder {
+func (b *builder) LogWriter(w io.Writer) Builder {
 	b.logWriter = w
 	return b
 }
 
-func (b *appBuilder) LogLevel(level LogLevel) AppBuilder {
+func (b *builder) LogLevel(level LogLevel) Builder {
 	b.globalLogLevel = level.ZerologLevel()
 	return b
 }

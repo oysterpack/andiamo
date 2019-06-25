@@ -184,7 +184,7 @@ func TestAppBuilder(t *testing.T) {
 
 	timeBeforeBuildingApp := time.Now()
 	fooID := NewFooID()
-	builder := fxapp.NewAppBuilder(desc).
+	builder := fxapp.NewBuilder(desc).
 		SetStartTimeout(30*time.Second).
 		SetStopTimeout(60*time.Second).
 		Provide(
@@ -258,7 +258,7 @@ func TestAppBuilder(t *testing.T) {
 }
 
 func TestBuildingAppWithNoFunctions(t *testing.T) {
-	_, e := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).Build()
+	_, e := fxapp.NewBuilder(newDesc("foo", "0.1.0")).Build()
 
 	switch {
 	case e == nil:
@@ -269,7 +269,7 @@ func TestBuildingAppWithNoFunctions(t *testing.T) {
 }
 
 func TestBuildingAppWithNoDesc(t *testing.T) {
-	_, e := fxapp.NewAppBuilder(nil).Build()
+	_, e := fxapp.NewBuilder(nil).Build()
 
 	switch {
 	case e == nil:
@@ -304,7 +304,7 @@ Loop:
 }
 
 func TestRunningApp(t *testing.T) {
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(
 			// app InstanceID is automatically provided
 			func(instanceID fxapp.InstanceID) {
@@ -347,7 +347,7 @@ func TestRunningApp(t *testing.T) {
 }
 
 func TestAppLifeCycleSignals(t *testing.T) {
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(
 			// trigger shutdown
 			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
@@ -409,7 +409,7 @@ func TestFuncInvokeOrder(t *testing.T) {
 		})
 	}
 
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(funcs...).
 		Invoke(
 			func(lc fx.Lifecycle, shutdowner fx.Shutdowner) {
@@ -453,7 +453,7 @@ func TestFuncInvokeOrder(t *testing.T) {
 func TestFuncErrorHandling(t *testing.T) {
 	funcInvocations := make(map[int]time.Time)
 	var errHandlerInvocations []int
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(
 			func() error {
 				funcInvocations[1] = time.Now()
@@ -519,7 +519,7 @@ func TestFuncErrorHandling(t *testing.T) {
 // error handlers can be registered to handle application startup errors
 func TestAppStartErrorHandler(t *testing.T) {
 	var errHandlerInvocations []int
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(lc fx.Lifecycle) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
@@ -568,7 +568,7 @@ func TestAppStartErrorHandler(t *testing.T) {
 // error handlers can be registered to handle application shutdown errors
 func TestAppStopErrorHandler(t *testing.T) {
 	var errHandlerInvocations []int
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(lc fx.Lifecycle, s fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
@@ -620,7 +620,7 @@ func TestAppStopErrorHandler(t *testing.T) {
 // error handlers can be registered to handle any application errors
 func TestAppErrorHandler(t *testing.T) {
 	var errHandled bool
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() error { return errors.New("invoke error") }).
 		HandleError(func(err error) { errHandled = true }).
 		Build()
@@ -635,7 +635,7 @@ func TestAppErrorHandler(t *testing.T) {
 	}
 
 	errHandled = false
-	app, err = fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err = fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(lc fx.Lifecycle) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
@@ -662,7 +662,7 @@ func TestAppErrorHandler(t *testing.T) {
 	}
 
 	errHandled = false
-	app, err = fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err = fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(lc fx.Lifecycle, s fx.Shutdowner) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
@@ -694,7 +694,7 @@ func TestAppErrorHandler(t *testing.T) {
 
 // app default start and stop timeout is 15 sec
 func TestAppDefaultTimeouts(t *testing.T) {
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(s fx.Shutdowner) error { return s.Shutdown() }).
 		Build()
 
@@ -715,7 +715,7 @@ func TestAppDefaultTimeouts(t *testing.T) {
 // app can populate targets with values from the dependency injection container
 func TestPopulate(t *testing.T) {
 	var shutdowner fx.Shutdowner
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
 		Populate(&shutdowner).
 		Build()
@@ -749,7 +749,7 @@ func TestPopulate(t *testing.T) {
 }
 
 func TestShutdownApp(t *testing.T) {
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
 		Build()
 
@@ -788,7 +788,7 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 	logStream := new(bytes.Buffer)
 
 	var logger *zerolog.Logger
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
 		Populate(&logger).
 		LogWriter(logStream).
@@ -872,7 +872,7 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 func TestAppBuilder_LogLevel(t *testing.T) {
 	for _, level := range []fxapp.LogLevel{fxapp.DebugLogLevel, fxapp.InfoLogLevel, fxapp.WarnLogLevel, fxapp.ErrorLogLevel} {
 		var logger *zerolog.Logger
-		_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+		_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 			Invoke(func() {}).
 			Populate(&logger).
 			LogLevel(level).

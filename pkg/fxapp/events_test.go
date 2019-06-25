@@ -52,7 +52,7 @@ func NewHealthCheckFailure(logger *zerolog.Logger) LogHealthCheckFailure {
 
 func TestDomainEvent(t *testing.T) {
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		Provide(NewHealthCheckFailure).
 		Invoke(func(lc fx.Lifecycle, logHealthCheckFailure LogHealthCheckFailure) {
@@ -86,7 +86,7 @@ func TestAppInitializedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -153,7 +153,7 @@ func TestAppStartingEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -206,7 +206,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -276,7 +276,7 @@ func TestAppStoppingEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -329,7 +329,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -402,7 +402,7 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	_, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -466,7 +466,7 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -567,7 +567,7 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
-	app, err := fxapp.NewAppBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
