@@ -307,26 +307,26 @@ func (a *app) Shutdown() error {
 }
 
 func (a *app) logAppInitialized() {
-	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppInitializedEventID)
+	logEvent := InitializedEventID.NewLogEventFunc(a.logger, zerolog.NoLevel)
 	logEvent(AppInitialized{App: a}, "app initialized")
 }
 
 func (a *app) logAppStarting() {
-	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStartingEventID)
+	logEvent := StartingEventID.NewLogEventFunc(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app starting")
 }
 
 func (a *app) logAppStarted(startupTime time.Duration) {
-	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStartedEventID)
+	logEvent := StartedEventID.NewLogEventFunc(a.logger, zerolog.NoLevel)
 	logEvent(AppStarted{startupTime}, "app started")
 }
 
 func (a *app) logAppStopping() {
-	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStoppingEventID)
+	logEvent := StoppingEventID.NewLogEventFunc(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app stopping")
 }
 
 func (a *app) logAppStopped(shutdownDuration time.Duration) {
-	logEvent := NewLogEventFunc(a.logger, zerolog.NoLevel, AppStoppedEventID)
+	logEvent := StoppedEventID.NewLogEventFunc(a.logger, zerolog.NoLevel)
 	logEvent(AppStopped{shutdownDuration}, "app stopped")
 }

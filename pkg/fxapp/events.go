@@ -31,20 +31,63 @@ func (e EventTypeID) String() string {
 	return string(e)
 }
 
+// LogEvent logs events using a standardized structure, e.g.,
+func (e EventTypeID) LogEvent(logger *zerolog.Logger, level zerolog.Level, eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
+	event := logger.WithLevel(level)
+
+	if eventObject != nil {
+		data := zerolog.Dict()
+		eventObject.MarshalZerologObject(data)
+		event.Dict(string(e), data)
+	}
+
+	if len(tags) > 0 {
+		event.Strs("g", tags)
+	}
+
+	event.Msg(msg)
+}
+
+// NewLogEventFunc creates a new function used to log events using a standardized structure, e.g., app event
+//
+//	{
+//	  "l": "error", -------------------------------------- event level
+//	  "a": "01DE379HHM9Y3QYBDB4MSY7YYQ",
+//	  "r": "01DE379HHNRJ4YS4NY4CMJX5YE",
+//	  "x": "01DE379HHN2RRX9YQCG2DN9CHG",
+//	  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0", ----------------- event type ID
+//	  "01DE2Z4E07E4T0GJJXCG8NN6A0": { -------------------- event type ID is used as event object dictionary key (optional)
+//		"id": "01DE379HHNVHQE5G6NHN2BBKAT", -------------- event object data (optional)
+//		"e": "failure to connect" ------------------------ event object data (optional)
+//	  }, ------------------------------------------------- event object data (optional)
+//	  "g": ["tag-a","tag-b"], ---------------------------- event tags (optional)
+//	  "z": "01DE379HHNM87XT4PBHXYYBTYS",
+//	  "t": 1561328928,
+//	  "m": "healthcheck failed" -------------------------- event short description
+//	}
+//
+// the event object data is logged as an event dictionary, using the event type ID as the key
+func (e EventTypeID) NewLogEventFunc(logger *zerolog.Logger, level zerolog.Level) func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
+	eventLogger := EventLogger(logger, string(e))
+	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
+		e.LogEvent(eventLogger, level, eventObject, msg, tags...)
+	}
+}
+
 // app lifecycle event IDs
 const (
-	AppInitializedEventID EventTypeID = "01DE4STZ0S24RG7R08PAY1RQX3"
-	AppInitFailedEventID  EventTypeID = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	InitializedEventID EventTypeID = "01DE4STZ0S24RG7R08PAY1RQX3"
+	InitFailedEventID  EventTypeID = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	AppStartingEventID    EventTypeID = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
-	AppStartFailedEventID EventTypeID = "01DE4SY6RYCD0356KYJV7G7THW"
+	StartingEventID    EventTypeID = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartFailedEventID EventTypeID = "01DE4SY6RYCD0356KYJV7G7THW"
 
-	AppStartedEventID EventTypeID = "01DE4X10QCV1M8TKRNXDK6AK7C"
+	StartedEventID EventTypeID = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	AppStoppingEventID   EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
-	AppStopFailedEventID EventTypeID = "01DE4T0W35RPD6QMDS42WQXR48"
+	StoppingEventID   EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StopFailedEventID EventTypeID = "01DE4T0W35RPD6QMDS42WQXR48"
 
-	AppStoppedEventID EventTypeID = "01DE4T1V9N50BB67V424S6MG5C"
+	StoppedEventID EventTypeID = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
 // AppInitialized indicates the application has successfully initialized

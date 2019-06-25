@@ -43,7 +43,8 @@ func (event *HealthCheckFailure) MarshalZerologObject(e *zerolog.Event) {
 type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
 
 func NewHealthCheckFailure(logger *zerolog.Logger) LogHealthCheckFailure {
-	logEvent := fxapp.NewLogEventFunc(logger, zerolog.ErrorLevel, "01DE2Z4E07E4T0GJJXCG8NN6A0")
+	const HealthCheckEventID fxapp.EventTypeID = "01DE2Z4E07E4T0GJJXCG8NN6A0"
+	logEvent := HealthCheckEventID.NewLogEventFunc(logger, zerolog.ErrorLevel)
 	return func(event HealthCheckFailure, tags ...string) {
 		logEvent(&event, "healthcheck failed", tags...)
 	}
@@ -118,12 +119,12 @@ func TestAppInitializedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppInitializedEventID.String() {
+			if logEvent.Name == fxapp.InitializedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppInitializedEventID.String():
+		case logEvent.Name == fxapp.InitializedEventID.String():
 			if logEvent.Message != "app initialized" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -185,12 +186,12 @@ func TestAppStartingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartingEventID.String() {
+			if logEvent.Name == fxapp.StartingEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartingEventID.String():
+		case logEvent.Name == fxapp.StartingEventID.String():
 			if logEvent.Message != "app starting" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -251,12 +252,12 @@ func TestAppStartedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartedEventID.String() {
+			if logEvent.Name == fxapp.StartedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartedEventID.String():
+		case logEvent.Name == fxapp.StartedEventID.String():
 			if logEvent.Message != "app started" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -308,12 +309,12 @@ func TestAppStoppingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStoppingEventID.String() {
+			if logEvent.Name == fxapp.StoppingEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStoppingEventID.String():
+		case logEvent.Name == fxapp.StoppingEventID.String():
 			if logEvent.Message != "app stopping" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -377,12 +378,12 @@ func TestAppStoppedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStoppedEventID.String() {
+			if logEvent.Name == fxapp.StoppedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStoppedEventID.String():
+		case logEvent.Name == fxapp.StoppedEventID.String():
 			if logEvent.Message != "app stopped" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -437,12 +438,12 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppInitFailedEventID.String() {
+			if logEvent.Name == fxapp.InitFailedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppInitFailedEventID.String():
+		case logEvent.Name == fxapp.InitFailedEventID.String():
 			if logEvent.Message != "app init failed" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -534,12 +535,12 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartFailedEventID.String() {
+			if logEvent.Name == fxapp.StartFailedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartFailedEventID.String():
+		case logEvent.Name == fxapp.StartFailedEventID.String():
 			if logEvent.Message != "app start failed" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -630,12 +631,12 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.AppStartFailedEventID.String() {
+			if logEvent.Name == fxapp.StartFailedEventID.String() {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.AppStartFailedEventID.String():
+		case logEvent.Name == fxapp.StartFailedEventID.String():
 			if logEvent.Message != "app start failed" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -659,11 +660,11 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 					t.Errorf("*** failed to parse log event: %v : %v", err, line)
 					continue
 				}
-				if logEvent.Name == fxapp.AppStopFailedEventID.String() {
+				if logEvent.Name == fxapp.StopFailedEventID.String() {
 					break
 				}
 			}
-			if logEvent.Name == fxapp.AppStopFailedEventID.String() {
+			if logEvent.Name == fxapp.StopFailedEventID.String() {
 				t.Error("*** the app failed to start - thus the AppStopFailedEvent should not have been logged")
 			}
 		}
