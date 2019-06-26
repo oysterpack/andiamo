@@ -17,7 +17,18 @@
 package fxapp
 
 import (
+	"context"
+	"fmt"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/rs/zerolog"
+	"go.uber.org/fx"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
 )
 
 // FindMetricFamily returns the first metric family that matches the filter
@@ -113,4 +124,113 @@ func getLabels(m *dto.Metric) []string {
 		names[i] = *labelPair.Name
 	}
 	return names
+}
+
+// PrometheusHTTPServerOpts PrometheusHTTPServer options
+type PrometheusHTTPServerOpts struct {
+	// Port to run the http server on - if zero, then it defaults to 5050
+	Port uint
+	// ReadTimeout corresponds to http.ReadTimeout and defaults to 1 sec
+	ReadTimeout time.Duration
+	// WriteTimeout corresponds to http.WriteTimeout and defaults to 5 secs
+	WriteTimeout time.Duration
+	// MetricsEndpoint defaults to /metrics
+	MetricsEndpoint string
+}
+
+func (opts PrometheusHTTPServerOpts) port() uint {
+	if opts.Port == 0 {
+		return 5050
+	}
+	return opts.Port
+}
+
+func (opts PrometheusHTTPServerOpts) readTimeout() time.Duration {
+	if opts.ReadTimeout == time.Duration(0) {
+		return 1 * time.Second
+	}
+	return opts.ReadTimeout
+}
+
+func (opts PrometheusHTTPServerOpts) writeTimeout() time.Duration {
+	if opts.WriteTimeout == time.Duration(0) {
+		return 5 * time.Second
+	}
+	return opts.WriteTimeout
+}
+
+func (opts PrometheusHTTPServerOpts) metricsEndpoint() string {
+	endpoint := strings.TrimSpace(opts.MetricsEndpoint)
+	if endpoint == "" {
+		return "/metrics"
+	}
+	return endpoint
+}
+
+// RunPrometheuseHTTPServer runs an HTTP server exposes metrics on the /metrics endpoint
+type RunPrometheuseHTTPServer func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle)
+
+// PrometheusHTTPServerRunner returns a function that will run an HTTP server to expose Prometheus metrics
+func PrometheusHTTPServerRunner(httpServerOpts PrometheusHTTPServerOpts) RunPrometheuseHTTPServer {
+	return func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle) {
+		errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(logger, zerolog.ErrorLevel))
+		opts := promhttp.HandlerOpts{
+			ErrorLog:            errorLog,
+			ErrorHandling:       promhttp.ContinueOnError,
+			Registry:            registerer,
+			MaxRequestsInFlight: 5,
+		}
+		handler := http.NewServeMux()
+		handler.Handle(httpServerOpts.metricsEndpoint(), promhttp.HandlerFor(gatherer, opts))
+		server := &http.Server{
+			Addr:           fmt.Sprintf(":%d", httpServerOpts.port()),
+			Handler:        handler,
+			ReadTimeout:    httpServerOpts.readTimeout(),
+			WriteTimeout:   httpServerOpts.writeTimeout(),
+			MaxHeaderBytes: 1024,
+		}
+
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					wg.Done()
+					err := server.ListenAndServe()
+					if err != http.ErrServerClosed {
+						errorLog(prometheusHTTPListenAndServerError{err}, "prometheus HTTP server has exited with an error")
+					}
+				}()
+				wg.Wait()
+				return nil
+			},
+			OnStop: func(ctx context.Context) error {
+				return server.Shutdown(ctx)
+			},
+		})
+
+	}
+}
+
+// PrometheusHTTPError indicates an error occurred while handling a metrics scrape HTTP request.
+const PrometheusHTTPError EventTypeID = "01DEARG17HNQ606ARQNYFY7PG5"
+
+type prometheusHTTPErrorLog LogEventer
+
+func (errLog prometheusHTTPErrorLog) Println(v ...interface{}) {
+	errLog(prometheusHTTPError(fmt.Sprint(v...)), "prometheus HTTP handler error")
+}
+
+type prometheusHTTPError string
+
+func (err prometheusHTTPError) MarshalZerologObject(e *zerolog.Event) {
+	e.Err(errors.New(string(err)))
+}
+
+type prometheusHTTPListenAndServerError struct {
+	error
+}
+
+func (err prometheusHTTPListenAndServerError) MarshalZerologObject(e *zerolog.Event) {
+	e.Err(err)
 }

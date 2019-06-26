@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/Masterminds/semver v1.4.2
+	github.com/hashicorp/go-retryablehttp v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oklog/ulid v1.3.1
 	github.com/pkg/errors v0.8.1

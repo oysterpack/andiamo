@@ -17,10 +17,13 @@
 package fxapp_test
 
 import (
+	"bufio"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -394,4 +397,41 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 		t.Log(m)
 	}
 
+}
+
+func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(fxapp.PrometheusHTTPServerRunner(
+			fxapp.PrometheusHTTPServerOpts{
+				Port: 5050,
+			},
+		)).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failure: %v", err)
+	default:
+		go app.Run()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+		<-app.Started()
+
+		// Then the prometheus HTTP server should be running
+		resp, err := retryablehttp.Get("http://:5050/metrics")
+		switch {
+		case err != nil:
+			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
+		case resp.StatusCode != http.StatusOK:
+			t.Errorf("*** /metrics http request failed: %v", resp.Status)
+		default:
+			reader := bufio.NewReader(resp.Body)
+			for line, err := reader.ReadString('\n'); err != nil; {
+				t.Log(line)
+			}
+		}
+
+	}
 }
