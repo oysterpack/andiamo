@@ -16,6 +16,26 @@ actor App
 (Configure Logging) as (Logging)
 (Set Log Writer) as (LogWriter)
 (Set Log Level) as (LogLevel)
+(Set App Fields) as (LoggerAppFields)
+
+note top
+app logger context fields:
+- App ID
+- App release ID
+- App instance ID
+- Event ID
+end note
+
+(Configure Metric Registry) as (Metrics)
+(Collect Go Metrics) as (GoCollector)
+(Collect Process Metrics) as (ProcessCollector)
+(Add App Labels) as (MetricAppLabels)
+
+note top
+- App ID
+- App release ID
+- App instance ID
+end note
 
 (Configure Start/Stop Timeouts) as (Timeouts)
 
@@ -31,6 +51,12 @@ Build .up.> Populate
 Build .up.> Logging
 Logging .up.> LogWriter
 Logging .up.> LogLevel
+Logging .up.> LoggerAppFields
+
+Build .up.> Metrics
+Metrics .up.> GoCollector
+Metrics .up.> ProcessCollector
+Metrics .up.> MetricAppLabels
 
 Build .up.> Timeouts
 
@@ -40,13 +66,10 @@ Build .> App
 (Provide Instance ID) as (InstanceID)
 (Provide App Logger) as (AppLogger)
 
-note bottom
-app logger context fields:
-- app ID
-- app release ID
-- app instance ID
-- event ID
-end note
+
+
+(Provide Metric Registerer) as (MetricRegistry)
+(Provide Metric Gatherer) as (MetricGatherer)
 
 (Run)
 (Shutdown)
@@ -73,7 +96,7 @@ end note
 
 (Get Options) as (Options)
 
-note bottom
+note top
 Desc
 InstanceID
 Start Timeout
@@ -85,7 +108,9 @@ end note
 App --> Desc
 App --> InstanceID
 App --> AppLogger
-App -> Options
+App --> MetricRegistry
+App --> MetricGatherer
+App -up-> Options
 App -up-> Run
 App -up-> Shutdown
 App -up-> Lifecycle
