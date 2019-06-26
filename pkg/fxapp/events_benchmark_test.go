@@ -31,7 +31,7 @@ func BenchmarkEventTypeID_LogEventFunc(b *testing.B) {
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func(logger *zerolog.Logger) LogFooEvent {
-				logEvent := FooEvent.NewLogEvent(logger, zerolog.InfoLevel)
+				logEvent := FooEvent.NewLogEventer(logger, zerolog.InfoLevel)
 				return func() {
 					logEvent(nil, "foo")
 				}

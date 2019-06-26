@@ -31,10 +31,10 @@ func (e EventTypeID) String() string {
 	return string(e)
 }
 
-// LogEvent is a function used to log events.
-type LogEvent func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string)
+// LogEventer is a function used to log events.
+type LogEventer func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string)
 
-// NewLogEvent creates a new function used to log events using a standardized structure, e.g., app event
+// NewLogEventer creates a new function used to log events using a standardized structure, e.g., app event
 //
 //	{
 //	  "l": "error", -------------------------------------- event level
@@ -53,7 +53,7 @@ type LogEvent func(eventData zerolog.LogObjectMarshaler, msg string, tags ...str
 //	}
 //
 // the event object data is logged as an event dictionary, using the event type ID as the key
-func (e EventTypeID) NewLogEvent(logger *zerolog.Logger, level zerolog.Level) LogEvent {
+func (e EventTypeID) NewLogEventer(logger *zerolog.Logger, level zerolog.Level) LogEventer {
 	eventLogger := EventLogger(logger, e.String())
 	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
 		event := eventLogger.WithLevel(level)
