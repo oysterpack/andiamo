@@ -145,7 +145,7 @@ type PrometheusHTTPServerOpts struct {
 func NewPrometheusHTTPServerOpts() *PrometheusHTTPServerOpts {
 	return &PrometheusHTTPServerOpts{
 		port:          5050,
-		readTimeout:   1 * time.Second,
+		readTimeout:   time.Second,
 		writeTimeout:  5 * time.Second,
 		endpoint:      "/metrics",
 		errorHandling: promhttp.HTTPErrorOnError,
@@ -228,7 +228,7 @@ func PrometheusHTTPServerRunner(httpServerOpts *PrometheusHTTPServerOpts) RunPro
 		errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(logger, zerolog.ErrorLevel))
 		opts := promhttp.HandlerOpts{
 			ErrorLog:            errorLog,
-			ErrorHandling:       promhttp.ContinueOnError,
+			ErrorHandling:       httpServerOpts.errorHandling,
 			Registry:            registerer,
 			MaxRequestsInFlight: 5,
 		}
@@ -244,6 +244,7 @@ func PrometheusHTTPServerRunner(httpServerOpts *PrometheusHTTPServerOpts) RunPro
 
 		lc.Append(fx.Hook{
 			OnStart: func(context.Context) error {
+				// wait for the HTTP server go routine to start running before returning
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go func() {
@@ -260,7 +261,6 @@ func PrometheusHTTPServerRunner(httpServerOpts *PrometheusHTTPServerOpts) RunPro
 				return server.Shutdown(ctx)
 			},
 		})
-
 	}
 }
 

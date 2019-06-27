@@ -17,15 +17,20 @@
 package fxapp_test
 
 import (
+	"errors"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // the app provides support for prometheus metrics automatically
@@ -434,6 +439,133 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 				t.Log(string(metrics))
 			}
 		}
-
 	}
+}
+
+func TestPrometheusHTTPServerOpts_Defaults(t *testing.T) {
+	opts := fxapp.NewPrometheusHTTPServerOpts().
+		SetEndpoint("").
+		SetPort(0).
+		SetReadTimeout(time.Duration(0)).
+		SetWriteTimeout(time.Duration(0)).
+		SetErrorHandling(promhttp.ContinueOnError)
+
+	if opts.Endpoint() != "/metrics" {
+		t.Errorf("*** default endpoint doesn't match: %v", opts.Endpoint())
+	}
+	if opts.Port() != 5050 {
+		t.Errorf("*** default port doesn't match: %v", opts.Port())
+	}
+	if opts.ReadTimeout() != time.Second {
+		t.Errorf("*** default timeout should be returned: %v", opts.ReadTimeout())
+	}
+	if opts.WriteTimeout() != 5*time.Second {
+		t.Errorf("*** default timeout should be returned: %v", opts.WriteTimeout())
+	}
+	if opts.ErrorHandling() != promhttp.ContinueOnError {
+		t.Errorf("*** error handling did not match: %v", opts.ErrorHandling())
+	}
+}
+
+func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(
+			fxapp.PrometheusHTTPServerRunner(fxapp.NewPrometheusHTTPServerOpts()),
+			// register a collector that
+			func(registerer prometheus.Registerer) error {
+				return registerer.Register(FailingMetricCollector{})
+			},
+		).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failure: %v", err)
+	default:
+		go app.Run()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+		<-app.Started()
+
+		// Then the prometheus HTTP server should be running
+		resp, err := http.Get("http://:5050/metrics")
+		switch {
+		case err != nil:
+			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
+		case resp.StatusCode == http.StatusOK:
+			t.Error("request should have failed")
+		default:
+			t.Logf("status code = %d", resp.StatusCode)
+			if resp.StatusCode != http.StatusInternalServerError {
+				t.Errorf("*** expected HTTP status 500: %v", resp.StatusCode)
+			}
+		}
+	}
+}
+
+func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(
+			fxapp.PrometheusHTTPServerRunner(fxapp.NewPrometheusHTTPServerOpts().SetErrorHandling(promhttp.ContinueOnError)),
+			// register a collector that
+			func(registerer prometheus.Registerer) error {
+				return registerer.Register(FailingMetricCollector{})
+			},
+		).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failure: %v", err)
+	default:
+		go app.Run()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+		<-app.Started()
+
+		// Then the prometheus HTTP server should be running
+		resp, err := retryablehttp.Get("http://:5050/metrics")
+		switch {
+		case err != nil:
+			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
+		case resp.StatusCode != http.StatusOK:
+			t.Errorf("*** request failed: %v", resp.StatusCode)
+		default:
+			metrics, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				t.Errorf("*** failed to read response body")
+			} else {
+				t.Log(string(metrics))
+			}
+		}
+	}
+}
+
+type FailingMetricCollector struct {
+}
+
+func (c FailingMetricCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.Desc()
+}
+
+func (c FailingMetricCollector) Collect(ch chan<- prometheus.Metric) {
+	log.Println("FailingMetricCollector.Collect()")
+	ch <- c
+}
+
+func (c FailingMetricCollector) Desc() *prometheus.Desc {
+	return prometheus.NewDesc(
+		"clustermanager_oom_crashes_total",
+		"Number of OOM crashes.",
+		[]string{"host"}, nil,
+	)
+}
+
+func (c FailingMetricCollector) Write(*dto.Metric) error {
+	return errors.New("BOOM!")
 }

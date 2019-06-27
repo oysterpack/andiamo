@@ -43,7 +43,6 @@ func ExamplePrometheusHTTPServerRunner() {
 	}()
 
 	resp, err := retryablehttp.Get(fmt.Sprintf("http://:%d%s", prometheusHTTPServerOpts.Port(), prometheusHTTPServerOpts.Endpoint()))
-	log.Printf("StatusCode: %d", resp.StatusCode)
 	switch {
 	case err != nil:
 		log.Panic(err)
