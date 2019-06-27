@@ -402,9 +402,8 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(fxapp.PrometheusHTTPServerRunner(
-			fxapp.PrometheusHTTPServerOpts{
-				Port: 5050,
-			},
+			fxapp.NewPrometheusHTTPServerOpts().
+				SetPort(5050),
 		)).
 		Build()
 

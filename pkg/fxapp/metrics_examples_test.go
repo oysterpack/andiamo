@@ -18,20 +18,17 @@ package fxapp_test
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/rs/zerolog"
 	"log"
 	"net/http"
 )
 
 func ExamplePrometheusHTTPServerRunner() {
-	var logger *zerolog.Logger
+	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPServerOpts()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Invoke(fxapp.PrometheusHTTPServerRunner(
-			fxapp.PrometheusHTTPServerOpts{},
-		)).
-		Populate(&logger).
+		Invoke(fxapp.PrometheusHTTPServerRunner(prometheusHTTPServerOpts)).
 		Build()
 
 	if err != nil {
@@ -40,11 +37,13 @@ func ExamplePrometheusHTTPServerRunner() {
 
 	go app.Run()
 	<-app.Started()
+	defer func() {
+		app.Shutdown()
+		<-app.Done()
+	}()
 
-	resp, err := retryablehttp.Get("http://:5050/metrics")
-	logger.Info().
-		Int("StatusCode", resp.StatusCode).
-		Msg("")
+	resp, err := retryablehttp.Get(fmt.Sprintf("http://:%d%s", prometheusHTTPServerOpts.Port(), prometheusHTTPServerOpts.Endpoint()))
+	log.Printf("StatusCode: %d", resp.StatusCode)
 	switch {
 	case err != nil:
 		log.Panic(err)
@@ -57,12 +56,9 @@ func ExamplePrometheusHTTPServerRunner() {
 			if err != nil {
 				break
 			}
-			logger.Info().Msg(line)
+			log.Println(line)
 		}
 	}
-
-	app.Shutdown()
-	<-app.Done()
 
 	// Output:
 	//

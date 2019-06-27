@@ -128,52 +128,102 @@ func getLabels(m *dto.Metric) []string {
 
 // PrometheusHTTPServerOpts PrometheusHTTPServer options
 type PrometheusHTTPServerOpts struct {
-	// Port to run the http server on - if zero, then it defaults to 5050
-	Port uint
-	// ReadTimeout corresponds to http.ReadTimeout and defaults to 1 sec
-	ReadTimeout time.Duration
-	// WriteTimeout corresponds to http.WriteTimeout and defaults to 5 secs
-	WriteTimeout time.Duration
-	// MetricsEndpoint defaults to /metrics
-	MetricsEndpoint string
-	// ErrorHandling defines how errors are handled - default is promhttp.HTTPErrorOnError
-	ErrorHandling promhttp.HandlerErrorHandling
+	port          uint
+	readTimeout   time.Duration
+	writeTimeout  time.Duration
+	endpoint      string
+	errorHandling promhttp.HandlerErrorHandling
 }
 
-func (opts PrometheusHTTPServerOpts) port() uint {
-	if opts.Port == 0 {
+// NewPrometheusHTTPServerOpts constructs a new PrometheusHTTPServerOpts with the following settings:
+//
+//  - Port				5050
+//	- ReadTimeout		1 secs
+//	- WriteTimeout 		5 sec
+//	- Endpoint			"/metrics"
+//	- ErrorHandling		promhttp.HTTPErrorOnError
+func NewPrometheusHTTPServerOpts() *PrometheusHTTPServerOpts {
+	return &PrometheusHTTPServerOpts{
+		port:          5050,
+		readTimeout:   1 * time.Second,
+		writeTimeout:  5 * time.Second,
+		endpoint:      "/metrics",
+		errorHandling: promhttp.HTTPErrorOnError,
+	}
+}
+
+// Port to run the http server on - if zero, then it defaults to 5050
+func (opts *PrometheusHTTPServerOpts) Port() uint {
+	if opts.port == 0 {
 		return 5050
 	}
-	return opts.Port
+	return opts.port
 }
 
-func (opts PrometheusHTTPServerOpts) readTimeout() time.Duration {
-	if opts.ReadTimeout == time.Duration(0) {
+// SetPort sets the port
+func (opts *PrometheusHTTPServerOpts) SetPort(port uint) *PrometheusHTTPServerOpts {
+	opts.port = port
+	return opts
+}
+
+// ReadTimeout corresponds to http.readTimeout and defaults to 1 sec
+func (opts *PrometheusHTTPServerOpts) ReadTimeout() time.Duration {
+	if opts.readTimeout == time.Duration(0) {
 		return 1 * time.Second
 	}
-	return opts.ReadTimeout
+	return opts.readTimeout
 }
 
-func (opts PrometheusHTTPServerOpts) writeTimeout() time.Duration {
-	if opts.WriteTimeout == time.Duration(0) {
+// SetReadTimeout sets the HTTP request read timeout
+func (opts *PrometheusHTTPServerOpts) SetReadTimeout(timeout time.Duration) *PrometheusHTTPServerOpts {
+	opts.readTimeout = timeout
+	return opts
+}
+
+// WriteTimeout corresponds to http.WriteTimeout and defaults to 5 secs
+func (opts *PrometheusHTTPServerOpts) WriteTimeout() time.Duration {
+	if opts.writeTimeout == time.Duration(0) {
 		return 5 * time.Second
 	}
-	return opts.WriteTimeout
+	return opts.writeTimeout
 }
 
-func (opts PrometheusHTTPServerOpts) metricsEndpoint() string {
-	endpoint := strings.TrimSpace(opts.MetricsEndpoint)
-	if endpoint == "" {
+// SetWriteTimeout set the HTTP write timeout
+func (opts *PrometheusHTTPServerOpts) SetWriteTimeout(timeout time.Duration) *PrometheusHTTPServerOpts {
+	opts.writeTimeout = timeout
+	return opts
+}
+
+// Endpoint defaults to /metrics
+func (opts *PrometheusHTTPServerOpts) Endpoint() string {
+	if opts.endpoint == "" {
 		return "/metrics"
 	}
-	return endpoint
+	return opts.endpoint
+}
+
+// SetEndpoint set the endpoint
+func (opts *PrometheusHTTPServerOpts) SetEndpoint(endpoint string) *PrometheusHTTPServerOpts {
+	opts.endpoint = strings.TrimSpace(endpoint)
+	return opts
+}
+
+// ErrorHandling defines how errors are handled - default is promhttp.HTTPErrorOnError
+func (opts *PrometheusHTTPServerOpts) ErrorHandling() promhttp.HandlerErrorHandling {
+	return opts.errorHandling
+}
+
+// SetErrorHandling defines how the prometheus Handler serving metrics will handle errors.
+func (opts *PrometheusHTTPServerOpts) SetErrorHandling(errorHandling promhttp.HandlerErrorHandling) *PrometheusHTTPServerOpts {
+	opts.errorHandling = errorHandling
+	return opts
 }
 
 // RunPrometheusHTTPServer runs an HTTP server exposes metrics on the /metrics endpoint
 type RunPrometheusHTTPServer func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle)
 
 // PrometheusHTTPServerRunner returns a function that will run an HTTP server to expose Prometheus metrics
-func PrometheusHTTPServerRunner(httpServerOpts PrometheusHTTPServerOpts) RunPrometheusHTTPServer {
+func PrometheusHTTPServerRunner(httpServerOpts *PrometheusHTTPServerOpts) RunPrometheusHTTPServer {
 	return func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle) {
 		errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(logger, zerolog.ErrorLevel))
 		opts := promhttp.HandlerOpts{
@@ -183,12 +233,12 @@ func PrometheusHTTPServerRunner(httpServerOpts PrometheusHTTPServerOpts) RunProm
 			MaxRequestsInFlight: 5,
 		}
 		handler := http.NewServeMux()
-		handler.Handle(httpServerOpts.metricsEndpoint(), promhttp.HandlerFor(gatherer, opts))
+		handler.Handle(httpServerOpts.Endpoint(), promhttp.HandlerFor(gatherer, opts))
 		server := &http.Server{
-			Addr:           fmt.Sprintf(":%d", httpServerOpts.port()),
+			Addr:           fmt.Sprintf(":%d", httpServerOpts.Port()),
 			Handler:        handler,
-			ReadTimeout:    httpServerOpts.readTimeout(),
-			WriteTimeout:   httpServerOpts.writeTimeout(),
+			ReadTimeout:    httpServerOpts.ReadTimeout(),
+			WriteTimeout:   httpServerOpts.WriteTimeout(),
 			MaxHeaderBytes: 1024,
 		}
 
