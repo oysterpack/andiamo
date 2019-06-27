@@ -18,6 +18,7 @@ package fxapp_test
 
 import (
 	"errors"
+	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
@@ -405,11 +406,10 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
+	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPServerOpts()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Invoke(fxapp.PrometheusHTTPServerRunner(
-			fxapp.NewPrometheusHTTPServerOpts().
-				SetPort(5050),
-		)).
+		Invoke(func() {}).
+		ExposePrometheusMetricsViaHTTP(prometheusHTTPServerOpts).
 		Build()
 
 	switch {
@@ -424,7 +424,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 		<-app.Started()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := retryablehttp.Get("http://:5050/metrics")
+		resp, err := retryablehttp.Get(fmt.Sprintf("http://:%d%s", prometheusHTTPServerOpts.Port(), prometheusHTTPServerOpts.Endpoint()))
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
