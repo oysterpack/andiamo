@@ -136,6 +136,8 @@ type PrometheusHTTPServerOpts struct {
 	WriteTimeout time.Duration
 	// MetricsEndpoint defaults to /metrics
 	MetricsEndpoint string
+	// ErrorHandling defines how errors are handled - default is promhttp.HTTPErrorOnError
+	ErrorHandling promhttp.HandlerErrorHandling
 }
 
 func (opts PrometheusHTTPServerOpts) port() uint {
@@ -167,11 +169,11 @@ func (opts PrometheusHTTPServerOpts) metricsEndpoint() string {
 	return endpoint
 }
 
-// RunPrometheuseHTTPServer runs an HTTP server exposes metrics on the /metrics endpoint
-type RunPrometheuseHTTPServer func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle)
+// RunPrometheusHTTPServer runs an HTTP server exposes metrics on the /metrics endpoint
+type RunPrometheusHTTPServer func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle)
 
 // PrometheusHTTPServerRunner returns a function that will run an HTTP server to expose Prometheus metrics
-func PrometheusHTTPServerRunner(httpServerOpts PrometheusHTTPServerOpts) RunPrometheuseHTTPServer {
+func PrometheusHTTPServerRunner(httpServerOpts PrometheusHTTPServerOpts) RunPrometheusHTTPServer {
 	return func(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger, lc fx.Lifecycle) {
 		errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(logger, zerolog.ErrorLevel))
 		opts := promhttp.HandlerOpts{

@@ -16,9 +16,54 @@
 
 package fxapp_test
 
-func ExamplePrometheusHTTPServerRunner() {
-	//TODO
+import (
+	"bufio"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/rs/zerolog"
+	"log"
+	"net/http"
+)
 
-	// Ouput:
+func ExamplePrometheusHTTPServerRunner() {
+	var logger *zerolog.Logger
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(fxapp.PrometheusHTTPServerRunner(
+			fxapp.PrometheusHTTPServerOpts{},
+		)).
+		Populate(&logger).
+		Build()
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	go app.Run()
+	<-app.Started()
+
+	resp, err := retryablehttp.Get("http://:5050/metrics")
+	logger.Info().
+		Int("StatusCode", resp.StatusCode).
+		Msg("")
+	switch {
+	case err != nil:
+		log.Panic(err)
+	case resp.StatusCode != http.StatusOK:
+		log.Panicf("HTTP request failed: %v : %v", resp.StatusCode, resp.Status)
+	default:
+		reader := bufio.NewReader(resp.Body)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			logger.Info().Msg(line)
+		}
+	}
+
+	app.Shutdown()
+	<-app.Done()
+
+	// Output:
 	//
 }

@@ -17,12 +17,12 @@
 package fxapp_test
 
 import (
-	"bufio"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -427,9 +427,12 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 		case resp.StatusCode != http.StatusOK:
 			t.Errorf("*** /metrics http request failed: %v", resp.Status)
 		default:
-			reader := bufio.NewReader(resp.Body)
-			for line, err := reader.ReadString('\n'); err != nil; {
-				t.Log(line)
+			metrics, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				t.Errorf("*** failed to read response body")
+			} else {
+				t.Log(string(metrics))
 			}
 		}
 

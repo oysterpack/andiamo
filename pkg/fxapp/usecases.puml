@@ -62,14 +62,15 @@ Build .up.> Timeouts
 
 Build .> App
 
-(Provide Desc) as (Desc)
-(Provide Instance ID) as (InstanceID)
-(Provide App Logger) as (AppLogger)
+(Desc) as (Desc) << Provide >>
+(Instance ID) as (InstanceID) << Provide >>
+(App Logger) as (AppLogger) << Provide >>
 
+(Metric Registerer) as (MetricRegistry) << Provide >>
+(Metric Gatherer) as (MetricGatherer) << Provide >>
+(Run Prometheus HTTP Server) as (RunPrometheusHTTPServer) << Invoke >>
 
-
-(Provide Metric Registerer) as (MetricRegistry)
-(Provide Metric Gatherer) as (MetricGatherer)
+RunPrometheusHTTPServer .up.> MetricGatherer
 
 (Run)
 (Shutdown)
