@@ -18,7 +18,6 @@ package fxapp_test
 
 import (
 	"errors"
-	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,7 +30,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 )
 
 // the app provides support for prometheus metrics automatically
@@ -406,7 +404,7 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
-	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPServerOpts()
+	prometheusHTTPServerOpts := &fxapp.PrometheusHTTPHandlerOpts{}
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
 		ExposePrometheusMetricsViaHTTP(prometheusHTTPServerOpts).
@@ -424,7 +422,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 		<-app.Started()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := retryablehttp.Get(fmt.Sprintf("http://:%d%s", prometheusHTTPServerOpts.Port(), prometheusHTTPServerOpts.Endpoint()))
+		resp, err := retryablehttp.Get("http://:8008/metrics")
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
@@ -442,36 +440,11 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 	}
 }
 
-func TestPrometheusHTTPServerOpts_Defaults(t *testing.T) {
-	opts := fxapp.NewPrometheusHTTPServerOpts().
-		SetEndpoint("").
-		SetPort(0).
-		SetReadTimeout(time.Duration(0)).
-		SetWriteTimeout(time.Duration(0)).
-		SetErrorHandling(promhttp.ContinueOnError)
-
-	if opts.Endpoint() != "/metrics" {
-		t.Errorf("*** default endpoint doesn't match: %v", opts.Endpoint())
-	}
-	if opts.Port() != 5050 {
-		t.Errorf("*** default port doesn't match: %v", opts.Port())
-	}
-	if opts.ReadTimeout() != time.Second {
-		t.Errorf("*** default timeout should be returned: %v", opts.ReadTimeout())
-	}
-	if opts.WriteTimeout() != 5*time.Second {
-		t.Errorf("*** default timeout should be returned: %v", opts.WriteTimeout())
-	}
-	if opts.ErrorHandling() != promhttp.ContinueOnError {
-		t.Errorf("*** error handling did not match: %v", opts.ErrorHandling())
-	}
-}
-
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{}).
 		Invoke(
-			fxapp.PrometheusHTTPServerRunner(fxapp.NewPrometheusHTTPServerOpts()),
-			// register a collector that
+			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
 				return registerer.Register(FailingMetricCollector{})
 			},
@@ -490,7 +463,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 		<-app.Started()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := http.Get("http://:5050/metrics")
+		resp, err := http.Get("http://:8008/metrics")
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
@@ -507,8 +480,10 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{
+			HandlerErrorHandling: promhttp.ContinueOnError,
+		}).
 		Invoke(
-			fxapp.PrometheusHTTPServerRunner(fxapp.NewPrometheusHTTPServerOpts().SetErrorHandling(promhttp.ContinueOnError)),
 			// register a collector that
 			func(registerer prometheus.Registerer) error {
 				return registerer.Register(FailingMetricCollector{})
@@ -528,7 +503,7 @@ func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 		<-app.Started()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := retryablehttp.Get("http://:5050/metrics")
+		resp, err := retryablehttp.Get("http://:8008/metrics")
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)

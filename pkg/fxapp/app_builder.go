@@ -63,7 +63,7 @@ type Builder interface {
 	// NOTE: this is useful for unit testing
 	Populate(targets ...interface{}) Builder
 
-	ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPServerOpts) Builder
+	ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPHandlerOpts) Builder
 
 	Build() (App, error)
 }
@@ -97,7 +97,7 @@ type builder struct {
 
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 
-	prometheusHTTPServerOpts *PrometheusHTTPServerOpts
+	prometheusHTTPServerOpts *PrometheusHTTPHandlerOpts
 }
 
 func (b *builder) String() string {
@@ -197,22 +197,26 @@ func (b *builder) buildOptions() []fx.Option {
 	instanceID := b.instanceID
 	desc := b.desc
 	logger := b.initZerolog()
+
+	// provide
 	compOptions = append(compOptions, fx.Provide(
 		func() Desc { return desc },
 		func() InstanceID { return instanceID },
 		func() *zerolog.Logger { return logger },
 		newMetricRegistry,
 	))
-
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
-	compOptions = append(compOptions, fx.Invoke(b.funcs...))
-	compOptions = append(compOptions, fx.Populate(b.populateTargets...))
-	compOptions = append(compOptions, fx.Logger(newFxLogger(logger)))
-
 	if b.prometheusHTTPServerOpts != nil {
-		compOptions = append(compOptions, fx.Invoke(PrometheusHTTPServerRunner(b.prometheusHTTPServerOpts)))
+		compOptions = append(compOptions, fx.Provide(b.prometheusHTTPServerOpts.NewHTTPHandler))
 	}
-
+	// invoke
+	compOptions = append(compOptions, fx.Invoke(b.funcs...))
+	compOptions = append(compOptions, fx.Invoke(runHTTPServer))
+	// populate
+	compOptions = append(compOptions, fx.Populate(b.populateTargets...))
+	// configure fx logger
+	compOptions = append(compOptions, fx.Logger(newFxLogger(logger)))
+	// register error handlers
 	for _, f := range b.invokeErrorHandlers {
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 	}
@@ -332,7 +336,10 @@ func (b *builder) LogLevel(level LogLevel) Builder {
 	return b
 }
 
-func (b *builder) ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPServerOpts) Builder {
+func (b *builder) ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPHandlerOpts) Builder {
 	b.prometheusHTTPServerOpts = opts
+	if b.prometheusHTTPServerOpts == nil {
+		b.prometheusHTTPServerOpts = &PrometheusHTTPHandlerOpts{}
+	}
 	return b
 }

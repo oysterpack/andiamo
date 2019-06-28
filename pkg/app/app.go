@@ -62,7 +62,7 @@ func (id ID) ULID() ulid.ULID {
 // Name is the application name.
 type Name string
 
-// Validate returns an error if the name is not valid.
+// validate returns an error if the name is not valid.
 //
 // Constraints
 //

@@ -68,9 +68,22 @@ Build .> App
 
 (Metric Registerer) as (MetricRegistry) << Provide >>
 (Metric Gatherer) as (MetricGatherer) << Provide >>
-(Run Prometheus HTTP Server) as (RunPrometheusHTTPServer) << Invoke >>
+(Run HTTP Server) as (RunHTTPServer) << Invoke >>
 
-RunPrometheusHTTPServer .up.> MetricGatherer
+note bottom
+automatically starts up if
+http endpoints are discovered
+
+If an *http.Server is provided,
+then the app will use it. Otherwise
+it creates one with the following
+default settings:
+  - Addr: ":8008"
+  - ReadHeaderTimeout: 1 sec
+  - MaxHeaderBytes: 1024
+end note
+
+RunHTTPServer .up.> MetricGatherer
 
 (Run)
 (Shutdown)

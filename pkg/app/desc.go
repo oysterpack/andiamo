@@ -36,7 +36,7 @@ func (d *Desc) String() string {
 	return fmt.Sprintf("Desc{ID=%s, Name=%s, Version=%s, ReleaseID=%s}", ulid.ULID(d.ID), d.Name, (*semver.Version)(d.Version), ulid.ULID(d.ReleaseID))
 }
 
-// Validate verifies that the Desc is valid
+// validate verifies that the Desc is valid
 func (d *Desc) Validate() error {
 	if d.Name == "" {
 		return errors.New("app.Desc.Name is required")

@@ -18,17 +18,16 @@ package fxapp_test
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"log"
 	"net/http"
 )
 
-func ExamplePrometheusHTTPServerRunner() {
-	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPServerOpts()
+func ExampleBuilder_ExposePrometheusMetricsViaHTTP() {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Invoke(fxapp.PrometheusHTTPServerRunner(prometheusHTTPServerOpts)).
+		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{}).
+		Invoke(func() {}).
 		Build()
 
 	if err != nil {
@@ -42,7 +41,7 @@ func ExamplePrometheusHTTPServerRunner() {
 		<-app.Done()
 	}()
 
-	resp, err := retryablehttp.Get(fmt.Sprintf("http://:%d%s", prometheusHTTPServerOpts.Port(), prometheusHTTPServerOpts.Endpoint()))
+	resp, err := retryablehttp.Get("http://:8008/metrics")
 	switch {
 	case err != nil:
 		log.Panic(err)
