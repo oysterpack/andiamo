@@ -63,7 +63,7 @@ type HTTPEndpoint struct {
 type httpServerOpts struct {
 	fx.In
 
-	Server *http.Server `name:"http.Server" optional:"true"`
+	Server *http.Server `optional:"true"`
 
 	Endpoints []HTTPEndpoint `group:"HTTPHandler"`
 }
@@ -118,7 +118,7 @@ func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle)
 	}
 	opts.Server.Handler = serveMux
 
-	errorLog := httpServerErrorLog(HTTPServerError.NewLogEventer(logger, zerolog.ErrorLevel))
+	logHTTPServerErr := httpServerErrorLog(HTTPServerError.NewLogEventer(logger, zerolog.ErrorLevel))
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			HTTPServerStarting.NewLogEventer(logger, zerolog.InfoLevel)(opts.httpServerInfo(), "starting HTTP server")
@@ -129,7 +129,7 @@ func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle)
 				wg.Done()
 				err := opts.Server.ListenAndServe()
 				if err != http.ErrServerClosed {
-					errorLog(httpListenAndServerError{err}, "HTTP server has exited with an error")
+					logHTTPServerErr(httpListenAndServerError{err}, "HTTP server has exited with an error")
 				}
 			}()
 			wg.Wait()

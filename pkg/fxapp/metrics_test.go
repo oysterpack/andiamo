@@ -482,7 +482,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts().
-			SetErrorHandling(promhttp.ContinueOnError),
+			HandleErrorWith(promhttp.ContinueOnError),
 		).
 		Invoke(
 			// register a collector that
@@ -559,17 +559,17 @@ func TestPrometheusHTTPHandlerOpts_Setters(t *testing.T) {
 		t.Error("*** error handling option did not match")
 	}
 
-	opts.SetEndpoint("/prometheus/metrics")
+	opts.WithEndpoint("/prometheus/metrics")
 	if opts.Endpoint() != "/prometheus/metrics" {
 		t.Error("*** endpoint option did not match")
 	}
 
-	opts.SetTimeout(time.Minute)
+	opts.WithTimeout(time.Minute)
 	if opts.Timeout() != time.Minute {
 		t.Error("*** timeout option did not match")
 	}
 
-	opts.SetErrorHandling(promhttp.ContinueOnError)
+	opts.HandleErrorWith(promhttp.ContinueOnError)
 	if opts.ErrorHandling() != promhttp.ContinueOnError {
 		t.Error("*** error handling option did not match")
 	}

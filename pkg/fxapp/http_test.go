@@ -28,9 +28,11 @@ import (
 
 // The app provides an HTTP server.
 // The HTTP server is only started if it is needed, i.e., if endpoint handlers are discovered.
-// For example, exposing prometheus metrics via HTTP wil enable the HTTP server.
+// For example, exposing prometheus metrics via HTTP will enable the HTTP server.
+// If an *http.Server is provided, then it will be used. Otherwise a default HTTP server is created automatically by the app.
 //
-// httpServerOpts can be specified to customize the config.
+// An event is logged when the HTTP server is starting, containing the address the server is listening on and the list
+// of handler endpoints that are registered.
 func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
@@ -62,21 +64,159 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 		checkHTTPGetResponseStatusOK(t, "http://:8008/foo")
 		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
 
-		checkHTTPServerStartedEventLogged(t, buf)
+		checkHTTPServerStartingEventLogged(t, buf, ":8008", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
+	}
+}
+
+func TestHTTPServer_WithProvidedServer(t *testing.T) {
+	buf := new(bytes.Buffer)
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Provide(
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
+					writer.WriteHeader(http.StatusOK)
+				})
+			},
+			func() *http.Server {
+				return &http.Server{
+					Addr: ":5050",
+				}
+			},
+		).
+		ExposePrometheusMetricsViaHTTP(nil).
+		Invoke(func() {}).
+		LogWriter(buf).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failed: %v", err)
+	default:
+		go app.Run()
+		<-app.Started()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+
+		// Then the HTTP server is running
+		// And the registered endpoints are acccessible
+		checkHTTPGetResponseStatusOK(t, "http://:5050/foo")
+		checkHTTPGetResponseStatusOK(t, "http://:5050/metrics")
+
+		checkHTTPServerStartingEventLogged(t, buf, ":5050", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
+	}
+}
+
+func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
+	buf := new(bytes.Buffer)
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Provide(
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
+					writer.WriteHeader(http.StatusOK)
+				})
+			},
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
+					writer.WriteHeader(http.StatusOK)
+				})
+			},
+		).
+		ExposePrometheusMetricsViaHTTP(nil).
+		Invoke(func() {}).
+		LogWriter(buf).
+		Build()
+
+	if err == nil {
+		t.Error("*** app should have failed to build because there are duplicate endpoints registered")
+	} else {
+		t.Log(err)
+	}
+}
+
+func TestHTTPServer_WithNilhandler(t *testing.T) {
+	buf := new(bytes.Buffer)
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Provide(
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
+					writer.WriteHeader(http.StatusOK)
+				})
+			},
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/bar", nil)
+			},
+		).
+		ExposePrometheusMetricsViaHTTP(nil).
+		Invoke(func() {}).
+		LogWriter(buf).
+		Build()
+
+	if err == nil {
+		t.Error("*** app should have failed to build because the /bar endpoint has a nil handler")
+	} else {
+		t.Log(err)
+	}
+}
+
+func TestHTTPServer_HandlerPanic(t *testing.T) {
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Provide(
+			func() fxapp.HTTPHandler {
+				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
+					panic("BOOM")
+				})
+			},
+		).
+		ExposePrometheusMetricsViaHTTP(nil).
+		Invoke(func() {}).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failed: %v", err)
+	default:
+		go app.Run()
+		<-app.Started()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+
+		// Then the GET /foo request will fail because the handler panics
+		if _, err := http.Get("http://:8008/foo"); err == nil {
+			t.Error("HTTP request should have failed with an EOF error")
+		} else {
+			t.Log(err)
+		}
+		// And HTTP server should still be able to serve other requests
+		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
 	}
 }
 
 func checkHTTPGetResponseStatusOK(t *testing.T, url string) {
+	t.Log("GET ", url)
 	resp, err := http.Get(url)
 	switch {
 	case err != nil:
-		t.Errorf("*** failed to HTTP scrape metrics: %v", err)
+		t.Errorf("*** %v: failed to HTTP scrape metrics: %v", url, err)
 	case resp.StatusCode != http.StatusOK:
-		t.Errorf("*** request failed: %v", resp.StatusCode)
+		t.Errorf("*** %v: request failed: %v", url, resp.StatusCode)
 	}
 }
 
-func checkHTTPServerStartedEventLogged(t *testing.T, log io.Reader) {
+func checkHTTPGetResponseStatus(t *testing.T, url string, expectedStatusCode int) {
+	resp, err := http.Get(url)
+	switch {
+	case err != nil:
+		t.Errorf("*** %v: HTTP GET failed: %v", url, err)
+	case resp.StatusCode != expectedStatusCode:
+		t.Errorf("*** %v: response status did not match: %v", url, resp.StatusCode)
+	}
+}
+
+func checkHTTPServerStartingEventLogged(t *testing.T, log io.Reader, addr string, endpoints []string) {
 	type Data struct {
 		Addr      string
 		Endpoints []string
@@ -104,8 +244,23 @@ func checkHTTPServerStartedEventLogged(t *testing.T, log io.Reader) {
 			break
 		}
 	}
-	if logEvent.Name != fxapp.HTTPServerStarting.String() {
+	switch {
+	case logEvent.Name != fxapp.HTTPServerStarting.String():
 		t.Error("*** HTTP server started event was not logged")
+	default:
+		if logEvent.Data.Addr != addr {
+			t.Errorf("*** addr did not match: %v != %v", logEvent.Data.Addr, addr)
+		}
+
+	ExpectedEndpoints:
+		for _, expectedEndpoint := range endpoints {
+			for _, endpoint := range logEvent.Data.Endpoints {
+				if endpoint == expectedEndpoint {
+					continue ExpectedEndpoints
+				}
+			}
+			t.Errorf("*** endpoint was not logged: %v", expectedEndpoint)
+		}
 	}
 
 }

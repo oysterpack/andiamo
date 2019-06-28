@@ -123,9 +123,9 @@ func getLabels(m *dto.Metric) []string {
 
 // PrometheusHTTPHandlerOpts is used to configure the Prometheus HTTP handler that is used to expose metrics
 type PrometheusHTTPHandlerOpts interface {
-	SetTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts
-	SetEndpoint(path string) PrometheusHTTPHandlerOpts
-	SetErrorHandling(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts
+	WithTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts
+	WithEndpoint(path string) PrometheusHTTPHandlerOpts
+	HandleErrorWith(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts
 
 	// Timeout returns the handler response timeout.
 	//
@@ -168,18 +168,18 @@ func NewPrometheusHTTPHandlerOpts() PrometheusHTTPHandlerOpts {
 	}
 }
 
-func (opts *prometheusHTTPHandlerOpts) SetTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts {
+func (opts *prometheusHTTPHandlerOpts) WithTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts {
 	opts.timeout = timeout
 	return opts
 }
 
-// SetEndpoint sets the endpoint path
-func (opts *prometheusHTTPHandlerOpts) SetEndpoint(path string) PrometheusHTTPHandlerOpts {
+// WithEndpoint sets the endpoint path
+func (opts *prometheusHTTPHandlerOpts) WithEndpoint(path string) PrometheusHTTPHandlerOpts {
 	opts.endpoint = path
 	return opts
 }
 
-func (opts *prometheusHTTPHandlerOpts) SetErrorHandling(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts {
+func (opts *prometheusHTTPHandlerOpts) HandleErrorWith(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts {
 	opts.errorHandling = errorHandling
 	return opts
 }
