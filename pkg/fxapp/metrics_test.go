@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // the app provides support for prometheus metrics automatically
@@ -404,7 +405,7 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
-	prometheusHTTPServerOpts := &fxapp.PrometheusHTTPHandlerOpts{}
+	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPHandlerOpts()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
 		ExposePrometheusMetricsViaHTTP(prometheusHTTPServerOpts).
@@ -442,7 +443,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{}).
+		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts()).
 		Invoke(
 			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
@@ -480,9 +481,9 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{
-			HandlerErrorHandling: promhttp.ContinueOnError,
-		}).
+		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts().
+			SetErrorHandling(promhttp.ContinueOnError),
+		).
 		Invoke(
 			// register a collector that
 			func(registerer prometheus.Registerer) error {
@@ -543,4 +544,33 @@ func (c FailingMetricCollector) Desc() *prometheus.Desc {
 
 func (c FailingMetricCollector) Write(*dto.Metric) error {
 	return errors.New("BOOM!")
+}
+
+func TestPrometheusHTTPHandlerOpts_Setters(t *testing.T) {
+	opts := fxapp.NewPrometheusHTTPHandlerOpts()
+	t.Logf("%#v", opts)
+	if opts.Endpoint() != "/metrics" {
+		t.Error("*** endpoint option did not match")
+	}
+	if opts.Timeout() != 5*time.Second {
+		t.Error("*** timeout option did not match")
+	}
+	if opts.ErrorHandling() != promhttp.HTTPErrorOnError {
+		t.Error("*** error handling option did not match")
+	}
+
+	opts.SetEndpoint("/prometheus/metrics")
+	if opts.Endpoint() != "/prometheus/metrics" {
+		t.Error("*** endpoint option did not match")
+	}
+
+	opts.SetTimeout(time.Minute)
+	if opts.Timeout() != time.Minute {
+		t.Error("*** timeout option did not match")
+	}
+
+	opts.SetErrorHandling(promhttp.ContinueOnError)
+	if opts.ErrorHandling() != promhttp.ContinueOnError {
+		t.Error("*** error handling option did not match")
+	}
 }

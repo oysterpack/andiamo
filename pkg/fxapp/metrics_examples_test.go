@@ -26,7 +26,7 @@ import (
 
 func ExampleBuilder_ExposePrometheusMetricsViaHTTP() {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(&fxapp.PrometheusHTTPHandlerOpts{}).
+		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts()).
 		Invoke(func() {}).
 		Build()
 

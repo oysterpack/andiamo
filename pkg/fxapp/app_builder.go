@@ -33,6 +33,8 @@ import (
 )
 
 // Builder is used to construct a new App instance.
+//
+//
 type Builder interface {
 	// Provide is used to provide dependency injection
 	Provide(constructors ...interface{}) Builder
@@ -63,7 +65,10 @@ type Builder interface {
 	// NOTE: this is useful for unit testing
 	Populate(targets ...interface{}) Builder
 
-	ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPHandlerOpts) Builder
+	// ExposePrometheusMetricsViaHTTP will expose Prometheus metrics via HTTP.
+	//
+	// If opts is nil, then the defaults will be applied - see `NewPrometheusHTTPHandlerOpts()`
+	ExposePrometheusMetricsViaHTTP(opts PrometheusHTTPHandlerOpts) Builder
 
 	Build() (App, error)
 }
@@ -97,7 +102,7 @@ type builder struct {
 
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 
-	prometheusHTTPServerOpts *PrometheusHTTPHandlerOpts
+	prometheusHTTPServerOpts PrometheusHTTPHandlerOpts
 }
 
 func (b *builder) String() string {
@@ -336,10 +341,10 @@ func (b *builder) LogLevel(level LogLevel) Builder {
 	return b
 }
 
-func (b *builder) ExposePrometheusMetricsViaHTTP(opts *PrometheusHTTPHandlerOpts) Builder {
+func (b *builder) ExposePrometheusMetricsViaHTTP(opts PrometheusHTTPHandlerOpts) Builder {
 	b.prometheusHTTPServerOpts = opts
 	if b.prometheusHTTPServerOpts == nil {
-		b.prometheusHTTPServerOpts = &PrometheusHTTPHandlerOpts{}
+		b.prometheusHTTPServerOpts = NewPrometheusHTTPHandlerOpts()
 	}
 	return b
 }

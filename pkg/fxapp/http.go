@@ -142,8 +142,8 @@ const HTTPServerError EventTypeID = "01DEDRH8A9X3SCSJRCJ4PM7749"
 
 type httpServerErrorLog LogEventer
 
-func (errLog httpServerErrorLog) Println(v ...interface{}) {
-	errLog(httpServerError(fmt.Sprint(v...)), "HTTP Server error")
+func (log httpServerErrorLog) Println(v ...interface{}) {
+	log(httpServerError(fmt.Sprint(v...)), "HTTP Server error")
 }
 
 type httpServerError string
