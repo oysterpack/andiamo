@@ -88,6 +88,18 @@ func (f errorHandler) HandleError(err error) {
 // - fx.Lifecycle - for components to use to bind to the app lifecycle
 // - fx.Shutdowner - used to trigger app shutdown
 // - fx.Dotgraph - contains a DOT language visualization of the app dependency graph
+//
+// HTTP server support
+//
+// If HTTPHandler(s) are discovered, i.e., they have been provided, then the app will run an HTTP server.
+// HTTP server settings can be provided via an *http.Server (NOTE: http.Server.Handler will be overwritten using
+// http handlers that are provided by the app). If no *http.Server is discovered, then the app will automatically
+// create an HTTP server with the following settings:
+// 	- Addr:              ":8008",
+//	- ReadHeaderTimeout: time.Second,
+//	- MaxHeaderBytes:    1024,
+//
+// NOTE: when exposing Prometheus metrics via HTTP will provide an HTTP handler, and thus cause the HTTP server to run.
 type App interface {
 	Options
 	LifeCycle

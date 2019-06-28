@@ -85,7 +85,7 @@ func (opts httpServerOpts) validate() error {
 	return nil
 }
 
-// TODO: Log event for HTTP server: port, endpoints
+// TODO: Log event for HTTP server: port, endpoints, opts
 func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle) error {
 	if len(opts.Endpoints) == 0 {
 		return nil

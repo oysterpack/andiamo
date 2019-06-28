@@ -192,7 +192,7 @@ func (b *builder) validate() error {
 }
 
 func (b *builder) buildOptions() []fx.Option {
-	compOptions := make([]fx.Option, 0, 5+len(b.invokeErrorHandlers))
+	compOptions := make([]fx.Option, 0, 8+len(b.invokeErrorHandlers))
 
 	instanceID := b.instanceID
 	desc := b.desc
