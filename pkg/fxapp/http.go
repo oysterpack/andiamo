@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 )
@@ -85,7 +86,19 @@ func (opts httpServerOpts) validate() error {
 	return nil
 }
 
-// TODO: Log event for HTTP server: port, endpoints, opts
+func (opts httpServerOpts) httpServerInfo() httpServerInfo {
+	endpoints := make([]string, 0, len(opts.Endpoints))
+	for _, endpoint := range opts.Endpoints {
+		endpoints = append(endpoints, endpoint.Path)
+	}
+	sort.Strings(endpoints)
+
+	return httpServerInfo{
+		addr:      opts.Server.Addr,
+		endpoints: endpoints,
+	}
+}
+
 func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle) error {
 	if len(opts.Endpoints) == 0 {
 		return nil
@@ -108,6 +121,7 @@ func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle)
 	errorLog := httpServerErrorLog(HTTPServerError.NewLogEventer(logger, zerolog.ErrorLevel))
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
+			HTTPServerStarting.NewLogEventer(logger, zerolog.InfoLevel)(opts.httpServerInfo(), "starting HTTP server")
 			// wait for the HTTP server go routine to start running before returning
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -137,8 +151,13 @@ func newHTTPServerWithDefaultOpts() *http.Server {
 	}
 }
 
-// HTTPServerError indicates an error occurred while handling a metrics scrape HTTP request.
-const HTTPServerError EventTypeID = "01DEDRH8A9X3SCSJRCJ4PM7749"
+// HTTP server related events
+const (
+	// HTTPServerError indicates an error occurred while handling a metrics scrape HTTP request.
+	HTTPServerError EventTypeID = "01DEDRH8A9X3SCSJRCJ4PM7749"
+
+	HTTPServerStarting EventTypeID = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
+)
 
 type httpServerErrorLog LogEventer
 
@@ -158,4 +177,16 @@ type httpListenAndServerError struct {
 
 func (err httpListenAndServerError) MarshalZerologObject(e *zerolog.Event) {
 	e.Err(err)
+}
+
+type httpServerInfo struct {
+	addr      string
+	endpoints []string
+}
+
+func (info httpServerInfo) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Str("addr", info.addr).
+		Strs("endpoints", info.endpoints)
+
 }

@@ -17,7 +17,11 @@
 package fxapp_test
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/json"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -28,6 +32,7 @@ import (
 //
 // httpServerOpts can be specified to customize the config.
 func TestHTTPServer_WithDefaultOpts(t *testing.T) {
+	buf := new(bytes.Buffer)
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func() fxapp.HTTPHandler {
@@ -38,6 +43,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 		).
 		ExposePrometheusMetricsViaHTTP(nil).
 		Invoke(func() {}).
+		LogWriter(buf).
 		Build()
 
 	switch {
@@ -51,13 +57,55 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 			<-app.Done()
 		}()
 
-		resp, err := http.Get("http://:8008/foo")
-		switch {
-		case err != nil:
-			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
-		case resp.StatusCode != http.StatusOK:
-			t.Errorf("*** request failed: %v", resp.StatusCode)
+		// Then the HTTP server is running
+		// And the registered endpoints are acccessible
+		checkHTTPGetResponseStatusOK(t, "http://:8008/foo")
+		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
+
+		checkHTTPServerStartedEventLogged(t, buf)
+	}
+}
+
+func checkHTTPGetResponseStatusOK(t *testing.T, url string) {
+	resp, err := http.Get(url)
+	switch {
+	case err != nil:
+		t.Errorf("*** failed to HTTP scrape metrics: %v", err)
+	case resp.StatusCode != http.StatusOK:
+		t.Errorf("*** request failed: %v", resp.StatusCode)
+	}
+}
+
+func checkHTTPServerStartedEventLogged(t *testing.T, log io.Reader) {
+	type Data struct {
+		Addr      string
+		Endpoints []string
+	}
+
+	type LogEvent struct {
+		Name string `json:"n"`
+		Data Data   `json:"01DEFM9FFSH58ZGNPSR7Z4C3G2"`
+	}
+
+	var logEvent LogEvent
+	reader := bufio.NewReader(log)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
 		}
+		err = json.Unmarshal([]byte(line), &logEvent)
+		if err != nil {
+			t.Errorf("*** failed to parse log event: %v : %v", err, line)
+			continue
+		}
+		if logEvent.Name == fxapp.HTTPServerStarting.String() {
+			t.Log(line)
+			break
+		}
+	}
+	if logEvent.Name != fxapp.HTTPServerStarting.String() {
+		t.Error("*** HTTP server started event was not logged")
 	}
 
 }
