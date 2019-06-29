@@ -15,3 +15,90 @@
  */
 
 package fxapp
+
+import (
+	"fmt"
+	"net/http"
+	"sync"
+)
+
+// ReadinessWaitGroup is used by application components to signal when they are ready to service requests
+type ReadinessWaitGroup interface {
+	Add(delta uint)
+	Inc()
+
+	// Count returns the wait group counter value. When the count is zero, it means the wait group is done.
+	Count() uint
+
+	// Done decrements the wait group counter by one
+	Done()
+
+	// Ready returns a chan that is used to signal when the wait group counter is zero.
+	Ready() <-chan struct{}
+}
+
+// NewReadinessWaitgroup returns a new ReadinessWaitGroup initialized with the specified count
+func NewReadinessWaitgroup(count uint) ReadinessWaitGroup {
+	wg := &sync.WaitGroup{}
+	wg.Add(int(count))
+	return &readinessWaitGroup{
+		wg,
+		&sync.Mutex{},
+		count,
+	}
+}
+
+// ReadinessWaitGroup is used by application components to notify the app when it is ready to service requests.
+type readinessWaitGroup struct {
+	*sync.WaitGroup
+	*sync.Mutex
+	count uint
+}
+
+func (r *readinessWaitGroup) Add(delta uint) {
+	r.WaitGroup.Add(int(delta))
+	r.Lock()
+	defer r.Unlock()
+	r.count += delta
+}
+
+func (r *readinessWaitGroup) Inc() {
+	r.Add(1)
+}
+
+func (r *readinessWaitGroup) Count() uint {
+	r.Lock()
+	defer r.Unlock()
+	return r.count
+}
+
+func (r *readinessWaitGroup) Done() {
+	r.Lock()
+	defer r.Unlock()
+	r.count--
+	r.WaitGroup.Done()
+}
+
+// Ready returns a chan that is used to signal that the application is ready to service requests
+func (r *readinessWaitGroup) Ready() <-chan struct{} {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		r.Wait()
+	}()
+	return c
+}
+
+func newReadinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
+	endpoint := fmt.Sprintf("/%s", ReadyEventID)
+	return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+		count := readiness.Count()
+		switch count {
+		case 0:
+			writer.WriteHeader(http.StatusOK)
+		default:
+			writer.Header().Add("x-readiness-wait-group-count", fmt.Sprint(count))
+			writer.WriteHeader(http.StatusServiceUnavailable)
+		}
+	})
+}

@@ -143,7 +143,8 @@ func (b *builder) Build() (App, error) {
 
 	var shutdowner fx.Shutdowner
 	var logger *zerolog.Logger
-	b.populateTargets = append(b.populateTargets, &shutdowner, &logger)
+	var readinessWaitGroup ReadinessWaitGroup
+	b.populateTargets = append(b.populateTargets, &shutdowner, &logger, &readinessWaitGroup)
 	app := &app{
 		instanceID:   b.instanceID,
 		desc:         b.desc,
@@ -179,6 +180,7 @@ func (b *builder) Build() (App, error) {
 		return nil, err
 	}
 	app.logger = logger
+	app.readiness = readinessWaitGroup
 	app.logAppInitialized()
 	return app, nil
 }
@@ -209,6 +211,8 @@ func (b *builder) buildOptions() []fx.Option {
 		func() InstanceID { return instanceID },
 		func() *zerolog.Logger { return logger },
 		newMetricRegistry,
+		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
+		newReadinessProbeHTTPHandler,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	if b.prometheusHTTPServerOpts != nil {

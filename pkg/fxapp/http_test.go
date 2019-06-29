@@ -53,18 +53,18 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 		t.Errorf("*** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		defer func() {
 			app.Shutdown()
 			<-app.Done()
+
+			checkHTTPServerStartingEventLogged(t, buf, ":8008", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
 		}()
 
 		// Then the HTTP server is running
 		// And the registered endpoints are acccessible
 		checkHTTPGetResponseStatusOK(t, "http://:8008/foo")
 		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
-
-		checkHTTPServerStartingEventLogged(t, buf, ":8008", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
 	}
 }
 
@@ -93,18 +93,18 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 		t.Errorf("*** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		defer func() {
 			app.Shutdown()
 			<-app.Done()
+
+			checkHTTPServerStartingEventLogged(t, buf, ":5050", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
 		}()
 
 		// Then the HTTP server is running
 		// And the registered endpoints are acccessible
 		checkHTTPGetResponseStatusOK(t, "http://:5050/foo")
 		checkHTTPGetResponseStatusOK(t, "http://:5050/metrics")
-
-		checkHTTPServerStartingEventLogged(t, buf, ":5050", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
 	}
 }
 
@@ -213,6 +213,16 @@ func checkHTTPGetResponseStatus(t *testing.T, url string, expectedStatusCode int
 		t.Errorf("*** %v: HTTP GET failed: %v", url, err)
 	case resp.StatusCode != expectedStatusCode:
 		t.Errorf("*** %v: response status did not match: %v", url, resp.StatusCode)
+	}
+}
+
+func checkHTTPGetResponse(t *testing.T, url string, check func(response *http.Response)) {
+	resp, err := http.Get(url)
+	switch {
+	case err != nil:
+		t.Errorf("*** %v: HTTP GET failed: %v", url, err)
+	default:
+		check(resp)
 	}
 }
 

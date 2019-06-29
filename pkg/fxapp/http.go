@@ -99,14 +99,12 @@ func (opts httpServerOpts) httpServerInfo() httpServerInfo {
 	}
 }
 
-func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle) error {
-	if len(opts.Endpoints) == 0 {
-		return nil
-	}
-
+func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle, readiness ReadinessWaitGroup) error {
 	if err := opts.validate(); err != nil {
 		return err
 	}
+
+	readiness.Inc()
 
 	serveMux := http.NewServeMux()
 	for _, endpoint := range opts.Endpoints {
@@ -127,6 +125,7 @@ func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle)
 			wg.Add(1)
 			go func() {
 				wg.Done()
+				readiness.Done()
 				err := opts.Server.ListenAndServe()
 				if err != http.ErrServerClosed {
 					logHTTPServerErr(httpListenAndServerError{err}, "HTTP server has exited with an error")

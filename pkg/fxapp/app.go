@@ -124,6 +124,8 @@ type LifeCycle interface {
 	Starting() <-chan struct{}
 	// Started signals that the app has fully started
 	Started() <-chan struct{}
+	// Ready means the app is ready to serve requests
+	Ready() <-chan struct{}
 	// Stopping signals that app is stopping.
 	// The channel is closed after the stop signal is sent.
 	Stopping() <-chan os.Signal
@@ -166,6 +168,7 @@ type app struct {
 	*fx.App
 	fx.Shutdowner
 	starting, started chan struct{}
+	readiness         ReadinessWaitGroup
 	stopping, stopped chan os.Signal
 
 	logger *zerolog.Logger
@@ -260,9 +263,19 @@ func (a *app) Run() error {
 	}
 	a.logAppStarted(time.Since(startingTime))
 	close(a.started)
+	a.readiness.Done() // the app has started
 
-	// wait for the app to be signalled to stop
-	signal := <-stopChan
+	// wait for the app to be ready to service requests
+	select {
+	case <-a.readiness.Ready():
+		a.logAppReady()
+		return a.shutdown(<-stopChan) // shutdown on stop signal
+	case signal := <-stopChan: // wait for the app to be signalled to stop
+		return a.shutdown(signal)
+	}
+}
+
+func (a *app) shutdown(signal os.Signal) error {
 	a.stopping <- signal
 	close(a.stopping)
 	defer func() {
@@ -278,7 +291,6 @@ func (a *app) Run() error {
 	if e := a.Stop(stopCtx); e != nil {
 		return a.handleStopError(e)
 	}
-
 	return nil
 }
 
@@ -302,6 +314,10 @@ func (a *app) Starting() <-chan struct{} {
 
 func (a *app) Started() <-chan struct{} {
 	return a.started
+}
+
+func (a *app) Ready() <-chan struct{} {
+	return a.readiness.Ready()
 }
 
 func (a *app) Stopping() <-chan os.Signal {
@@ -335,6 +351,11 @@ func (a *app) logAppStarting() {
 func (a *app) logAppStarted(startupTime time.Duration) {
 	logEvent := StartedEventID.NewLogEventer(a.logger, zerolog.NoLevel)
 	logEvent(AppStarted{startupTime}, "app started")
+}
+
+func (a *app) logAppReady() {
+	logEvent := ReadyEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent(nil, "app is ready to service requests")
 }
 
 func (a *app) logAppStopping() {

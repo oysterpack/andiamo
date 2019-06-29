@@ -65,6 +65,15 @@ Build .> App
 (Desc) as (Desc) << Provide >>
 (Instance ID) as (InstanceID) << Provide >>
 (App Logger) as (AppLogger) << Provide >>
+(Readiness Probe) as (ReadinessWaitGroup) << Provide >>
+
+note bottom
+HTTP endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF
+which corresponds to the app readiness event ID
+200 -> app is ready
+503 -> app is not ready
+ - "x-readiness-wait-group-count" header returned
+end note
 
 (Metric Registerer) as (MetricRegistry) << Provide >>
 (Metric Gatherer) as (MetricGatherer) << Provide >>
@@ -84,6 +93,7 @@ default settings:
 end note
 
 RunHTTPServer .up.> MetricGatherer
+RunHTTPServer .up.> ReadinessWaitGroup
 
 (Run)
 (Shutdown)
@@ -124,6 +134,7 @@ App --> InstanceID
 App --> AppLogger
 App --> MetricRegistry
 App --> MetricGatherer
+App --> ReadinessWaitGroup
 App -up-> Options
 App -up-> Run
 App -up-> Shutdown

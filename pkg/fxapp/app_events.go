@@ -48,6 +48,8 @@ const (
 	//	}
 	StartedEventID EventTypeID = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
+	ReadyEventID EventTypeID = "01DEJ5RA8XRZVECJDJFAA2PWJF"
+
 	StoppingEventID EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
 	// 	type Data struct {
 	//		Err string `json:"e"`
