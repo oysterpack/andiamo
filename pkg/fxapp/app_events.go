@@ -25,17 +25,38 @@ import (
 
 // app lifecycle event IDs
 const (
+	// 	type Data struct {
+	//		StartTimeout uint `json:"start_timeout"`
+	//		StopTimeout  uint `json:"stop_timeout"`
+	//		Provides     []string
+	//		Invokes      []string
+	//	}
 	InitializedEventID EventTypeID = "01DE4STZ0S24RG7R08PAY1RQX3"
-	InitFailedEventID  EventTypeID = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	// 	type Data struct {
+	//		Err string `json:"e"`
+	//	}
+	InitFailedEventID EventTypeID = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	StartingEventID    EventTypeID = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartingEventID EventTypeID = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	// 	type Data struct {
+	//		Err string `json:"e"`
+	//	}
 	StartFailedEventID EventTypeID = "01DE4SY6RYCD0356KYJV7G7THW"
 
+	// 	type Data struct {
+	//		Duration uint
+	//	}
 	StartedEventID EventTypeID = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	StoppingEventID   EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StoppingEventID EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	// 	type Data struct {
+	//		Err string `json:"e"`
+	//	}
 	StopFailedEventID EventTypeID = "01DE4T0W35RPD6QMDS42WQXR48"
 
+	// 	type Data struct {
+	//		Duration uint
+	//	}
 	StoppedEventID EventTypeID = "01DE4T1V9N50BB67V424S6MG5C"
 )
 

@@ -210,6 +210,10 @@ func (opts *prometheusHTTPHandlerOpts) NewHTTPHandler(gatherer prometheus.Gather
 }
 
 // PrometheusHTTPError indicates an error occurred while handling a metrics scrape HTTP request.
+//
+// 	type Data struct {
+//		Err string `json:"e"`
+//	}
 const PrometheusHTTPError EventTypeID = "01DEARG17HNQ606ARQNYFY7PG5"
 
 type prometheusHTTPErrorLog LogEventer

@@ -261,7 +261,7 @@ func (b *builder) initZerolog() *zerolog.Logger {
 
 	// use the logger as the go standard log output
 	log.SetFlags(0)
-	log.SetOutput(&logger)
+	log.SetOutput(ComponentLogger(&logger, "log"))
 
 	return &logger
 }

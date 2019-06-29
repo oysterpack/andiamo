@@ -71,8 +71,11 @@ func (f errorHandler) HandleError(err error) {
 // - Desc - app descriptor
 // - InstanceID - app instance ID
 // - *zerolog.Logger - for application logging
-//   - the logger is used as the go standard log - logged with Debug level
+//   - the logger is used as the go standard log
+//     - logged with no level
+//     - logged using a component logger ("c":"log")
 //   - fx log events are logged with no level, i.e., which means they are always logged
+//     - logged using a component logger ("c":"fx")
 //   - the log event timestamp is in Unix time format
 //   - the logger context is augmented with the app ID, release ID, and instance ID. For example:
 //

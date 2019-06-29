@@ -2,4 +2,4 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/oysterpack/partire-k8s)](https://goreportcard.com/report/github.com/oysterpack/partire-k8s)
 
 # partire-k8s
-OysterPack Go Kubernetes Framework
+Oysterpack Go Framework for Building Business Applications Targeting Kubernetes

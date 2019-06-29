@@ -17,6 +17,7 @@
 package fxapp_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -847,14 +848,18 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 				t.Errorf("*** event ID is missing: %v", line)
 			}
 
-			switch {
-			case strings.Contains(logEvent.Message, "PROVIDE"):
-				provideCount++
-			case strings.Contains(logEvent.Message, "INVOKE"):
-				invokeCount++
-			case strings.Contains(logEvent.Message, "RUNNING"):
-				runningCount++
+			// fx events have the component field set to "fx"
+			if logEvent.Component == "fx" {
+				switch {
+				case strings.Contains(logEvent.Message, "PROVIDE"):
+					provideCount++
+				case strings.Contains(logEvent.Message, "INVOKE"):
+					invokeCount++
+				case strings.Contains(logEvent.Message, "RUNNING"):
+					runningCount++
+				}
 			}
+
 		}
 		if provideCount == 0 {
 			t.Error("*** no PROVIDE events were logged")
@@ -891,4 +896,52 @@ func TestAppBuilder_LogLevel(t *testing.T) {
 		}
 	}
 
+}
+
+// zerolog is used for go standard logging
+// - the events are logged with no level
+// - with component field set to "log"
+func TestGoStandardLogUsesZeroLog(t *testing.T) {
+	msg := ulidgen.MustNew().String()
+	buf := new(bytes.Buffer)
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {
+			log.Print(msg)
+			t.Log("logged message")
+		}).
+		LogWriter(buf).
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failure")
+	default:
+		type LogEvent struct {
+			Component string `json:"c"`
+			Msg       string `json:"m"`
+		}
+
+		var logEvent LogEvent
+		reader := bufio.NewReader(buf)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			t.Log(line)
+			err = json.Unmarshal([]byte(line), &logEvent)
+			t.Log(logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v", err)
+				continue
+			}
+			if logEvent.Component == "log" && logEvent.Msg == msg {
+				break
+			}
+		}
+
+		if logEvent.Component != "log" && logEvent.Msg != msg {
+			t.Error("*** log event was not found")
+		}
+	}
 }

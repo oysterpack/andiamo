@@ -154,8 +154,16 @@ func newHTTPServerWithDefaultOpts() *http.Server {
 // HTTP server related events
 const (
 	// HTTPServerError indicates an error occurred while handling a metrics scrape HTTP request.
+	//
+	// 	type Data struct {
+	//		Err string `json:"e"`
+	//	}
 	HTTPServerError EventTypeID = "01DEDRH8A9X3SCSJRCJ4PM7749"
 
+	// 	type Data struct {
+	//		Addr      string
+	//		Endpoints []string
+	//	}
 	HTTPServerStarting EventTypeID = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
 )
 
