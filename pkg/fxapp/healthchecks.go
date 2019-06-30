@@ -140,7 +140,11 @@ func RedHealthCheckError(err error) HealthCheckError {
 type HealthCheckRegistration struct {
 	fx.Out
 
-	*HealthCheck
+	ScheduledHealthcheck `group:"HealthCheck"`
+}
+
+type ScheduledHealthcheck struct {
+	HealthCheck *HealthCheck
 	Interval
 	Timeout
 }
@@ -149,30 +153,42 @@ type HealthCheckRegistration struct {
 //  - runInterval must be at least 1 sec
 //  - timeout must be greater than 0, at most 10 secs, and must be less than the run interval
 //    - health checks must be designed to run fast - even 10 seconds is rather long
-func NewHealthCheckRegistration(healthCheck *HealthCheck, runInterval Interval, timeout Timeout) (*HealthCheckRegistration, error) {
+func NewHealthCheckRegistration(healthCheck *HealthCheck, runInterval Interval, timeout Timeout) (reg HealthCheckRegistration, err error) {
 	if err := healthCheck.Validate(); err != nil {
-		return nil, err
+		return reg, err
 	}
 
 	if time.Duration(runInterval) < time.Second {
-		return nil, fmt.Errorf("run interval cannot be less than 1 sec: %v", runInterval)
+		return reg, fmt.Errorf("run interval cannot be less than 1 sec: %v", runInterval)
 	}
 
 	if time.Duration(timeout) == time.Duration(0) {
-		return nil, errors.New("timeout cannot be 0")
+		return reg, errors.New("timeout cannot be 0")
 	}
 
 	if time.Duration(timeout) >= time.Duration(runInterval) {
-		return nil, fmt.Errorf("timeout must be less than the run interval: %v > %v", timeout, runInterval)
+		return reg, fmt.Errorf("timeout must be less than the run interval: %v > %v", timeout, runInterval)
 	}
 
 	if time.Duration(timeout) > 10*time.Second {
-		return nil, fmt.Errorf("timeout cannot be greater than 10 seconds: %v", timeout)
+		return reg, fmt.Errorf("timeout cannot be greater than 10 seconds: %v", timeout)
 	}
 
-	return &HealthCheckRegistration{
-		HealthCheck: healthCheck,
-		Interval:    runInterval,
-		Timeout:     timeout,
+	return HealthCheckRegistration{
+		ScheduledHealthcheck: ScheduledHealthcheck{
+			HealthCheck: healthCheck,
+			Interval:    runInterval,
+			Timeout:     timeout,
+		},
 	}, nil
+}
+
+type HealthCheckRegistry interface {
+}
+
+type healthCheckRegistry struct {
+}
+
+func newHealthCheckRegistry() HealthCheckRegistry {
+	return &healthCheckRegistry{}
 }

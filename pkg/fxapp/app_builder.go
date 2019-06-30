@@ -211,7 +211,7 @@ func (b *builder) validate() error {
 }
 
 func (b *builder) buildOptions() []fx.Option {
-	compOptions := make([]fx.Option, 0, 8+len(b.invokeErrorHandlers))
+	compOptions := make([]fx.Option, 0, 9+len(b.invokeErrorHandlers))
 
 	instanceID := b.instanceID
 	desc := b.desc
@@ -225,6 +225,7 @@ func (b *builder) buildOptions() []fx.Option {
 		newMetricRegistry,
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
 		newReadinessProbeHTTPHandler,
+		newHealthCheckRegistry,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	if b.prometheusHTTPServerOpts != nil {

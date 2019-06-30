@@ -49,7 +49,61 @@ func TestNewHealthCheckRegistration(t *testing.T) {
 	case err != nil:
 		t.Errorf("*** NewHealthCheckRegistration failed: %v", err)
 	default:
-		err = healthCheckRegistration.Checker(context.Background())
+		err = healthCheckRegistration.HealthCheck.Checker(context.Background())
 		t.Log(err)
+	}
+}
+
+func TestAppProvidesHealthCheckRegistry(t *testing.T) {
+	t.Parallel()
+
+	DatabaseHealthCheck := fxapp.HealthCheckClass{
+		ID:           "01DEMFD9QF7FHG0K2G44MXT6CY",
+		Description:  "Executes database query",
+		YellowImpact: "Slow query",
+		RedImpact:    "Query timedout or failed",
+	}
+
+	var registry fxapp.HealthCheckRegistry
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {
+
+		},
+		).
+		Provide(
+			func() (fxapp.HealthCheckRegistration, error) {
+				healthCheck := fxapp.HealthCheck{
+					Class:       &DatabaseHealthCheck,
+					ID:          "01DEMG4KTPH5XFM54JGQ7XZT7V",
+					Description: "select 1 from session where session_id = ''",
+					RedImpact:   "users will not be able to access the app",
+					Checker: func(ctx context.Context) fxapp.HealthCheckError {
+						return fxapp.RedHealthCheckError(errors.New("DB conn failed"))
+					},
+				}
+				return fxapp.NewHealthCheckRegistration(&healthCheck, fxapp.Interval(10*time.Second), fxapp.Timeout(time.Second))
+			},
+			func() (fxapp.HealthCheckRegistration, error) {
+				healthCheck := fxapp.HealthCheck{
+					Class:       &DatabaseHealthCheck,
+					ID:          "01DEMT6E1JBMC0NKE9A3H9A5E9",
+					Description: "select 1 from users where user_id = ''",
+					RedImpact:   "users will not be able to access the app",
+					Checker: func(ctx context.Context) fxapp.HealthCheckError {
+						return nil
+					},
+				}
+				return fxapp.NewHealthCheckRegistration(&healthCheck, fxapp.Interval(10*time.Second), fxapp.Timeout(time.Second))
+			},
+		).
+		Populate(&registry).
+		DisableHTTPServer().
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build error: %v", err)
+	default:
+
 	}
 }
