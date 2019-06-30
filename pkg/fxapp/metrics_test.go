@@ -408,7 +408,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPHandlerOpts()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
-		ExposePrometheusMetricsViaHTTP(prometheusHTTPServerOpts).
+		ConfigurePrometheusHTTPHandler(prometheusHTTPServerOpts).
 		Build()
 
 	switch {
@@ -443,7 +443,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts()).
+		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts()).
 		Invoke(
 			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
@@ -481,7 +481,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts().
+		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts().
 			HandleErrorWith(promhttp.ContinueOnError),
 		).
 		Invoke(

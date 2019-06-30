@@ -65,10 +65,18 @@ type Builder interface {
 	// NOTE: this is useful for unit testing
 	Populate(targets ...interface{}) Builder
 
-	// ExposePrometheusMetricsViaHTTP will expose Prometheus metrics via HTTP.
+	// ConfigurePrometheusHTTPHandler will configure the Prometheus HTTP handler used to expose metrics.
 	//
-	// If opts is nil, then the defaults will be applied - see `NewPrometheusHTTPHandlerOpts()`
-	ExposePrometheusMetricsViaHTTP(opts PrometheusHTTPHandlerOpts) Builder
+	// NOTE: metrics are exposed by default using defaults options - see NewPrometheusHTTPHandlerOpts()
+	ConfigurePrometheusHTTPHandler(opts PrometheusHTTPHandlerOpts) Builder
+
+	// DisableHTTPServer disables the HTTP server
+	//
+	// Uses cases for disabling the HTTP server:
+	//  - when using the App for running tests the HTTP server can be disabled to reduce overhead. It also enables tests
+	//    to be run in parallel
+	//  - for CLI based apps
+	DisableHTTPServer() Builder
 
 	Build() (App, error)
 }
@@ -83,6 +91,8 @@ func NewBuilder(desc Desc) Builder {
 
 		globalLogLevel: zerolog.InfoLevel,
 		logWriter:      os.Stderr,
+
+		prometheusHTTPServerOpts: NewPrometheusHTTPHandlerOpts(),
 	}
 }
 
@@ -103,6 +113,8 @@ type builder struct {
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
 
 	prometheusHTTPServerOpts PrometheusHTTPHandlerOpts
+
+	disableHTTPServer bool
 }
 
 func (b *builder) String() string {
@@ -220,7 +232,9 @@ func (b *builder) buildOptions() []fx.Option {
 	}
 	// invoke
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
-	compOptions = append(compOptions, fx.Invoke(runHTTPServer))
+	if !b.disableHTTPServer {
+		compOptions = append(compOptions, fx.Invoke(runHTTPServer))
+	}
 	// populate
 	compOptions = append(compOptions, fx.Populate(b.populateTargets...))
 	// configure fx logger
@@ -345,10 +359,15 @@ func (b *builder) LogLevel(level LogLevel) Builder {
 	return b
 }
 
-func (b *builder) ExposePrometheusMetricsViaHTTP(opts PrometheusHTTPHandlerOpts) Builder {
+func (b *builder) ConfigurePrometheusHTTPHandler(opts PrometheusHTTPHandlerOpts) Builder {
 	b.prometheusHTTPServerOpts = opts
 	if b.prometheusHTTPServerOpts == nil {
 		b.prometheusHTTPServerOpts = NewPrometheusHTTPHandlerOpts()
 	}
+	return b
+}
+
+func (b *builder) DisableHTTPServer() Builder {
+	b.disableHTTPServer = true
 	return b
 }

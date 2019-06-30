@@ -100,6 +100,11 @@ func (opts httpServerOpts) httpServerInfo() httpServerInfo {
 }
 
 func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle, readiness ReadinessWaitGroup) error {
+	if len(opts.Endpoints) == 0 {
+		// if there are no HTTP endpoints, then we don't need to run the HTTP server
+		return nil
+	}
+
 	if err := opts.validate(); err != nil {
 		return err
 	}
@@ -195,5 +200,4 @@ func (info httpServerInfo) MarshalZerologObject(e *zerolog.Event) {
 	e.
 		Str("addr", info.addr).
 		Strs("endpoints", info.endpoints)
-
 }

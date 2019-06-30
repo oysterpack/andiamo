@@ -55,42 +55,46 @@ func (f errorHandler) HandleError(err error) {
 	f(err)
 }
 
-// App represents an application container.
+// App represents an application server container.
 //
 // Dependency injection is provided via registered constructors.
 // Application workloads are run via registered functions. At least 1 function must be registered.
 //
 // Application lifecycle states are:
-// - Initialized
-// - Starting
-// - Running
-// - Stopping
-// - Done
+//	- Initialized
+//	- Starting
+//	- Started
+//	- Ready
+//	- Stopping
+//	- Done
 //
 // The following are automatically provided for the app:
-// - Desc - app descriptor
-// - InstanceID - app instance ID
-// - *zerolog.Logger - for application logging
-//   - the logger is used as the go standard log
-//     - logged with no level
-//     - logged using a component logger ("c":"log")
-//   - fx log events are logged with no level, i.e., which means they are always logged
-//     - logged using a component logger ("c":"fx")
-//   - the log event timestamp is in Unix time format
-//   - the logger context is augmented with the app ID, release ID, and instance ID. For example:
+//	- Desc - app descriptor
+//	- InstanceID - app instance ID
+//	- *zerolog.Logger - for application logging
+//	  - the logger is used as the go standard log
+//		- logged with no level
+//		- logged using a component logger ("c":"log")
+//	  - fx log events are logged with no level, i.e., which means they are always logged
+//		- logged using a component logger ("c":"fx")
+//	  - the log event timestamp is in Unix time format
+//	  - the logger context is augmented with the app ID, release ID, and instance ID. For example:
 //
-//     {"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","z":"01DE30RAEQGQBS0THBCVKVHFSW","t":1561304912,"m":"[Fx] RUNNING"}
+//		{"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","z":"01DE30RAEQGQBS0THBCVKVHFSW","t":1561304912,"m":"[Fx] RUNNING"}
 //
-//     where a -> app ID
-//           r -> app release ID
-//           x -> app instance ID
-//           z -> event ID
-//           t -> timestamp
-//           m -> message
+//		where a -> app ID
+//			  r -> app release ID
+//			  x -> app instance ID
+//			  z -> event ID
+//			  t -> timestamp
+//			  m -> message
 //
-// - fx.Lifecycle - for components to use to bind to the app lifecycle
-// - fx.Shutdowner - used to trigger app shutdown
-// - fx.Dotgraph - contains a DOT language visualization of the app dependency graph
+//	- fx.Lifecycle - for components to use to bind to the app lifecycle
+//	- fx.Shutdowner - used to trigger app shutdown
+//	- fx.Dotgraph - contains a DOT language visualization of the app dependency graph
+//	- ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
+//	- prometheus.Gatherer
+//	- prometheus.Registerer
 //
 // HTTP server support
 //

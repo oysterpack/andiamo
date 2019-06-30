@@ -22,11 +22,14 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"log"
 	"net/http"
+	"time"
 )
 
-func ExampleBuilder_ExposePrometheusMetricsViaHTTP() {
+func ExampleBuilder_ConfigurePrometheusHTTPHandler() {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ExposePrometheusMetricsViaHTTP(fxapp.NewPrometheusHTTPHandlerOpts()).
+		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts().
+			WithTimeout(10 * time.Second),
+		).
 		Invoke(func() {}).
 		Build()
 

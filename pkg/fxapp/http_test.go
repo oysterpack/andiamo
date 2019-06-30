@@ -43,7 +43,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 				})
 			},
 		).
-		ExposePrometheusMetricsViaHTTP(nil).
+		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -83,7 +83,7 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 				}
 			},
 		).
-		ExposePrometheusMetricsViaHTTP(nil).
+		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -123,7 +123,7 @@ func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
 				})
 			},
 		).
-		ExposePrometheusMetricsViaHTTP(nil).
+		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -148,7 +148,7 @@ func TestHTTPServer_WithNilhandler(t *testing.T) {
 				return fxapp.NewHTTPHandler("/bar", nil)
 			},
 		).
-		ExposePrometheusMetricsViaHTTP(nil).
+		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -169,7 +169,7 @@ func TestHTTPServer_HandlerPanic(t *testing.T) {
 				})
 			},
 		).
-		ExposePrometheusMetricsViaHTTP(nil).
+		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		Build()
 
@@ -273,4 +273,30 @@ func checkHTTPServerStartingEventLogged(t *testing.T, log io.Reader, addr string
 		}
 	}
 
+}
+
+// Uses cases for disabling the HTTP server:
+// - when using the App for running tests the HTTP server can be disabled to reduce overhead. It also enables tests to be run
+//   in parallel
+// - for CLI based apps
+func TestBuilder_DisableHTTPServer(t *testing.T) {
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		Invoke(func() {}).
+		DisableHTTPServer().
+		Build()
+
+	switch {
+	case err != nil:
+		t.Errorf("*** app build failed: %v", err)
+	default:
+		go app.Run()
+		<-app.Ready()
+
+		_, err := http.Get("http://:8008/metrics")
+		if err == nil {
+			t.Error("HTTP GET should have failed because the HTTP server should not be running")
+		} else {
+			t.Log(err)
+		}
+	}
 }

@@ -19,11 +19,13 @@ package fxapp_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
+	"strings"
 	"testing"
 )
 
@@ -37,17 +39,18 @@ func (event *HealthCheckFailure) MarshalZerologObject(e *zerolog.Event) {
 		Err(event.err)
 }
 
-type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
-
-func NewHealthCheckFailure(logger *zerolog.Logger) LogHealthCheckFailure {
-	const HealthCheckEventID fxapp.EventTypeID = "01DE2Z4E07E4T0GJJXCG8NN6A0"
-	logEvent := HealthCheckEventID.NewLogEventer(logger, zerolog.ErrorLevel)
-	return func(event HealthCheckFailure, tags ...string) {
-		logEvent(&event, "healthcheck failed", tags...)
-	}
-}
-
 func TestDomainEvent(t *testing.T) {
+	type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
+
+	const HealthCheckEventID fxapp.EventTypeID = "01DE2Z4E07E4T0GJJXCG8NN6A0"
+
+	NewHealthCheckFailure := func(logger *zerolog.Logger) LogHealthCheckFailure {
+		logEvent := HealthCheckEventID.NewLogEventer(logger, zerolog.ErrorLevel)
+		return func(event HealthCheckFailure, tags ...string) {
+			logEvent(&event, "healthcheck failed", tags...)
+		}
+	}
+
 	buf := new(bytes.Buffer)
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
@@ -75,6 +78,50 @@ func TestDomainEvent(t *testing.T) {
 		app.Shutdown()
 		<-app.Done()
 
-		t.Logf("\n%s", buf)
+		type Data struct {
+			Err string `json:"e"`
+		}
+
+		type LogEvent struct {
+			Level   string   `json:"l"`
+			Name    string   `json:"n"`
+			Message string   `json:"m"`
+			Tags    []string `json:"g"`
+			Data    Data     `json:"01DE2Z4E07E4T0GJJXCG8NN6A0"`
+		}
+		var logEvent LogEvent
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if line == "" {
+				break
+			}
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v", err)
+				break
+			}
+			if logEvent.Name == HealthCheckEventID.String() {
+				t.Log(line)
+				break
+			}
+		}
+		switch {
+		case logEvent.Name == HealthCheckEventID.String():
+			if logEvent.Level != "error" {
+				t.Errorf("*** level did not match: %v", logEvent.Level)
+			}
+			if logEvent.Data.Err != "failure to connect" {
+				t.Error("*** event data was not logged")
+			}
+			if len(logEvent.Tags) != 2 {
+				t.Errorf("*** tags were not logged: %v", logEvent.Tags)
+			} else {
+				if logEvent.Tags[0] != "tag-a" && logEvent.Tags[1] != "tag-b" {
+					t.Errorf("*** tags don't match: %v", logEvent.Tags)
+				}
+			}
+
+		default:
+			t.Error("*** event was not logged")
+		}
 	}
 }

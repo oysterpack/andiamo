@@ -97,6 +97,8 @@ func TestAppInitializedEventLogged(t *testing.T) {
 }
 
 func TestAppStartingEventLogged(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -105,6 +107,7 @@ func TestAppStartingEventLogged(t *testing.T) {
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
 		Invoke(func() {}).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -150,6 +153,8 @@ func TestAppStartingEventLogged(t *testing.T) {
 }
 
 func TestAppStartedEventLogged(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -166,6 +171,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 				},
 			})
 		}).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -220,6 +226,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 }
 
 func TestAppStoppingEventLogged(t *testing.T) {
+	t.Parallel()
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -228,6 +235,7 @@ func TestAppStoppingEventLogged(t *testing.T) {
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
 		Invoke(func() {}).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -273,6 +281,8 @@ func TestAppStoppingEventLogged(t *testing.T) {
 }
 
 func TestAppStoppedEventLogged(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -292,6 +302,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 				},
 			})
 		}).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -346,6 +357,8 @@ func TestAppStoppedEventLogged(t *testing.T) {
 }
 
 func TestAppInitFailedEventLogged(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -356,6 +369,7 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 		Invoke(func() error {
 			return errors.New("BOOM!!!")
 		}).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -410,6 +424,8 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 }
 
 func TestAppStartFailedEventLogged(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -444,6 +460,7 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 				})
 			},
 		).
+		DisableHTTPServer().
 		Build()
 
 	switch {
@@ -511,6 +528,8 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 // When the first Lifecycle OnStop hook fails
 // Then the start and stop errors will be combined into a single mutli-error and logged as an AppStartFailedEvent
 func TestAppStartFailedAndStopFailed(t *testing.T) {
+	t.Parallel()
+
 	type Foo struct{}
 
 	buf := new(bytes.Buffer)
@@ -545,6 +564,7 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 				})
 			},
 		).
+		DisableHTTPServer().
 		Build()
 
 	switch {
