@@ -104,6 +104,31 @@ func TestAppProvidesHealthCheckRegistry(t *testing.T) {
 	case err != nil:
 		t.Errorf("*** app build error: %v", err)
 	default:
+		healthChecks := registry.HealthChecks()
+		if len(healthChecks) < 2 {
+			t.Errorf("*** health checks are not registered: %v", healthChecks)
+			return
+		}
+
+	RegisteredHealthCheckIDs:
+		for _, id := range []string{"01DEMG4KTPH5XFM54JGQ7XZT7V", "01DEMT6E1JBMC0NKE9A3H9A5E9"} {
+			for _, healthCheck := range healthChecks {
+				if id == healthCheck.HealthCheck.ID {
+					continue RegisteredHealthCheckIDs
+				}
+			}
+			t.Errorf("*** health check is not registered: %v", id)
+		}
 
 	}
+}
+
+// The healthcheck ID must be unique
+func TestRegisterDuplicateHealthChecks(t *testing.T) {
+	t.Skip("*** TODO")
+}
+
+// When healthchecks are run, they update their corresponding healthcheck gauge
+func TestRunHealthChecks(t *testing.T) {
+	t.Skip("*** TODO")
 }

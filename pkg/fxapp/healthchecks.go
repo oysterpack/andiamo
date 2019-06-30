@@ -71,6 +71,8 @@ type HealthCheck struct {
 	YellowImpact string // what's the impact if the health check is yellow - may be blank, if the health check does not have a yellow state
 	RedImpact    string // what's the impact if the health check is red
 
+	// Checker func is passed a context with a timeout set.
+	// If the health check fails, then a HealthCheckError is returned.
 	Checker func(ctx context.Context) HealthCheckError
 }
 
@@ -140,13 +142,42 @@ func RedHealthCheckError(err error) HealthCheckError {
 type HealthCheckRegistration struct {
 	fx.Out
 
-	ScheduledHealthcheck `group:"HealthCheck"`
+	ScheduledHealthCheck `group:"HealthCheck"`
 }
 
-type ScheduledHealthcheck struct {
+// ScheduledHealthCheck is used to define a health check run schedule
+type ScheduledHealthCheck struct {
 	HealthCheck *HealthCheck
 	Interval
 	Timeout
+}
+
+// Validate checks that the ScheduledHealthCheck passes the following constraints
+//  - runInterval must be at least 1 sec
+//  - timeout must be greater than 0, at most 10 secs, and must be less than the run interval
+//    - health checks must be designed to run fast - even 10 seconds is rather long
+func (h ScheduledHealthCheck) Validate() error {
+	if err := h.HealthCheck.Validate(); err != nil {
+		return err
+	}
+
+	if time.Duration(h.Interval) < time.Second {
+		return fmt.Errorf("run interval cannot be less than 1 sec: %v", h.Interval)
+	}
+
+	if time.Duration(h.Timeout) == time.Duration(0) {
+		return errors.New("timeout cannot be 0")
+	}
+
+	if time.Duration(h.Timeout) >= time.Duration(h.Interval) {
+		return fmt.Errorf("timeout must be less than the run interval: %v > %v", h.Timeout, h.Interval)
+	}
+
+	if time.Duration(h.Timeout) > 10*time.Second {
+		return fmt.Errorf("timeout cannot be greater than 10 seconds: %v", h.Timeout)
+	}
+
+	return nil
 }
 
 // NewHealthCheckRegistration creates a new HealthCheckRegistration
@@ -154,41 +185,41 @@ type ScheduledHealthcheck struct {
 //  - timeout must be greater than 0, at most 10 secs, and must be less than the run interval
 //    - health checks must be designed to run fast - even 10 seconds is rather long
 func NewHealthCheckRegistration(healthCheck *HealthCheck, runInterval Interval, timeout Timeout) (reg HealthCheckRegistration, err error) {
-	if err := healthCheck.Validate(); err != nil {
-		return reg, err
-	}
-
-	if time.Duration(runInterval) < time.Second {
-		return reg, fmt.Errorf("run interval cannot be less than 1 sec: %v", runInterval)
-	}
-
-	if time.Duration(timeout) == time.Duration(0) {
-		return reg, errors.New("timeout cannot be 0")
-	}
-
-	if time.Duration(timeout) >= time.Duration(runInterval) {
-		return reg, fmt.Errorf("timeout must be less than the run interval: %v > %v", timeout, runInterval)
-	}
-
-	if time.Duration(timeout) > 10*time.Second {
-		return reg, fmt.Errorf("timeout cannot be greater than 10 seconds: %v", timeout)
-	}
-
-	return HealthCheckRegistration{
-		ScheduledHealthcheck: ScheduledHealthcheck{
+	reg = HealthCheckRegistration{
+		ScheduledHealthCheck: ScheduledHealthCheck{
 			HealthCheck: healthCheck,
 			Interval:    runInterval,
 			Timeout:     timeout,
 		},
-	}, nil
+	}
+	err = reg.Validate()
+	return
 }
 
+// HealthCheckRegistry is a health check registry
 type HealthCheckRegistry interface {
+	HealthChecks() []ScheduledHealthCheck
 }
 
 type healthCheckRegistry struct {
+	healthChecks []ScheduledHealthCheck
 }
 
-func newHealthCheckRegistry() HealthCheckRegistry {
-	return &healthCheckRegistry{}
+type healthCheckRegistrations struct {
+	fx.In
+	HealthChecks []ScheduledHealthCheck `group:"HealthCheck"`
+}
+
+func newHealthCheckRegistry(healthChecks healthCheckRegistrations) (HealthCheckRegistry, error) {
+	// TODO: validate and check for dup health checks
+
+	return &healthCheckRegistry{
+		healthChecks: healthChecks.HealthChecks,
+	}, nil
+}
+
+func (r *healthCheckRegistry) HealthChecks() []ScheduledHealthCheck {
+	healthchecks := make([]ScheduledHealthCheck, len(r.healthChecks))
+	copy(healthchecks, r.healthChecks)
+	return healthchecks
 }
