@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
+	"log"
 	"net/http"
 	"sort"
 	"sync"
@@ -101,8 +102,16 @@ func (opts httpServerOpts) httpServerInfo() httpServerInfo {
 
 func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle, readiness ReadinessWaitGroup) error {
 	if len(opts.Endpoints) == 0 {
-		// if there are no HTTP endpoints, then we don't need to run the HTTP server
-		return nil
+		// If there are no HTTP endpoints, then we don't need to run the HTTP server, but ...
+		//
+		// there should always be endpoints because the app registers endpoints for DevOps
+		// - Prometheus metrics
+		// - readiness probe
+		// - liveliness probe
+		// - healthchecks
+		//
+		// Thus if there are no endpoints, then a FATAL bug has been introduced
+		log.Fatal("FATAL: trying to run HTTP server with no handlers")
 	}
 
 	if err := opts.validate(); err != nil {
