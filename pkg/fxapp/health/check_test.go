@@ -33,13 +33,13 @@ func TestHealthCheck(t *testing.T) {
 		MustBuild()
 
 	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := (DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 		Description("Queries the USERS DB").
 		RedImpact("Users will not be able to access the app").
 		Checker(func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.RedFailure(errors.New("failed to connect to the database"))
-		})).
+		}).
 		MustBuild()
 
 	beforeRunningHealthCheck := time.Now()
@@ -56,7 +56,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	t.Run("description cannot be blank", func(t *testing.T) {
-		_, err := (DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err := (health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
@@ -68,13 +68,13 @@ func TestHealthCheck(t *testing.T) {
 			t.Error("*** health check should have failed to build because description was not specified")
 		}
 
-		_, err = (DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err = health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("   ").
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
 				return health.RedFailure(errors.New("failed to connect to the database"))
-			})).
+			}).
 			Build()
 
 		if err == nil {
@@ -83,25 +83,25 @@ func TestHealthCheck(t *testing.T) {
 	})
 
 	t.Run("red impact cannot be blank", func(t *testing.T) {
-		_, err := (DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Description").
 			Checker(func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
 				return health.RedFailure(errors.New("failed to connect to the database"))
-			})).
+			}).
 			Build()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because red impact was not specified")
 		}
 
-		_, err = (DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err = health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Description").
 			RedImpact("   ").
 			Checker(func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
 				return health.RedFailure(errors.New("failed to connect to the database"))
-			})).
+			}).
 			Build()
 
 		if err == nil {
@@ -110,7 +110,7 @@ func TestHealthCheck(t *testing.T) {
 	})
 
 	t.Run("check function is required", func(t *testing.T) {
-		_, err := DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Description").
 			RedImpact("impact").
 			Build()
@@ -119,7 +119,7 @@ func TestHealthCheck(t *testing.T) {
 			t.Error("*** health check should have failed to build because check func was not specified")
 		}
 
-		_, err = DatabaseHealthCheckDesc.NewBuilder(UserDBHealthCheckID).
+		_, err = health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Description").
 			RedImpact("impact").
 			Checker(nil).

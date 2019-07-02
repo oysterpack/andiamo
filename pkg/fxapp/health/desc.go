@@ -24,6 +24,7 @@ import (
 	"strings"
 )
 
+// Desc is used to describe health checks.
 type Desc interface {
 	ID() ulid.ULID
 
@@ -32,10 +33,9 @@ type Desc interface {
 	YellowImpact() string
 
 	RedImpact() string
-
-	NewBuilder(healthcheckID ulid.ULID) Builder
 }
 
+// DescBuilder is used to construct a new health check Desc
 type DescBuilder interface {
 	Description(desription string) DescBuilder
 
@@ -52,6 +52,7 @@ type descBuilder struct {
 	desc
 }
 
+// NewDescBuilder constructs a new DescBuilder instance.
 func NewDescBuilder(id ulid.ULID) DescBuilder {
 	b := &descBuilder{}
 	b.desc.id = id
@@ -130,13 +131,4 @@ func (d *desc) YellowImpact() string {
 
 func (d *desc) RedImpact() string {
 	return d.redImpact
-}
-
-func (d *desc) NewBuilder(healthcheckID ulid.ULID) Builder {
-	return &builder{
-		check: &check{
-			desc: d,
-			id:   healthcheckID,
-		},
-	}
 }

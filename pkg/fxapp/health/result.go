@@ -37,6 +37,7 @@ type Result interface {
 	fmt.Stringer
 }
 
+// ResultBuilder is used to construct new Result instances
 type ResultBuilder interface {
 	Green() Result
 
@@ -52,6 +53,7 @@ type result struct {
 	err      error
 }
 
+// NewResultBuilder is used to construct new ResultBuilder instances
 func NewResultBuilder() ResultBuilder {
 	return &result{
 		start: time.Now(),

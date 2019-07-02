@@ -25,6 +25,7 @@ import (
 	"strings"
 )
 
+// Builder is used to construct new Check instances
 type Builder interface {
 	Description(desription string) Builder
 
@@ -39,6 +40,7 @@ type Builder interface {
 	MustBuild() Check
 }
 
+// Check represents a health check
 type Check interface {
 	Desc() Desc
 
@@ -51,6 +53,16 @@ type Check interface {
 	RedImpact() string
 
 	Run(ctx context.Context) Result
+}
+
+// NewBuilder constructs a new health check Builder
+func NewBuilder(desc Desc, healthcheckID ulid.ULID) Builder {
+	return &builder{
+		check: &check{
+			desc: desc,
+			id:   healthcheckID,
+		},
+	}
 }
 
 type builder struct {
@@ -169,6 +181,7 @@ func (c *check) Run(ctx context.Context) Result {
 	}
 }
 
+// Failure represents a health check failure
 type Failure interface {
 	error
 	Status() Status
@@ -183,14 +196,18 @@ func (f failure) Status() Status {
 	return f.status
 }
 
+// YellowFailure constructs a new Failure with a Yellow status
 func YellowFailure(err error) Failure {
 	return failure{err, Yellow}
 }
 
+// RedFailure constructs a new Failure with a Red status
 func RedFailure(err error) Failure {
 	return failure{err, Red}
 }
 
+// TimeoutError is used for timeout errors.
+// Healthcheck timeout errors are flagged as Red.
 type TimeoutError struct{}
 
 func (e TimeoutError) Error() string {
