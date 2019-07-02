@@ -225,7 +225,6 @@ func (b *builder) buildOptions() []fx.Option {
 		newMetricRegistry,
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
 		newReadinessProbeHTTPHandler,
-		newHealthCheckRegistry,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	if b.prometheusHTTPServerOpts != nil {
