@@ -79,6 +79,8 @@ func TestHealthDesc(t *testing.T) {
 			RedImpact("   Query times out or fails   ").
 			MustBuild()
 
+		t.Log(DatabaseHealthCheckDesc)
+
 		if DatabaseHealthCheckDesc.ID() != id {
 			t.Errorf("*** ID did not match: %v", DatabaseHealthCheckDesc.ID())
 		}
@@ -93,4 +95,16 @@ func TestHealthDesc(t *testing.T) {
 		}
 	})
 
+}
+
+func TestDescBuilder_MustBuild(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Error("*** DescBuilder.MustBuild() should have panicked because the Desc is not valid")
+			return
+		}
+		t.Log(err)
+	}()
+	health.NewDescBuilder(ulidgen.MustNew()).MustBuild()
 }

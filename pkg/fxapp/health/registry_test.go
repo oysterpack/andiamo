@@ -86,5 +86,13 @@ func TestNewRegistry(t *testing.T) {
 	if checks[0].ID() != UserDBHealthCheckID {
 		t.Errorf("*** health check ID did not match: %v != %v", checks[0].ID(), UserDBHealthCheckID)
 	}
+}
 
+func TestRegistry_RegisterNil(t *testing.T) {
+	err := health.NewRegistry().Register(nil)
+	if err == nil {
+		t.Error("*** registering a nil health check should result in an error")
+		return
+	}
+	t.Log(err)
 }

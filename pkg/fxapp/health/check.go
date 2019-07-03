@@ -78,14 +78,18 @@ type Check interface {
 	json.Marshaler
 }
 
-// NewBuilder constructs a new health check Builder
+// NewBuilder constructs a new health check Builder.
+//
+// Defaults:
+//  - timeout = 10 secs
+//  - run interval = 15 secs
 func NewBuilder(desc Desc, healthcheckID ulid.ULID) Builder {
 	return &builder{
 		check: &check{
 			desc:     desc,
 			id:       healthcheckID,
-			timeout:  5 * time.Second,
-			interval: 10 * time.Second,
+			timeout:  10 * time.Second,
+			interval: 15 * time.Second,
 		},
 	}
 }
@@ -157,8 +161,8 @@ func (b *builder) validate() error {
 		err = multierr.Append(err, errors.New("timeout cannot be 0"))
 	}
 	// application health checks should be designed to be fast
-	if b.check.timeout > time.Duration(5*time.Second) {
-		err = multierr.Append(err, errors.New("timeout cannot be more than 5 secs"))
+	if b.check.timeout > time.Duration(10*time.Second) {
+		err = multierr.Append(err, errors.New("timeout cannot be more than 10 secs"))
 	}
 	// this is to protect ourselves from accidentally scheduling a health check to run too often
 	if b.check.interval < time.Second {
@@ -192,6 +196,7 @@ type check struct {
 func (c *check) String() string {
 	jsonBytes, err := c.MarshalJSON()
 	if err != nil {
+		// should never happen
 		return fmt.Sprintf("%#v", c)
 	}
 	return string(jsonBytes)
