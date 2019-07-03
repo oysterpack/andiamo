@@ -31,6 +31,8 @@ type Registry interface {
 	// HealthChecks returns health checks that match against the filter.
 	// If the filter is nil, then all health checks are returned
 	HealthChecks(filter func(Check) bool) []Check
+
+	Subscribe(ch chan<- Check)
 }
 
 // NewRegistry creates a new Registry
@@ -40,7 +42,8 @@ func NewRegistry() Registry {
 
 type registry struct {
 	sync.RWMutex
-	checks []Check
+	checks        []Check
+	subscriptions []chan<- Check
 }
 
 func (r *registry) Register(check Check) error {
@@ -57,6 +60,12 @@ func (r *registry) Register(check Check) error {
 	}
 
 	r.checks = append(r.checks, check)
+	for _, ch := range r.subscriptions {
+		subscriber := ch
+		go func() {
+			subscriber <- check
+		}()
+	}
 	return nil
 }
 
@@ -77,4 +86,10 @@ func (r *registry) HealthChecks(filter func(c Check) bool) []Check {
 		}
 	}
 	return checks
+}
+
+func (r *registry) Subscribe(ch chan<- Check) {
+	r.RLock()
+	defer r.RUnlock()
+	r.subscriptions = append(r.subscriptions, ch)
 }

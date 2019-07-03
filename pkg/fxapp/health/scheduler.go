@@ -16,6 +16,12 @@
 
 package health
 
+// Scheduler is used to schedule health checks to run.
+//
+// Design
+// - Only 1 health check will be allowed to run at a time to prevent application / system overload.
+// - The health check's next run is scheduled when the health check run is complete.
+// - As health checks are registered, then they will get scheduled to run.
 type Scheduler interface {
 	Running() <-chan struct{}
 }

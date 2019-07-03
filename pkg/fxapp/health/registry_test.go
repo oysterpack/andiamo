@@ -96,3 +96,28 @@ func TestRegistry_RegisterNil(t *testing.T) {
 	}
 	t.Log(err)
 }
+
+func TestRegistry_Subscribe(t *testing.T) {
+	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Executes database query").
+		YellowImpact("Slow query").
+		RedImpact("Query times out or fails").
+		MustBuild()
+
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
+		Description("Queries the USERS DB").
+		RedImpact("Users will not be able to access the app").
+		Checker(func(ctx context.Context) health.Failure {
+			time.Sleep(time.Millisecond)
+			return health.RedFailure(errors.New("failed to connect to the database"))
+		}).
+		MustBuild()
+
+	registry := health.NewRegistry()
+	checkChan := make(chan health.Check)
+	registry.Subscribe(checkChan)
+	if err := registry.Register(UserDBHealthCheck); err != nil {
+		t.Errorf("*** failed to register health check: %v", err)
+	}
+	t.Log(<-checkChan)
+}
