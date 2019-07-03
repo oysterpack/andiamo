@@ -17,7 +17,9 @@
 package health
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/oklog/ulid"
 	"go.uber.org/multierr"
 	"log"
@@ -25,14 +27,22 @@ import (
 )
 
 // Desc is used to describe health checks.
+//
+// The descriptions are meant to be short
 type Desc interface {
 	ID() ulid.ULID
 
+	// Description briefly describes the health check's purpose
 	Description() string
 
+	// YellowImpact describes what it means if the health check error status is Yellow
 	YellowImpact() string
 
+	// RedImpact describes what it means if the health check error status is Red
 	RedImpact() string
+
+	fmt.Stringer
+	json.Marshaler
 }
 
 // DescBuilder is used to construct a new health check Desc
@@ -115,6 +125,24 @@ type desc struct {
 	description  string
 	yellowImpact string
 	redImpact    string
+}
+
+func (d *desc) String() string {
+	jsonBytes, err := d.MarshalJSON()
+	if err != nil {
+		return fmt.Sprintf("%#v", d)
+	}
+	return string(jsonBytes)
+}
+
+func (d *desc) MarshalJSON() (text []byte, err error) {
+	type Data struct {
+		ID           ulid.ULID
+		Description  string
+		YellowImpact string
+		RedImpact    string
+	}
+	return json.Marshal(Data{d.id, d.description, d.yellowImpact, d.redImpact})
 }
 
 func (d *desc) ID() ulid.ULID {

@@ -43,7 +43,7 @@ func TestHealthCheck(t *testing.T) {
 		MustBuild()
 
 	beforeRunningHealthCheck := time.Now()
-	result := UserDBHealthCheck.Run(context.Background())
+	result := UserDBHealthCheck.Run()
 	t.Log(result)
 	if result.Status() != health.Red {
 		t.Error("*** health check result should be Red")
@@ -127,6 +127,47 @@ func TestHealthCheck(t *testing.T) {
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because check func was nil")
+		}
+	})
+
+	t.Run("run green health check", func(t *testing.T) {
+		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+			Description("Queries the USERS DB").
+			RedImpact("Users will not be able to access the app").
+			Checker(func(ctx context.Context) health.Failure {
+				time.Sleep(time.Millisecond)
+				return nil
+			}).
+			MustBuild()
+
+		result := UserDBHealthCheck.Run()
+		t.Log(result)
+		if result.Status() != health.Green {
+			t.Errorf("*** status should be green")
+		}
+		if result.Error() != nil {
+			t.Error("*** error should be nil")
+		}
+	})
+
+	t.Run("health check times out", func(t *testing.T) {
+		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+			Description("Queries the USERS DB").
+			RedImpact("Users will not be able to access the app").
+			Checker(func(ctx context.Context) health.Failure {
+				time.Sleep(time.Millisecond)
+				return nil
+			}).
+			Timeout(time.Microsecond).
+			MustBuild()
+
+		result := UserDBHealthCheck.Run()
+		t.Log(result)
+		if result.Status() != health.Red {
+			t.Errorf("*** status should be Red")
+		}
+		if result.Error() == nil {
+			t.Error("*** health check should have timed out")
 		}
 	})
 }
