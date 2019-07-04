@@ -35,8 +35,7 @@ func TestScheduler_Start(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 		Description("Queries the USERS DB").
 		RedImpact("Users will not be able to access the app").
 		Checker(func(ctx context.Context) health.Failure {
@@ -116,8 +115,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 		Description("Queries the USERS DB").
 		RedImpact("Users will not be able to access the app").
 		Checker(func(ctx context.Context) health.Failure {
@@ -126,7 +124,21 @@ func TestScheduler_Subscribe(t *testing.T) {
 		RunInterval(1 * time.Microsecond).
 		MustBuild()
 
+	SessionDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
+		Description("Queries the SESSIONS DB").
+		RedImpact("Users will not be able to access the app").
+		Checker(func(ctx context.Context) health.Failure {
+			return nil
+		}).
+		RunInterval(1 * time.Microsecond).
+		MustBuild()
+
 	err := registry.Register(UserDBHealthCheck)
+	if err != nil {
+		t.Errorf("*** failed to register health check: %v", err)
+		return
+	}
+	err = registry.Register(SessionDBHealthCheck)
 	if err != nil {
 		t.Errorf("*** failed to register health check: %v", err)
 		return
@@ -147,7 +159,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 	}()
 
 	healthCheckResults := scheduler.Subscribe(func(check health.Check) bool {
-		return true
+		return check.ID() == UserDBHealthCheck.ID()
 	})
 	result := <-healthCheckResults
 	t.Log(result)
@@ -155,6 +167,70 @@ func TestScheduler_Subscribe(t *testing.T) {
 		t.Errorf("*** health check result status should be Green: %v", result)
 	}
 
+}
+
+func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
+	// shorten the run interval to run the test fast
+	minRunInterval := health.MinRunInterval()
+	health.SetMinRunInterval(time.Nanosecond)
+	defer func() {
+		// reset
+		health.SetMinRunInterval(minRunInterval)
+	}()
+
+	registry := health.NewRegistry()
+
+	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Executes database query").
+		YellowImpact("Slow query").
+		RedImpact("Query times out or fails").
+		MustBuild()
+
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
+		Description("Queries the USERS DB").
+		RedImpact("Users will not be able to access the app").
+		Checker(func(ctx context.Context) health.Failure {
+			return nil
+		}).
+		RunInterval(1 * time.Microsecond).
+		MustBuild()
+
+	SessionDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
+		Description("Queries the SESSIONS DB").
+		RedImpact("Users will not be able to access the app").
+		Checker(func(ctx context.Context) health.Failure {
+			return nil
+		}).
+		RunInterval(1 * time.Microsecond).
+		MustBuild()
+
+	err := registry.Register(UserDBHealthCheck)
+	if err != nil {
+		t.Errorf("*** failed to register health check: %v", err)
+		return
+	}
+	err = registry.Register(SessionDBHealthCheck)
+	if err != nil {
+		t.Errorf("*** failed to register health check: %v", err)
+		return
+	}
+
+	scheduler := health.StartScheduler(registry)
+
+	healthCheckResults := scheduler.Subscribe(func(check health.Check) bool {
+		return check.ID() == UserDBHealthCheck.ID()
+	})
+
+	scheduler.StopAsync()
+	select {
+	case <-scheduler.Done():
+		t.Log("scheduler is shutdown")
+	case result := <-healthCheckResults:
+		t.Log(result)
+		if result.Status() != health.Green {
+			t.Errorf("*** health check result status should be Green: %v", result)
+		}
+	}
 }
 
 func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
@@ -174,8 +250,7 @@ func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 		Description("Queries the USERS DB").
 		RedImpact("Users will not be able to access the app").
 		Checker(func(ctx context.Context) health.Failure {

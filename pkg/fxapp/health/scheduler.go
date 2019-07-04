@@ -17,6 +17,7 @@
 package health
 
 import (
+	"sync"
 	"time"
 )
 
@@ -43,21 +44,26 @@ type Scheduler interface {
 
 	// Subscribe is used to subscribe to health check results.
 	//
-	// If the scheduler has been shutdown, then a closed channel will be returned
+	// If the scheduler has been shutdown, then a closed channel will be returned.
+	// As soon as the scheduler shutdown is complete, then no more health check results will be published - even if they
+	// are in flight.
 	Subscribe(filter func(check Check) bool) <-chan Result
 }
 
 type scheduler struct {
 	Registry
 
-	shutdown, done chan struct{}
+	shutdown chan struct{} // used to trigger the scheduler to shutdown
+	done     chan struct{} // used to signal when the scheduler shutdown is complete
 
-	healthCheckCount                             uint
-	incHealthCheckCounter, decHealthCheckCounter chan struct{}
-	getHealthCheckCount                          chan chan uint
+	healthCheckCount                             uint           // number of health checks that have been scheduled
+	incHealthCheckCounter, decHealthCheckCounter chan struct{}  // used to update the health check counter
+	getHealthCheckCount                          chan chan uint // used to get the current scheduled health check count
 
-	results   chan runResult
-	subscribe chan subscribeRequest
+	results   chan runResult        // used to publish health check run results
+	subscribe chan subscribeRequest // used to subscribe to health check run results
+
+	runLock sync.Mutex
 }
 
 type runResult struct {
@@ -89,6 +95,12 @@ func StartScheduler(registry Registry) Scheduler {
 		}
 	}
 
+	runHealthCheck := func(check Check) Result {
+		s.runLock.Lock()
+		defer s.runLock.Unlock()
+		return check.Run()
+	}
+
 	schedule := func(check Check) {
 		defer func() {
 			s.decHealthCheckCounter <- struct{}{}
@@ -103,7 +115,7 @@ func StartScheduler(registry Registry) Scheduler {
 				select {
 				case <-s.shutdown:
 					return
-				case s.results <- runResult{check, check.Run()}:
+				case s.results <- runResult{check, runHealthCheck(check)}:
 				}
 			}
 		}
