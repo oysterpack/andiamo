@@ -63,6 +63,18 @@ func TestScheduler_Start(t *testing.T) {
 		select {
 		case <-scheduler.Done():
 			t.Log("scheduler shutdown is complete")
+			if scheduler.HealthCheckCount() != 0 {
+				t.Errorf("*** scheduler health check count should be 0: %v", scheduler.HealthCheckCount())
+			}
+
+			select {
+			case _, ok := <-scheduler.Subscribe(nil):
+				if ok {
+					t.Error("*** subscription chan should be closed")
+				}
+			default:
+				t.Error("*** since the scheduler is shutdown, the subscription chan should always return false")
+			}
 		case <-timeout:
 			t.Error("*** scheduler shutdown timed out")
 		}
@@ -95,8 +107,6 @@ func TestScheduler_Subscribe(t *testing.T) {
 		// reset
 		health.SetMinRunInterval(minRunInterval)
 	}()
-
-	t.Parallel()
 
 	registry := health.NewRegistry()
 
@@ -147,11 +157,58 @@ func TestScheduler_Subscribe(t *testing.T) {
 
 }
 
-func TestReceivingOnNilChan(t *testing.T) {
-	var ch chan struct{}
-	select {
-	case <-ch:
-	default:
-		t.Log("no message")
+func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
+	// shorten the run interval to run the test fast
+	minRunInterval := health.MinRunInterval()
+	health.SetMinRunInterval(time.Nanosecond)
+	defer func() {
+		// reset
+		health.SetMinRunInterval(minRunInterval)
+	}()
+
+	registry := health.NewRegistry()
+
+	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Executes database query").
+		YellowImpact("Slow query").
+		RedImpact("Query times out or fails").
+		MustBuild()
+
+	UserDBHealthCheckID := ulidgen.MustNew()
+	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
+		Description("Queries the USERS DB").
+		RedImpact("Users will not be able to access the app").
+		Checker(func(ctx context.Context) health.Failure {
+			return nil
+		}).
+		RunInterval(1 * time.Microsecond).
+		MustBuild()
+
+	scheduler := health.StartScheduler(registry)
+	defer func() {
+		scheduler.StopAsync() // triggers shutdown
+		if !scheduler.Stopping() {
+			t.Error("*** scheduler is reporting that it is not yet stopping")
+		}
+		timeout := time.After(1 * time.Second)
+		select {
+		case <-scheduler.Done():
+		case <-timeout:
+			t.Error("*** scheduler shutdown timed out")
+		}
+	}()
+
+	healthCheckResults := scheduler.Subscribe(nil)
+
+	err := registry.Register(UserDBHealthCheck)
+	if err != nil {
+		t.Errorf("*** failed to register health check: %v", err)
+		return
+	}
+
+	result := <-healthCheckResults
+	t.Log(result)
+	if result.Status() != health.Green {
+		t.Errorf("*** health check result status should be Green: %v", result)
 	}
 }

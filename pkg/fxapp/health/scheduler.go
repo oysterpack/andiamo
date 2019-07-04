@@ -200,17 +200,19 @@ func (s *scheduler) Subscribe(filter func(Check) bool) <-chan Result {
 		make(chan chan Result),
 	}
 
-	select {
-	case <-s.done:
+	closedChan := func() chan Result {
 		ch := make(chan Result)
 		close(ch)
 		return ch
+	}
+
+	select {
+	case <-s.done:
+		return closedChan()
 	case s.subscribe <- req:
 		select {
 		case <-s.done:
-			ch := make(chan Result)
-			close(ch)
-			return ch
+			return closedChan()
 		case ch := <-req.reply:
 			return ch
 		}
