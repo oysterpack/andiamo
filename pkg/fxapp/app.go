@@ -55,30 +55,39 @@ func (f errorHandler) HandleError(err error) {
 	f(err)
 }
 
-// App represents an application server container.
+// App represents a functional application container, leveraging fx (https://godoc.org/go.uber.org/fx) as the underlying
+// framework. Functional means, the application behavior is defined via functions.
 //
-// Dependency injection is provided via registered constructors.
-// Application workloads are run via registered functions. At least 1 function must be registered.
+// The key is understanding the application life cycle. The application transitions through the following lifecycle states:
+//	1. Initialized
+//	2. Starting
+//	3. Started
+//	4. Ready
+//	5. Stopping
+//	6. Done
 //
-// Application lifecycle states are:
-//	- Initialized
-//	- Starting
-//	- Started
-//	- Ready
-//	- Stopping
-//	- Done
+// When building an application, functions are registered which specify how to:
+//  - initialize the application
+//  - register services that are bound to the application life cycle, via `fx.Lifecycle` (https://godoc.org/go.uber.org/fx#Lifecycle)
 //
-// The following are automatically provided for the app:
-//	- Desc - app descriptor
-//	- InstanceID - app instance ID
-//	- *zerolog.Logger - for application logging
-//	  - the logger is used as the go standard log
-//		- logged with no level
-//		- logged using a component logger ("c":"log")
-//	  - fx log events are logged with no level, i.e., which means they are always logged
-//		- logged using a component logger ("c":"fx")
-//	  - the log event timestamp is in Unix time format
-//	  - the logger context is augmented with the app ID, release ID, and instance ID. For example:
+// Function arguments are provided via dependency injection by registering provider constructor functions with the application.
+// Provider constructor functions are lazily invoked when needed inject function dependencies.
+//
+// Application Descriptor
+//
+// The application descriptor is another way to say application metadata (see `Desc`). Every application has the following
+// metadata:
+// 	- ID - represented as a ULID
+//  - name
+//	- version
+//	- release ID - an application has many versions, but not all versions are released.
+//    - can be used to look up additional release artifacts, e.g., release notes, test reports, etc
+//
+// Application Logging
+//
+// Zerolog (https://godoc.org/github.com/rs/zerolog) is used as the structured JSON logging framework. A `*zerolog.Logger`
+// is automatically provided when building the application and available for dependency injection. The application logger
+// context is augmented with application metadata and an event ID, e.g.,
 //
 //		{"a":"01DE2GCMX5ZSVZXE2RTY7DCB88","r":"01DE2GCMX570BXG6468XBXNXQT","x":"01DE2GCMX5Q9S44S8166JX10WV","z":"01DE30RAEQGQBS0THBCVKVHFSW","t":1561304912,"m":"[Fx] RUNNING"}
 //
@@ -86,15 +95,19 @@ func (f errorHandler) HandleError(err error) {
 //			  r -> app release ID
 //			  x -> app instance ID
 //			  z -> event ID
-//			  t -> timestamp
+//			  t -> timestamp - in Unix time format
 //			  m -> message
 //
-//	- fx.Lifecycle - for components to use to bind to the app lifecycle
-//	- fx.Shutdowner - used to trigger app shutdown
-//	- fx.Dotgraph - contains a DOT language visualization of the app dependency graph
-//	- ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
-//	- prometheus.Gatherer
-//	- prometheus.Registerer
+// The zerolog application logger is plugged in as the go standard log, where log events are logged with no level and logged
+// using a component logger named 'log' ("c":"log")
+//
+// Prometheus Metrics
+//
+// Health Checks
+//
+// Readiness Probe
+//
+// Liveliness Probe
 //
 // HTTP server support
 //
@@ -107,6 +120,17 @@ func (f errorHandler) HandleError(err error) {
 //	- MaxHeaderBytes:    1024,
 //
 // NOTE: when exposing Prometheus metrics via HTTP will provide an HTTP handler, and thus cause the HTTP server to run.
+//
+// Automatically Provided
+//	- Desc
+//	- InstanceID
+//	- *zerolog.Logger
+//	- fx.Lifecycle - for components to use to bind to the app lifecycle
+//	- fx.Shutdowner - used to trigger app shutdown
+//	- fx.Dotgraph - contains a DOT language visualization of the app dependency graph
+//	- ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
+//	- prometheus.Gatherer
+//	- prometheus.Registerer
 type App interface {
 	Options
 	LifeCycle
