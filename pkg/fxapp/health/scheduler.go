@@ -17,7 +17,6 @@
 package health
 
 import (
-	"log"
 	"time"
 )
 
@@ -29,7 +28,6 @@ import (
 // - As health checks are registered, then they will get scheduled to run.
 // - Once the scheduler is stopped, it cannot be restarted
 type Scheduler interface {
-	Running() <-chan struct{}
 
 	// StopAsync triggers shutdown async
 	StopAsync()
@@ -42,25 +40,36 @@ type Scheduler interface {
 
 	// HealthCheckCount returns the number of health checks that are currently scheduled
 	HealthCheckCount() uint
+
+	// Subscribe is used to subscribe to health check results.
+	//
+	// If the scheduler has been shutdown, then a closed channel will be returned
+	Subscribe(filter func(check Check) bool) <-chan Result
 }
 
 type scheduler struct {
 	Registry
 
-	running, shutdown, done chan struct{}
+	shutdown, done chan struct{}
 
 	healthCheckCount                             uint
 	incHealthCheckCounter, decHealthCheckCounter chan struct{}
 	getHealthCheckCount                          chan chan uint
 
-	results chan Result
+	results   chan runResult
+	subscribe chan subscribeRequest
 }
 
+type runResult struct {
+	Check
+	Result
+}
+
+// StartScheduler starts up a new health check scheduler for the specified registry.
 func StartScheduler(registry Registry) Scheduler {
 	s := &scheduler{
 		Registry: registry,
 
-		running:  make(chan struct{}),
 		shutdown: make(chan struct{}),
 		done:     make(chan struct{}),
 
@@ -68,7 +77,16 @@ func StartScheduler(registry Registry) Scheduler {
 		decHealthCheckCounter: make(chan struct{}),
 		getHealthCheckCount:   make(chan chan uint),
 
-		results: make(chan Result),
+		results:   make(chan runResult),
+		subscribe: make(chan subscribeRequest),
+	}
+
+	subscriptions := make(map[chan Result]func(Check) bool)
+	sendResult := func(result Result, ch chan<- Result) {
+		select {
+		case ch <- result:
+		case <-s.done:
+		}
 	}
 
 	schedule := func(check Check) {
@@ -82,7 +100,11 @@ func StartScheduler(registry Registry) Scheduler {
 			case <-s.shutdown:
 				return
 			case <-timer:
-				s.results <- check.Run()
+				select {
+				case <-s.shutdown:
+					return
+				case s.results <- runResult{check, check.Run()}:
+				}
 			}
 		}
 	}
@@ -92,35 +114,43 @@ func StartScheduler(registry Registry) Scheduler {
 	}
 
 	go func() {
-		close(s.running)
-		healthcheckRegistered := make(chan Check)
-		s.Registry.Subscribe(healthcheckRegistered)
+		// subscribe to health check registration events
+		// - when a health check is registered, then schedule it
+		healthcheckRegistered := s.Registry.Subscribe()
+
+		defer close(s.done)
+
 		for {
 			select {
 			case check := <-healthcheckRegistered:
 				go schedule(check)
 			case <-s.incHealthCheckCounter:
+				// health check has been scheduled
 				s.healthCheckCount++
 			case <-s.decHealthCheckCounter:
+				// health check has been unscheduled
 				s.healthCheckCount--
 				if s.Stopping() && s.healthCheckCount == 0 {
-					close(s.done)
 					return
 				}
 			case reply := <-s.getHealthCheckCount:
 				reply <- s.healthCheckCount
 			case result := <-s.results:
-				// TODO: publish result to subscribers
-				log.Print(result)
+				for ch, filter := range subscriptions {
+					if filter == nil || filter(result.Check) {
+						go sendResult(result.Result, ch)
+					}
+				}
+			case req := <-s.subscribe:
+				ch := make(chan Result)
+				subscriptions[ch] = req.filter
+				req.reply <- ch
 			}
+
 		}
 	}()
 
 	return s
-}
-
-func (s *scheduler) Running() <-chan struct{} {
-	return s.running
 }
 
 func (s *scheduler) StopAsync() {
@@ -145,21 +175,44 @@ func (s *scheduler) Done() <-chan struct{} {
 }
 
 func (s *scheduler) HealthCheckCount() uint {
+	count := make(chan uint)
 	select {
 	case <-s.done:
 		return 0
-	default:
-		count := make(chan uint)
+	case s.getHealthCheckCount <- count: // send request
 		select {
 		case <-s.done:
 			return 0
-		case s.getHealthCheckCount <- count: // send request
-			select {
-			case <-s.done:
-				return 0
-			case n := <-count: // wait for response
-				return n
-			}
+		case n := <-count: // wait for response
+			return n
+		}
+	}
+}
+
+type subscribeRequest struct {
+	filter func(Check) bool
+	reply  chan chan Result
+}
+
+func (s *scheduler) Subscribe(filter func(Check) bool) <-chan Result {
+	req := subscribeRequest{
+		filter,
+		make(chan chan Result),
+	}
+
+	select {
+	case <-s.done:
+		ch := make(chan Result)
+		close(ch)
+		return ch
+	case s.subscribe <- req:
+		select {
+		case <-s.done:
+			ch := make(chan Result)
+			close(ch)
+			return ch
+		case ch := <-req.reply:
+			return ch
 		}
 	}
 }

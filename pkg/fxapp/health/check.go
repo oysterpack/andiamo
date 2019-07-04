@@ -25,6 +25,7 @@ import (
 	"go.uber.org/multierr"
 	"log"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -145,6 +146,50 @@ func (b *builder) trimSpace() {
 	b.check.redImpact = strings.TrimSpace(b.check.redImpact)
 }
 
+// Default health check run constraints
+var (
+	lock sync.Mutex
+	// used to prevent scheduling a health check to run too often accidentally
+	minRunInterval = time.Second
+	// used to prevent running health checks that take too long to run
+	// health checks should be designed to run fast
+	maxRunTimeout = 10 * time.Second
+)
+
+// MaxRunTimeout returns the max allowed health check run timeout.
+//  - used to prevent running health checks that take too long to run
+//  - health checks should be designed to run fast
+func MaxRunTimeout() time.Duration {
+	lock.Lock()
+	defer lock.Unlock()
+	return maxRunTimeout
+}
+
+// MinRunInterval returns the min health check run interval.
+//  - used to prevent scheduling a health check to run too often accidentally
+func MinRunInterval() time.Duration {
+	lock.Lock()
+	defer lock.Unlock()
+	return minRunInterval
+}
+
+// SetMaxRunTimeout sets the max allowed health check run timeout.
+//  - used to prevent running health checks that take too long to run
+//  - health checks should be designed to run fast
+func SetMaxRunTimeout(timeout time.Duration) {
+	lock.Lock()
+	defer lock.Unlock()
+	maxRunTimeout = timeout
+}
+
+// SetMinRunInterval sets the min health check run interval.
+//  - used to prevent scheduling a health check to run too often accidentally
+func SetMinRunInterval(interval time.Duration) {
+	lock.Lock()
+	defer lock.Unlock()
+	minRunInterval = interval
+}
+
 func (b *builder) validate() error {
 	var err error
 
@@ -162,12 +207,14 @@ func (b *builder) validate() error {
 		err = multierr.Append(err, errors.New("timeout cannot be 0"))
 	}
 	// application health checks should be designed to be fast
-	if b.check.timeout > time.Duration(10*time.Second) {
-		err = multierr.Append(err, errors.New("timeout cannot be more than 10 secs"))
+	maxRunTimeout := MaxRunTimeout()
+	if b.check.timeout > maxRunTimeout {
+		err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", maxRunTimeout))
 	}
 	// this is to protect ourselves from accidentally scheduling a health check to run too often
-	if b.check.interval < time.Second {
-		err = multierr.Append(err, errors.New("run interval cannot be less than 1 sec"))
+	minRunInterval := MinRunInterval()
+	if b.check.interval < minRunInterval {
+		err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", minRunInterval))
 	}
 
 	return err

@@ -26,6 +26,8 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
+	t.Parallel()
+
 	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
 		Description("Executes database query").
 		YellowImpact("Slow query").
@@ -76,6 +78,8 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	t.Run("run green health check", func(t *testing.T) {
+		t.Parallel()
+
 		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
@@ -99,6 +103,8 @@ func TestHealthCheck(t *testing.T) {
 	})
 
 	t.Run("health check times out", func(t *testing.T) {
+		t.Parallel()
+
 		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
@@ -121,6 +127,8 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestCheck_Run(t *testing.T) {
+	t.Parallel()
+
 	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
 		Description("Executes database query").
 		YellowImpact("Slow query").
@@ -128,6 +136,8 @@ func TestCheck_Run(t *testing.T) {
 		MustBuild()
 
 	t.Run("run green health check", func(t *testing.T) {
+		t.Parallel()
+
 		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
@@ -148,6 +158,8 @@ func TestCheck_Run(t *testing.T) {
 	})
 
 	t.Run("run green health check", func(t *testing.T) {
+		t.Parallel()
+
 		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
@@ -168,6 +180,8 @@ func TestCheck_Run(t *testing.T) {
 	})
 
 	t.Run("health check times out", func(t *testing.T) {
+		t.Parallel()
+
 		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
@@ -197,6 +211,8 @@ func TestCheck_Validation(t *testing.T) {
 		MustBuild()
 
 	t.Run("description cannot be blank", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := (health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
@@ -224,6 +240,8 @@ func TestCheck_Validation(t *testing.T) {
 	})
 
 	t.Run("red impact cannot be blank", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Description").
 			Checker(func(ctx context.Context) health.Failure {
@@ -251,6 +269,8 @@ func TestCheck_Validation(t *testing.T) {
 	})
 
 	t.Run("check function is required", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Description").
 			RedImpact("impact").
@@ -272,6 +292,8 @@ func TestCheck_Validation(t *testing.T) {
 	})
 
 	t.Run("timeout cannot be zero", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Description").
 			RedImpact("impact").
@@ -289,6 +311,8 @@ func TestCheck_Validation(t *testing.T) {
 	})
 
 	t.Run("timeout cannot be greater than 10 secs", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Description").
 			RedImpact("impact").
@@ -319,6 +343,8 @@ func TestCheck_Validation(t *testing.T) {
 	})
 
 	t.Run("timeout cannot be greater than 10 secs", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
 			Description("Description").
 			RedImpact("impact").
@@ -350,6 +376,8 @@ func TestCheck_Validation(t *testing.T) {
 }
 
 func TestBuilder_MustBuild_Panics(t *testing.T) {
+	t.Parallel()
+
 	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
 		Description("Executes database query").
 		YellowImpact("Slow query").

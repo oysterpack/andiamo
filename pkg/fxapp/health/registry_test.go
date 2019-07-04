@@ -114,8 +114,7 @@ func TestRegistry_Subscribe(t *testing.T) {
 		MustBuild()
 
 	registry := health.NewRegistry()
-	checkChan := make(chan health.Check)
-	registry.Subscribe(checkChan)
+	checkChan := registry.Subscribe()
 	if err := registry.Register(UserDBHealthCheck); err != nil {
 		t.Errorf("*** failed to register health check: %v", err)
 	}

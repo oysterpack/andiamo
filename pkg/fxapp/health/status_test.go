@@ -14,25 +14,23 @@
  * limitations under the License.
  */
 
-package health
+package health_test
 
-// Status is used to define a health error status
-type Status uint8
-
-// Status enum
-const (
-	Green Status = iota
-	Yellow
-	Red
+import (
+	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
+	"testing"
 )
 
-func (e Status) String() string {
-	switch e {
-	case Green:
-		return "Green"
-	case Yellow:
-		return "Yellow"
-	default:
-		return "Red"
+func TestStatus_String(t *testing.T) {
+	if health.Green.String() != "Green" {
+		t.Errorf("*** health.Green.String() should be 'Green': %s", health.Green.String())
+	}
+
+	if health.Yellow.String() != "Yellow" {
+		t.Errorf("*** health.Yellow.String() should be 'Yellow': %s", health.Yellow.String())
+	}
+
+	if health.Red.String() != "Red" {
+		t.Errorf("*** health.Red.String() should be 'Red': %s", health.Red.String())
 	}
 }

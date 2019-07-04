@@ -33,7 +33,7 @@ type Registry interface {
 	HealthChecks(filter func(Check) bool) []Check
 
 	// Subscribe is used to be notified when a health check has been registered
-	Subscribe(ch chan<- Check)
+	Subscribe() <-chan Check
 }
 
 // NewRegistry creates a new Registry
@@ -89,8 +89,10 @@ func (r *registry) HealthChecks(filter func(c Check) bool) []Check {
 	return checks
 }
 
-func (r *registry) Subscribe(ch chan<- Check) {
+func (r *registry) Subscribe() <-chan Check {
 	r.RLock()
 	defer r.RUnlock()
+	ch := make(chan Check)
 	r.subscriptions = append(r.subscriptions, ch)
+	return ch
 }

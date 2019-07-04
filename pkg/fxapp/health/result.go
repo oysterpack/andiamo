@@ -17,6 +17,7 @@
 package health
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/oklog/ulid"
 	"time"
@@ -38,6 +39,7 @@ type Result interface {
 	Error() error
 
 	fmt.Stringer
+	json.Marshaler
 }
 
 // ResultBuilder is used to construct new Result instances
@@ -66,11 +68,34 @@ func NewResultBuilder(healthCheckID ulid.ULID) ResultBuilder {
 }
 
 func (r *result) String() string {
-	if r.err == nil {
-		return fmt.Sprintf("Result{Start: %v, Duration: %v, Status: %v}", r.start, r.duration, r.status)
+	jsonBytes, err := json.Marshal(r)
+	if err != nil {
+		return fmt.Sprintf("%#v", r)
 	}
-	return fmt.Sprintf("Result{Start: %v, Duration: %v, Status: %v, Error: %q}", r.start, r.duration, r.status, r.err)
+	return string(jsonBytes)
+}
 
+func (r *result) MarshalJSON() ([]byte, error) {
+	type JSON struct {
+		HealthCheckID ulid.ULID
+		Start         time.Time
+		Duration      time.Duration
+		Status        Status
+		Err           string
+	}
+
+	err := ""
+	if r.err != nil {
+		err = r.err.Error()
+	}
+
+	return json.Marshal(JSON{
+		r.healthCheckID,
+		r.start,
+		r.duration,
+		r.status,
+		err,
+	})
 }
 
 func (r *result) HealthCheckID() ulid.ULID {
