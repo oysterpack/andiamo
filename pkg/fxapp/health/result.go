@@ -18,11 +18,14 @@ package health
 
 import (
 	"fmt"
+	"github.com/oklog/ulid"
 	"time"
 )
 
 // Result for running the health check
 type Result interface {
+	HealthCheckID() ulid.ULID
+
 	// Time is when the health check was run
 	Time() time.Time
 	// Duration is how long it took for the health check to run
@@ -47,16 +50,18 @@ type ResultBuilder interface {
 }
 
 type result struct {
-	start    time.Time
-	duration time.Duration
-	status   Status
-	err      error
+	healthCheckID ulid.ULID
+	start         time.Time
+	duration      time.Duration
+	status        Status
+	err           error
 }
 
 // NewResultBuilder is used to construct new ResultBuilder instances
-func NewResultBuilder() ResultBuilder {
+func NewResultBuilder(healthCheckID ulid.ULID) ResultBuilder {
 	return &result{
-		start: time.Now(),
+		healthCheckID: healthCheckID,
+		start:         time.Now(),
 	}
 }
 
@@ -66,6 +71,10 @@ func (r *result) String() string {
 	}
 	return fmt.Sprintf("Result{Start: %v, Duration: %v, Status: %v, Error: %q}", r.start, r.duration, r.status, r.err)
 
+}
+
+func (r *result) HealthCheckID() ulid.ULID {
+	return r.healthCheckID
 }
 
 func (r *result) Time() time.Time {

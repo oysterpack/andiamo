@@ -50,11 +50,36 @@ func TestScheduler_Start(t *testing.T) {
 	}
 
 	scheduler := health.StartScheduler(registry)
+	defer func() {
+		scheduler.StopAsync() // triggers shutdown
+		if !scheduler.Stopping() {
+			t.Error("*** scheduler is reporting that it is not yet stopping")
+		}
+		timeout := time.After(time.Second)
+		select {
+		case <-scheduler.Done():
+		case <-timeout:
+			t.Error("*** scheduler shutdown timed out")
+		}
+
+	}()
 	select {
+	case <-time.After(time.Second):
+		t.Error("*** scheduler is not running")
 	case <-scheduler.Running():
+		for {
+			if scheduler.HealthCheckCount() == 0 {
+				t.Log("waiting for health check to get scheduled ...")
+				time.Sleep(time.Millisecond)
+			} else {
+				break
+			}
+		}
+		if count := scheduler.HealthCheckCount(); count != 1 {
+			t.Errorf("*** there should be 1 health check scheduled: %d", count)
+		}
+
 		t.Log("scheduler is running")
-	default:
-		t.Log("scheduler is not running")
 	}
 
 }

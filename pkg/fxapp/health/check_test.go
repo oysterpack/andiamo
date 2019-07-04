@@ -87,6 +87,9 @@ func TestHealthCheck(t *testing.T) {
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
+		if result.HealthCheckID() != UserDBHealthCheck.ID() {
+			t.Errorf("*** ID did not match: %v", result.HealthCheckID())
+		}
 		if result.Status() != health.Green {
 			t.Errorf("*** status should be green")
 		}

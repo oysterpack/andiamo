@@ -115,9 +115,9 @@ type App interface {
 	// It waits to receive a SIGINT or SIGTERM signal to shutdown the app.
 	Run() error
 
-	// Shutdown signals the app to shutdown. This method does not block, i.e., application shutdown occurs async.
+	// StopAsync signals the app to shutdown. This method does not block, i.e., application shutdown occurs async.
 	//
-	// Shutdown can only be called after the app has been started - otherwise an error is returned.
+	// StopAsync can only be called after the app has been started - otherwise an error is returned.
 	Shutdown() error
 }
 

@@ -72,6 +72,7 @@ type Check interface {
 	// The interval resets after the health check run completes.
 	RunInterval() time.Duration
 
+	// Run uses the timeout setting to time limit the health check
 	Run() Result
 
 	fmt.Stringer
@@ -248,7 +249,7 @@ func (c *check) Run() Result {
 	ch := make(chan Failure)
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
-	result := NewResultBuilder()
+	result := NewResultBuilder(c.id)
 	go func() {
 		ch <- c.run(ctx)
 	}()

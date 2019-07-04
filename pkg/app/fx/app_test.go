@@ -543,7 +543,7 @@ func TestAppHookOnStopErrorHandling(t *testing.T) {
 					OnStart: func(context.Context) error {
 						fmt.Println("App will be shutdown ...")
 						if e := shutdowner.Shutdown(); e != nil {
-							t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+							t.Fatalf("shutdowner.StopAsync() failed: %v", e)
 						}
 						fmt.Println("App has been signalled to shutdown ...")
 						return nil
@@ -589,7 +589,7 @@ func TestApp_Run(t *testing.T) {
 				lc.Append(fx.Hook{
 					OnStart: func(context.Context) error {
 						if e := shutdowner.Shutdown(); e != nil {
-							t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+							t.Fatalf("shutdowner.StopAsync() failed: %v", e)
 						}
 						return nil
 					},
@@ -635,7 +635,7 @@ func TestErrRegistryIsProvided(t *testing.T) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
 					if e := shutdowner.Shutdown(); e != nil {
-						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+						t.Fatalf("shutdowner.StopAsync() failed: %v", e)
 					}
 					return nil
 				},
@@ -680,7 +680,7 @@ func TestEventRegistryIsProvided(t *testing.T) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {
 					if e := shutdowner.Shutdown(); e != nil {
-						t.Fatalf("shutdowner.Shutdown() failed: %v", e)
+						t.Fatalf("shutdowner.StopAsync() failed: %v", e)
 					}
 					return nil
 				},

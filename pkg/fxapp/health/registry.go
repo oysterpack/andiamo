@@ -32,6 +32,7 @@ type Registry interface {
 	// If the filter is nil, then all health checks are returned
 	HealthChecks(filter func(Check) bool) []Check
 
+	// Subscribe is used to be notified when a health check has been registered
 	Subscribe(ch chan<- Check)
 }
 
