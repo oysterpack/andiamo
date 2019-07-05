@@ -84,7 +84,6 @@ func TestHealthCheck(t *testing.T) {
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
 				return nil
 			}).
 			MustBuild()
@@ -109,7 +108,7 @@ func TestHealthCheck(t *testing.T) {
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 				return nil
 			}).
 			Timeout(time.Microsecond).
@@ -186,7 +185,7 @@ func TestCheck_Run(t *testing.T) {
 			Description("Queries the USERS DB").
 			RedImpact("Users will not be able to access the app").
 			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 				return nil
 			}).
 			Timeout(time.Microsecond).

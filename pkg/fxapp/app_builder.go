@@ -27,6 +27,7 @@ import (
 	"go.uber.org/multierr"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"time"
@@ -222,9 +223,41 @@ func (b *builder) buildOptions() []fx.Option {
 		func() Desc { return desc },
 		func() InstanceID { return instanceID },
 		func() *zerolog.Logger { return logger },
-		newMetricRegistry,
+
+		// provide prometheus metrics support
+		func(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
+			registry := prometheus.NewRegistry()
+			regsisterer := prometheus.WrapRegistererWith(
+				prometheus.Labels{
+					AppIDLabel:         appDesc.ID().String(),
+					AppReleaseIDLabel:  appDesc.ReleaseID().String(),
+					AppInstanceIDLabel: instanceID.String(),
+				},
+				registry,
+			)
+			regsisterer.MustRegister(
+				prometheus.NewGoCollector(),
+				prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
+			)
+
+			return registry, regsisterer
+		},
+
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
-		newReadinessProbeHTTPHandler,
+		// register HTTPHandler for the readiness probe endpoint
+		func(readiness ReadinessWaitGroup) HTTPHandler {
+			endpoint := fmt.Sprintf("/%s", ReadyEventID)
+			return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+				count := readiness.Count()
+				switch count {
+				case 0:
+					writer.WriteHeader(http.StatusOK)
+				default:
+					writer.Header().Add("x-readiness-wait-group-count", fmt.Sprint(count))
+					writer.WriteHeader(http.StatusServiceUnavailable)
+				}
+			})
+		},
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	if b.prometheusHTTPServerOpts != nil {
@@ -282,24 +315,6 @@ func (b *builder) initZerolog() *zerolog.Logger {
 	log.SetOutput(ComponentLogger(&logger, "log"))
 
 	return &logger
-}
-
-func newMetricRegistry(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
-	registry := prometheus.NewRegistry()
-	regsisterer := prometheus.WrapRegistererWith(
-		prometheus.Labels{
-			AppIDLabel:         appDesc.ID().String(),
-			AppReleaseIDLabel:  appDesc.ReleaseID().String(),
-			AppInstanceIDLabel: instanceID.String(),
-		},
-		registry,
-	)
-	regsisterer.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
-	)
-
-	return registry, regsisterer
 }
 
 func (b *builder) SetStartTimeout(timeout time.Duration) Builder {

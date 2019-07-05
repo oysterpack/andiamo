@@ -463,6 +463,14 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 		}()
 		<-app.Started()
 
+		// ensure that the http server is running
+		for {
+			if _, err := http.Get("http://:8008/metrics"); err == nil {
+				break
+			}
+			time.Sleep(time.Microsecond)
+		}
+
 		// Then the prometheus HTTP server should be running
 		resp, err := http.Get("http://:8008/metrics")
 		switch {

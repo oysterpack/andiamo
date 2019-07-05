@@ -48,6 +48,10 @@ type Scheduler interface {
 	// As soon as the scheduler shutdown is complete, then no more health check results will be published - even if they
 	// are in flight.
 	Subscribe(filter func(check Check) bool) <-chan Result
+
+	// Results returns the latest health check results, i.e., from the last time the health checks ran
+	// If the scheduler is shutdown, then nil is returned.
+	Results(filter func(result Result) bool) <-chan []Result
 }
 
 type scheduler struct {
@@ -60,10 +64,11 @@ type scheduler struct {
 	incHealthCheckCounter, decHealthCheckCounter chan struct{}  // used to update the health check counter
 	getHealthCheckCount                          chan chan uint // used to get the current scheduled health check count
 
-	results   chan runResult        // used to publish health check run results
-	subscribe chan subscribeRequest // used to subscribe to health check run results
+	results          chan runResult        // used to publish health check run results
+	subscribe        chan subscribeRequest // used to subscribe to health check run results
+	getLatestResults chan getLatestResultsRequest
 
-	runLock sync.Mutex
+	runLock sync.Mutex // used to run only 1 health check at a time
 }
 
 type runResult struct {
@@ -83,15 +88,22 @@ func StartScheduler(registry Registry) Scheduler {
 		decHealthCheckCounter: make(chan struct{}),
 		getHealthCheckCount:   make(chan chan uint),
 
-		results:   make(chan runResult),
-		subscribe: make(chan subscribeRequest),
+		results:          make(chan runResult),
+		subscribe:        make(chan subscribeRequest),
+		getLatestResults: make(chan getLatestResultsRequest),
 	}
 
 	subscriptions := make(map[chan Result]func(Check) bool)
-	sendResult := func(result Result, ch chan<- Result) {
-		select {
-		case ch <- result:
-		case <-s.done:
+	publishResult := func(result runResult) {
+		for ch, filter := range subscriptions {
+			if filter == nil || filter(result.Check) {
+				go func(result Result, ch chan<- Result) {
+					select {
+					case ch <- result:
+					case <-s.done:
+					}
+				}(result.Result, ch)
+			}
 		}
 	}
 
@@ -101,21 +113,41 @@ func StartScheduler(registry Registry) Scheduler {
 		return check.Run()
 	}
 
+	var latestResults []Result
+	updateLatestResults := func(newResult Result) {
+		for i, result := range latestResults {
+			if result.HealthCheckID() == newResult.HealthCheckID() {
+				latestResults[i] = newResult
+				return
+			}
+		}
+		latestResults = append(latestResults, newResult)
+	}
+
 	schedule := func(check Check) {
 		defer func() {
 			s.decHealthCheckCounter <- struct{}{}
 		}()
 		s.incHealthCheckCounter <- struct{}{}
+
+		// run the healthcheck immediately
+		select {
+		case <-s.shutdown:
+			return
+		case s.results <- runResult{check, runHealthCheck(check)}:
+		}
+
 		for {
 			timer := time.After(check.RunInterval())
 			select {
 			case <-s.shutdown:
 				return
 			case <-timer:
+				result := runResult{check, runHealthCheck(check)}
 				select {
 				case <-s.shutdown:
 					return
-				case s.results <- runResult{check, runHealthCheck(check)}:
+				case s.results <- result:
 				}
 			}
 		}
@@ -143,20 +175,32 @@ func StartScheduler(registry Registry) Scheduler {
 				// health check has been unscheduled
 				s.healthCheckCount--
 				if s.Stopping() && s.healthCheckCount == 0 {
+					// all health checks have been unscheduled
 					return
 				}
 			case reply := <-s.getHealthCheckCount:
 				reply <- s.healthCheckCount
 			case result := <-s.results:
-				for ch, filter := range subscriptions {
-					if filter == nil || filter(result.Check) {
-						go sendResult(result.Result, ch)
-					}
-				}
+				updateLatestResults(result.Result)
+				publishResult(result)
 			case req := <-s.subscribe:
 				ch := make(chan Result)
 				subscriptions[ch] = req.filter
 				req.reply <- ch
+			case req := <-s.getLatestResults:
+				if req.filter == nil {
+					results := make([]Result, len(latestResults))
+					copy(results, latestResults)
+					req.reply <- results
+					continue
+				}
+				var results []Result
+				for _, result := range latestResults {
+					if req.filter(result) {
+						results = append(results, result)
+					}
+				}
+				req.reply <- results
 			}
 
 		}
@@ -228,5 +272,25 @@ func (s *scheduler) Subscribe(filter func(Check) bool) <-chan Result {
 		case ch := <-req.reply:
 			return ch
 		}
+	}
+}
+
+type getLatestResultsRequest struct {
+	filter func(result Result) bool
+	reply  chan []Result
+}
+
+func (s *scheduler) Results(filter func(result Result) bool) <-chan []Result {
+	req := getLatestResultsRequest{
+		filter,
+		make(chan []Result),
+	}
+
+	select {
+	case <-s.done:
+		close(req.reply)
+		return req.reply
+	case s.getLatestResults <- req:
+		return req.reply
 	}
 }
