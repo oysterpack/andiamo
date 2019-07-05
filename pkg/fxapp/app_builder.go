@@ -18,8 +18,11 @@ package fxapp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"github.com/oklog/ulid"
+	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
@@ -258,9 +261,56 @@ func (b *builder) buildOptions() []fx.Option {
 				}
 			})
 		},
+
+		health.NewRegistry,
+		health.StartScheduler,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
+	compOptions = append(compOptions, fx.Invoke(
+		func(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle) {
+			wg.Add(1)
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					defer wg.Done()
+					healthChecks := make(map[ulid.ULID]bool)
+					for _, check := range registry.HealthChecks(nil) {
+						healthChecks[check.ID()] = true
+					}
+
+					for {
+						results := scheduler.Results(func(result health.Result) bool {
+							return healthChecks[result.HealthCheckID()]
+						})
+						select {
+						case <-ctx.Done():
+							return errors.New("health.Scheduler.Results() timed out")
+						case results := <-results:
+							// - return an error if health checks fail with a Red status
+							// - collect all health check Red failures into a multierr
+							// - health check Yellow failures are not ideal, but will not prevent the app from starting up
+							var err error
+							for _, result := range results {
+								delete(healthChecks, result.HealthCheckID())
+								if result.Status() == health.Red {
+									err = multierr.Combine(err, fmt.Errorf("health check failed: %s", result.HealthCheckID()), result.Error())
+								}
+							}
+							if err != nil {
+								return err
+							}
+						}
+						if len(healthChecks) == 0 {
+							break
+						}
+					}
+
+					return nil
+				},
+			})
+		},
+		// TODO: subscribe to health check results and log them
+	))
 	if !b.disableHTTPServer {
 		compOptions = append(compOptions, fx.Invoke(runHTTPServer))
 	}

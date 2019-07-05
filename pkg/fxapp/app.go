@@ -105,6 +105,16 @@ func (f errorHandler) HandleError(err error) {
 //
 // Health Checks
 //
+// The application provides support to register health checks, which will be automatically run on a schedule.
+//  - Health checks are integrated with the readiness and liveliness probes. Any Red health checks will cause the probes to fail.
+//  - Health check results are logged
+//  - Health checks are integrated with metrics. A gauge is created for each health check, using the health check status
+//    as the gauge value.
+//  - health check HTTP endpoints:
+//    - health check descriptors
+//    - health checks
+//    - health check results
+//
 // Readiness Probe
 //
 // Liveliness Probe
@@ -131,6 +141,8 @@ func (f errorHandler) HandleError(err error) {
 //	- ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
 //	- prometheus.Gatherer
 //	- prometheus.Registerer
+//  - health.Registry
+//  - health.Scheduler
 type App interface {
 	Options
 	LifeCycle
