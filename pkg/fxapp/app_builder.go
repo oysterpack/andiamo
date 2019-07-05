@@ -212,13 +212,12 @@ func (b *builder) validate() error {
 }
 
 func (b *builder) buildOptions() []fx.Option {
-	compOptions := make([]fx.Option, 0, 9+len(b.invokeErrorHandlers))
+	compOptions := make([]fx.Option, 0, len(b.invokeErrorHandlers)+8)
 
 	instanceID := b.instanceID
 	desc := b.desc
 	logger := b.initZerolog()
 
-	// provide
 	compOptions = append(compOptions, fx.Provide(
 		func() Desc { return desc },
 		func() InstanceID { return instanceID },
@@ -242,6 +241,7 @@ func (b *builder) buildOptions() []fx.Option {
 
 			return registry, regsisterer
 		},
+		b.prometheusHTTPServerOpts.NewHTTPHandler,
 
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
 		// register HTTPHandler for the readiness probe endpoint
@@ -260,26 +260,23 @@ func (b *builder) buildOptions() []fx.Option {
 		},
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
-	if b.prometheusHTTPServerOpts != nil {
-		compOptions = append(compOptions, fx.Provide(b.prometheusHTTPServerOpts.NewHTTPHandler))
-	}
-	// invoke
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
 	if !b.disableHTTPServer {
 		compOptions = append(compOptions, fx.Invoke(runHTTPServer))
 	}
-	// populate
 	compOptions = append(compOptions, fx.Populate(b.populateTargets...))
 	// configure fx logger
 	compOptions = append(compOptions, fx.Logger(newFxLogger(logger)))
 	// register error handlers
-	for _, f := range b.invokeErrorHandlers {
-		compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
+	{
+		for _, f := range b.invokeErrorHandlers {
+			compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
+		}
+		compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
+			logEvent := InitFailedEventID.NewLogEventer(logger, zerolog.ErrorLevel)
+			logEvent(AppFailed{err}, "app init failed")
+		})))
 	}
-	compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
-		logEvent := InitFailedEventID.NewLogEventer(logger, zerolog.ErrorLevel)
-		logEvent(AppFailed{err}, "app init failed")
-	})))
 
 	return compOptions
 }

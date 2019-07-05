@@ -26,6 +26,8 @@ import (
 	"time"
 )
 
+// TODO: log metrics on a scheduled basis
+
 // FindMetricFamily returns the first metric family that matches the filter
 func FindMetricFamily(mfs []*dto.MetricFamily, accept func(mf *dto.MetricFamily) bool) *dto.MetricFamily {
 	for _, mf := range mfs {
