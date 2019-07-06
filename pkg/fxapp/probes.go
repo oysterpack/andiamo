@@ -17,6 +17,8 @@
 package fxapp
 
 import (
+	"fmt"
+	"net/http"
 	"sync"
 )
 
@@ -85,4 +87,18 @@ func (r *readinessWaitGroup) Ready() <-chan struct{} {
 		r.Wait()
 	}()
 	return c
+}
+
+func readinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
+	endpoint := fmt.Sprintf("/%s", ReadyEventID)
+	return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+		count := readiness.Count()
+		switch count {
+		case 0:
+			writer.WriteHeader(http.StatusOK)
+		default:
+			writer.Header().Add("x-readiness-wait-group-count", fmt.Sprint(count))
+			writer.WriteHeader(http.StatusServiceUnavailable)
+		}
+	})
 }

@@ -29,7 +29,6 @@ import (
 	"go.uber.org/multierr"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"reflect"
 	"time"
@@ -225,48 +224,18 @@ func (b *builder) buildOptions() []fx.Option {
 		func() InstanceID { return instanceID },
 		func() *zerolog.Logger { return logger },
 
-		// provide prometheus metrics support
-		func(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
-			registry := prometheus.NewRegistry()
-			regsisterer := prometheus.WrapRegistererWith(
-				prometheus.Labels{
-					AppIDLabel:         appDesc.ID().String(),
-					AppReleaseIDLabel:  appDesc.ReleaseID().String(),
-					AppInstanceIDLabel: instanceID.String(),
-				},
-				registry,
-			)
-			regsisterer.MustRegister(
-				prometheus.NewGoCollector(),
-				prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
-			)
-
-			return registry, regsisterer
-		},
+		providePrometheusMetricsSupport,
 		b.prometheusHTTPServerOpts.NewHTTPHandler,
 
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
-		// register HTTPHandler for the readiness probe endpoint
-		func(readiness ReadinessWaitGroup) HTTPHandler {
-			endpoint := fmt.Sprintf("/%s", ReadyEventID)
-			return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
-				count := readiness.Count()
-				switch count {
-				case 0:
-					writer.WriteHeader(http.StatusOK)
-				default:
-					writer.Header().Add("x-readiness-wait-group-count", fmt.Sprint(count))
-					writer.WriteHeader(http.StatusServiceUnavailable)
-				}
-			})
-		},
+		readinessProbeHTTPHandler,
 
 		health.NewRegistry,
 		health.StartScheduler,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	compOptions = append(compOptions, fx.Invoke(
-		logHealthCheckRegistrations,
+		handleHealthCheckRegistrations,
 		logHealthCheckResults,
 	))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
@@ -290,6 +259,24 @@ func (b *builder) buildOptions() []fx.Option {
 	}
 
 	return compOptions
+}
+
+func providePrometheusMetricsSupport(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
+	registry := prometheus.NewRegistry()
+	regsisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{
+			AppIDLabel:         appDesc.ID().String(),
+			AppReleaseIDLabel:  appDesc.ReleaseID().String(),
+			AppInstanceIDLabel: instanceID.String(),
+		},
+		registry,
+	)
+	regsisterer.MustRegister(
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
+	)
+
+	return registry, regsisterer
 }
 
 // - registers a lifecycle hook that waits until all health checks are run on app start up
@@ -321,8 +308,9 @@ func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, 
 	})
 }
 
-// log health checks as they are registered
-func logHealthCheckRegistrations(registry health.Registry, lc fx.Lifecycle, logger *zerolog.Logger) {
+// - log health checks as they are registered
+// - register health check gauge
+func handleHealthCheckRegistrations(registry health.Registry, scheduler health.Scheduler, metricRegisterer prometheus.Registerer, lc fx.Lifecycle, logger *zerolog.Logger) {
 	done := make(chan struct{})
 	log := HealthCheckRegisteredEventID.NewLogEventer(logger, zerolog.NoLevel)
 	healthCheckRegistered := registry.Subscribe()
@@ -333,6 +321,10 @@ func logHealthCheckRegistrations(registry health.Registry, lc fx.Lifecycle, logg
 				return
 			case healthCheck := <-healthCheckRegistered:
 				log(HealthCheckRegistered{healthCheck}, "health check registered")
+				if err := registerHealthCheckGauge(healthCheck, scheduler, metricRegisterer); err != nil {
+					// TODO: log proper event
+					logger.Error().Err(err).Msg("")
+				}
 			}
 		}
 	}()
