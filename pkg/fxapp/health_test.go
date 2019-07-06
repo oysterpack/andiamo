@@ -17,17 +17,21 @@
 package fxapp_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/rs/zerolog"
+	"strings"
 	"testing"
+	"time"
 )
 
 // The app automatically provides health.Registry and health.Scheduler.
 func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Parallel()
-
 	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
 		Description("Foo").
 		YellowImpact("app response times are slow").
@@ -37,7 +41,7 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	var healthCheckRegistry health.Registry
 	var healthCheckScheduler health.Scheduler
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Invoke(func(registry health.Registry) {
+		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
 			FooHealth := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
 				Description("Foo").
 				RedImpact("fatal").
@@ -46,9 +50,12 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 				}).
 				MustBuild()
 
+			logger.Info().Msg(FooHealth.String())
+
 			registry.Register(FooHealth)
 		}).
 		Populate(&healthCheckRegistry, &healthCheckScheduler).
+		DisableHTTPServer().
 		Build()
 
 	if err != nil {
@@ -56,6 +63,13 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	}
 
 	// health checks are scheduled to run as they are registered
+
+	healthChecks := healthCheckRegistry.HealthChecks(nil)
+	if len(healthChecks) == 0 {
+		t.Error("*** health check registry is empty")
+		return
+	}
+	t.Log(healthChecks)
 
 	go app.Run()
 	<-app.Started()
@@ -65,5 +79,113 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	<-app.Done()
 
 	// Then the health.Scheduler instance is shutdown
+	select {
+	case <-healthCheckScheduler.Done():
+	case <-time.After(time.Second): // health check scheduler is stopped async - thus, it may not have yet completed shutdown
+		t.Errorf("*** health check scheduler has not been shutdown: stopping = %v", healthCheckScheduler.Stopping())
+	}
+
+}
+
+func TestRegisteredHealthChecksAreLogged(t *testing.T) {
+	t.Parallel()
+	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Foo").
+		YellowImpact("app response times are slow").
+		RedImpact("app is unavailable").
+		MustBuild()
+	healthCheckID := ulidgen.MustNew()
+
+	var healthCheckRegistry health.Registry
+	var healthCheckRegistered <-chan health.Check
+	buf := new(bytes.Buffer)
+	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(zerolog.SyncWriter(buf)).
+		Invoke(func(registry health.Registry) {
+			healthCheckRegistered = registry.Subscribe()
+			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
+				Description("Foo").
+				RedImpact("fatal").
+				Checker(func(ctx context.Context) health.Failure {
+					return nil
+				}).
+				MustBuild()
+
+			registry.Register(FooHealth)
+		}).
+		Populate(&healthCheckRegistry).
+		DisableHTTPServer().
+		Build()
+
+	if err != nil {
+		t.Errorf("*** failed to build app: %v", err)
+	}
+
+	t.Log(<-healthCheckRegistered)
+
+	type Data struct {
+		ID           string
+		DescID       string `json:"desc_id"`
+		Description  []string
+		YellowImpact []string `json:"yellow_impact"`
+		RedImpact    []string `json:"red_impact"`
+		Timeout      uint
+		RunInterval  uint `json:"run_interval"`
+	}
+
+	type LogEvent struct {
+		Name    string `json:"n"`
+		Message string `json:"m"`
+		Data    Data   `json:"01DF3FV60A2J1WKX5NQHP47H61"`
+	}
+	var logEvent LogEvent
+
+FoundEvent:
+	for i := 0; i < 3; i++ {
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if line == "" {
+				break
+			}
+			t.Log(line)
+			err := json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %v", err, line)
+				break
+			}
+			if logEvent.Name == "01DF3FV60A2J1WKX5NQHP47H61" {
+				break FoundEvent
+			}
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	switch {
+	case logEvent.Name == "01DF3FV60A2J1WKX5NQHP47H61":
+		t.Logf("%#v", logEvent)
+		if logEvent.Data.ID != healthCheckID.String() {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, healthCheckID)
+		}
+
+		if logEvent.Data.DescID != FooHealthDesc.ID().String() {
+			t.Errorf("*** health check desc ID did not match: %v != %v", logEvent.Data.DescID, FooHealthDesc.ID())
+		}
+
+		if len(logEvent.Data.Description) != 2 &&
+			logEvent.Data.Description[0] != FooHealthDesc.Description() &&
+			logEvent.Data.Description[1] != "Foo" {
+			t.Error("*** health check description did not match")
+		}
+		if len(logEvent.Data.YellowImpact) != 1 &&
+			logEvent.Data.YellowImpact[0] != FooHealthDesc.YellowImpact() {
+			t.Error("*** health check yellow impact did not match")
+		}
+		if len(logEvent.Data.RedImpact) != 2 &&
+			logEvent.Data.RedImpact[0] != FooHealthDesc.RedImpact() &&
+			logEvent.Data.RedImpact[1] != "fatal" {
+			t.Error("*** health check red impact did not match")
+		}
+	default:
+		t.Error("*** health check registration event was not logged")
+	}
 
 }

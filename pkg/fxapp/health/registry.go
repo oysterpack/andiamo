@@ -90,8 +90,8 @@ func (r *registry) HealthChecks(filter func(c Check) bool) []Check {
 }
 
 func (r *registry) Subscribe() <-chan Check {
-	r.RLock()
-	defer r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	ch := make(chan Check)
 	r.subscriptions = append(r.subscriptions, ch)
 	return ch

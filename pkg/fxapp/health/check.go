@@ -82,14 +82,14 @@ type Check interface {
 // NewBuilder constructs a new health check Builder.
 //
 // Defaults:
-//  - timeout = 10 secs
+//  - timeout = 5 secs
 //  - run interval = 15 secs
 func NewBuilder(desc Desc, healthcheckID ulid.ULID) Builder {
 	return &builder{
 		check: &check{
 			desc:     desc,
 			id:       healthcheckID,
-			timeout:  10 * time.Second,
+			timeout:  5 * time.Second,
 			interval: 15 * time.Second,
 		},
 	}
@@ -218,7 +218,7 @@ func (c *check) MarshalJSON() (text []byte, err error) {
 		Desc         Desc
 		ID           ulid.ULID
 		Description  string
-		YellowImpact string
+		YellowImpact string `json:",omitempty"`
 		RedImpact    string
 		Timeout      time.Duration
 		Interval     time.Duration

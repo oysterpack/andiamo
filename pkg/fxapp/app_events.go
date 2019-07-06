@@ -17,6 +17,7 @@
 package fxapp
 
 import (
+	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/rs/zerolog"
 	"os"
 	"reflect"
@@ -119,4 +120,59 @@ type AppFailed struct {
 // MarshalZerologObject implements zerolog.LogObjectMarshaler interface
 func (event AppFailed) MarshalZerologObject(e *zerolog.Event) {
 	e.Err(event.Err)
+}
+
+// health check related events
+const (
+	// HealthCheckRegistered is used to generate the event data, e.g.,
+	//
+	// "01DF3FV60A2J1WKX5NQHP47H61": {
+	//    "id": "01DF3MNDKPB69AJR7ZGDNB3KA1",
+	//    "desc_id": "01DF3MNDKP8DS3B04E2TKFHXD9",
+	//    "description": [
+	//      "Foo",
+	//      "FooBar"
+	//    ],
+	//    "red_impact": [
+	//      "app is unavailable",
+	//      "fatal"
+	//    ],
+	//    "yellow_impact": [
+	//      "app response times are slow"
+	//    ],
+	//    "timeout": 5000,
+	//    "run_interval": 15000
+	//  }
+	//
+	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
+	HealthCheckRegisteredEventID EventTypeID = "01DF3FV60A2J1WKX5NQHP47H61"
+)
+
+// HealthCheckRegistered indicates a health check has been registered for the app
+type HealthCheckRegistered struct {
+	health.Check
+}
+
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
+func (event HealthCheckRegistered) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Str("id", event.ID().String()).
+		Str("desc_id", event.Desc().ID().String()).
+		Strs("description", []string{event.Desc().Description(), event.Description()}).
+		Strs("red_impact", []string{event.Desc().RedImpact(), event.RedImpact()})
+
+	var yellowImpact []string
+	if event.Desc().YellowImpact() != "" {
+		yellowImpact = append(yellowImpact, event.Desc().YellowImpact())
+	}
+	if event.YellowImpact() != "" {
+		yellowImpact = append(yellowImpact, event.YellowImpact())
+	}
+	if len(yellowImpact) != 0 {
+		e.Strs("yellow_impact", yellowImpact)
+	}
+
+	e.
+		Dur("timeout", event.Timeout()).
+		Dur("run_interval", event.RunInterval())
 }

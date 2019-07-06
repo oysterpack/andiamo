@@ -139,7 +139,7 @@ func (d *desc) MarshalJSON() (text []byte, err error) {
 	type Data struct {
 		ID           ulid.ULID
 		Description  string
-		YellowImpact string
+		YellowImpact string `json:",omitempty"`
 		RedImpact    string
 	}
 	return json.Marshal(Data{d.id, d.description, d.yellowImpact, d.redImpact})

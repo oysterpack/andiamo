@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/prometheus/client_golang/prometheus"
@@ -266,51 +265,10 @@ func (b *builder) buildOptions() []fx.Option {
 		health.StartScheduler,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
+	compOptions = append(compOptions, fx.Invoke(logHealthCheckRegistrations))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
-	compOptions = append(compOptions, fx.Invoke(
-		func(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle) {
-			wg.Add(1)
-			lc.Append(fx.Hook{
-				OnStart: func(ctx context.Context) error {
-					defer wg.Done()
-					healthChecks := make(map[ulid.ULID]bool)
-					for _, check := range registry.HealthChecks(nil) {
-						healthChecks[check.ID()] = true
-					}
+	compOptions = append(compOptions, fx.Invoke(healthCheckReadiness))
 
-					for {
-						results := scheduler.Results(func(result health.Result) bool {
-							return healthChecks[result.HealthCheckID()]
-						})
-						select {
-						case <-ctx.Done():
-							return errors.New("health.Scheduler.Results() timed out")
-						case results := <-results:
-							// - return an error if health checks fail with a Red status
-							// - collect all health check Red failures into a multierr
-							// - health check Yellow failures are not ideal, but will not prevent the app from starting up
-							var err error
-							for _, result := range results {
-								delete(healthChecks, result.HealthCheckID())
-								if result.Status() == health.Red {
-									err = multierr.Combine(err, fmt.Errorf("health check failed: %s", result.HealthCheckID()), result.Error())
-								}
-							}
-							if err != nil {
-								return err
-							}
-						}
-						if len(healthChecks) == 0 {
-							break
-						}
-					}
-
-					return nil
-				},
-			})
-		},
-		// TODO: subscribe to health check results and log them
-	))
 	if !b.disableHTTPServer {
 		compOptions = append(compOptions, fx.Invoke(runHTTPServer))
 	}
@@ -329,6 +287,58 @@ func (b *builder) buildOptions() []fx.Option {
 	}
 
 	return compOptions
+}
+
+// - registers a lifecycle hook that waits until all health checks are run on app start up
+//   - the app is not ready to service requests until all health checks have been run and passed with a Green status
+// - when the app is triggered to shutdown, trigger the health check scheduler to shutdown
+func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle, logger *zerolog.Logger) {
+	wg.Add(1)
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			defer wg.Done()
+
+			var err error
+			for _, check := range registry.HealthChecks(nil) {
+				if result := check.Run(); result.Status() != health.Green {
+					err = multierr.Combine(err, fmt.Errorf("health check failed: %s : %s", result.HealthCheckID(), result.Status()), result.Error())
+				}
+			}
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+		// trigger health check scheduler shutdown
+		OnStop: func(context.Context) error {
+			scheduler.StopAsync()
+			return nil
+		},
+	})
+}
+
+// log health checks as they are registered
+func logHealthCheckRegistrations(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle, logger *zerolog.Logger) {
+	done := make(chan struct{})
+	log := HealthCheckRegisteredEventID.NewLogEventer(logger, zerolog.NoLevel)
+	healthCheckRegistered := registry.Subscribe()
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case healthCheck := <-healthCheckRegistered:
+				log(HealthCheckRegistered{healthCheck}, "health check registered")
+			}
+		}
+	}()
+	lc.Append(fx.Hook{
+		OnStop: func(context.Context) error {
+			close(done)
+			return nil
+		},
+	})
 }
 
 type fxlogger struct {

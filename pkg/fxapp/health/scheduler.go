@@ -100,7 +100,7 @@ func StartScheduler(registry Registry) Scheduler {
 				go func(result Result, ch chan<- Result) {
 					select {
 					case ch <- result:
-					case <-s.done:
+					case <-s.shutdown:
 					}
 				}(result.Result, ch)
 			}
@@ -130,13 +130,14 @@ func StartScheduler(registry Registry) Scheduler {
 		}()
 		s.incHealthCheckCounter <- struct{}{}
 
-		// run the healthcheck immediately
+		// run the health check immediately
 		select {
 		case <-s.shutdown:
 			return
 		case s.results <- runResult{check, runHealthCheck(check)}:
 		}
 
+		// schedule the health check to run
 		for {
 			timer := time.After(check.RunInterval())
 			select {
@@ -164,8 +165,20 @@ func StartScheduler(registry Registry) Scheduler {
 
 		defer close(s.done)
 
+		shutdownTriggered := make(chan struct{})
+		go func() {
+			<-s.shutdown
+			close(shutdownTriggered)
+		}()
+
 		for {
 			select {
+			case <-shutdownTriggered:
+				if s.healthCheckCount == 0 {
+					return
+				}
+				// set the channel to nil to stop listening to the channel
+				shutdownTriggered = nil
 			case check := <-healthcheckRegistered:
 				go schedule(check)
 			case <-s.incHealthCheckCounter:
@@ -179,19 +192,28 @@ func StartScheduler(registry Registry) Scheduler {
 					return
 				}
 			case reply := <-s.getHealthCheckCount:
-				reply <- s.healthCheckCount
+				select {
+				case <-s.shutdown:
+				case reply <- s.healthCheckCount:
+				}
 			case result := <-s.results:
 				updateLatestResults(result.Result)
 				publishResult(result)
 			case req := <-s.subscribe:
 				ch := make(chan Result)
 				subscriptions[ch] = req.filter
-				req.reply <- ch
+				select {
+				case <-s.shutdown:
+				case req.reply <- ch:
+				}
 			case req := <-s.getLatestResults:
 				if req.filter == nil {
 					results := make([]Result, len(latestResults))
 					copy(results, latestResults)
-					req.reply <- results
+					select {
+					case <-s.shutdown:
+					case req.reply <- results:
+					}
 					continue
 				}
 				var results []Result
@@ -200,7 +222,11 @@ func StartScheduler(registry Registry) Scheduler {
 						results = append(results, result)
 					}
 				}
-				req.reply <- results
+				select {
+				case <-s.shutdown:
+				case req.reply <- results:
+				}
+
 			}
 
 		}
@@ -233,11 +259,11 @@ func (s *scheduler) Done() <-chan struct{} {
 func (s *scheduler) HealthCheckCount() uint {
 	count := make(chan uint)
 	select {
-	case <-s.done:
+	case <-s.shutdown:
 		return 0
 	case s.getHealthCheckCount <- count: // send request
 		select {
-		case <-s.done:
+		case <-s.shutdown:
 			return 0
 		case n := <-count: // wait for response
 			return n
@@ -263,11 +289,11 @@ func (s *scheduler) Subscribe(filter func(Check) bool) <-chan Result {
 	}
 
 	select {
-	case <-s.done:
+	case <-s.shutdown:
 		return closedChan()
 	case s.subscribe <- req:
 		select {
-		case <-s.done:
+		case <-s.shutdown:
 			return closedChan()
 		case ch := <-req.reply:
 			return ch
@@ -287,7 +313,7 @@ func (s *scheduler) Results(filter func(result Result) bool) <-chan []Result {
 	}
 
 	select {
-	case <-s.done:
+	case <-s.shutdown:
 		close(req.reply)
 		return req.reply
 	case s.getLatestResults <- req:

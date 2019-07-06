@@ -57,7 +57,7 @@ func TestHealthCheck(t *testing.T) {
 	if UserDBHealthCheck.Desc().ID() != DatabaseHealthCheckDesc.ID() {
 		t.Error("*** desc did not match")
 	}
-	if UserDBHealthCheck.Timeout() != time.Second*10 {
+	if UserDBHealthCheck.Timeout() != time.Second*5 {
 		t.Errorf("*** default timeout should be 10 secs: %v", UserDBHealthCheck.Timeout())
 	}
 	if UserDBHealthCheck.RunInterval() != time.Second*15 {

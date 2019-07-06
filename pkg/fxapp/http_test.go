@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"io"
 	"net/http"
@@ -197,7 +198,7 @@ func TestHTTPServer_HandlerPanic(t *testing.T) {
 
 func checkHTTPGetResponseStatusOK(t *testing.T, url string) {
 	t.Log("GET ", url)
-	resp, err := http.Get(url)
+	resp, err := retryablehttp.Get(url)
 	switch {
 	case err != nil:
 		t.Errorf("*** %v: failed to HTTP scrape metrics: %v", url, err)
