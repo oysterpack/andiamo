@@ -26,6 +26,7 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -903,7 +904,7 @@ func TestAppBuilder_LogLevel(t *testing.T) {
 // - with component field set to "log"
 func TestGoStandardLogUsesZeroLog(t *testing.T) {
 	msg := ulidgen.MustNew().String()
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {
 			log.Print(msg)

@@ -17,11 +17,11 @@
 package fxapp_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"strings"
@@ -32,7 +32,7 @@ import (
 func TestAppInitializedEventLogged(t *testing.T) {
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -101,7 +101,7 @@ func TestAppStartingEventLogged(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -157,7 +157,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -229,7 +229,7 @@ func TestAppStoppingEventLogged(t *testing.T) {
 	t.Parallel()
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -285,7 +285,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -361,7 +361,7 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -428,7 +428,7 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
@@ -532,7 +532,7 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 
 	type Foo struct{}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).

@@ -17,9 +17,9 @@
 package fxapp_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"testing"
@@ -42,7 +42,7 @@ func TestZerologFieldNames(t *testing.T) {
 		Stack     []StackFrame
 	}
 
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(buf).With().Timestamp().Logger()
 	compLogger := fxapp.ComponentLogger(&logger, "foo")
 	eventLogger := fxapp.EventLogger(compLogger, "bar")
@@ -86,7 +86,7 @@ func TestZerologFieldNames(t *testing.T) {
 }
 
 func TestComponentLogger(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(buf)
 	componentLogger := fxapp.ComponentLogger(&logger, "foo")
 	componentLogger.Log().Msg("")
@@ -109,7 +109,7 @@ func TestComponentLogger(t *testing.T) {
 }
 
 func TestEventLogger(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(buf)
 	eventLogger := fxapp.EventLogger(&logger, "foo")
 	eventLogger.Log().Msg("")

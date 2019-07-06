@@ -17,11 +17,11 @@
 package fxapp_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"go.uber.org/fx"
 	"net/http"
 	"strconv"
@@ -33,7 +33,7 @@ import (
 // Ready is an app lifecycle state. To be ready means the app is ready to serve requests.
 // When the app is ready, it logs an event.
 func TestReadinessProbe(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	var readinessProbe fxapp.ReadinessWaitGroup
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(lc fx.Lifecycle, readinessProbe fxapp.ReadinessWaitGroup) {
@@ -102,7 +102,7 @@ func TestReadinessProbe(t *testing.T) {
 }
 
 func TestReadinessProbeNotReady(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	var readinessProbe fxapp.ReadinessWaitGroup

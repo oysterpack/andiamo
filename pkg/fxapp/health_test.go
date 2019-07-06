@@ -17,11 +17,12 @@
 package fxapp_test
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"strings"
@@ -98,9 +99,9 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 
 	var healthCheckRegistry health.Registry
 	var healthCheckRegistered <-chan health.Check
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		LogWriter(zerolog.SyncWriter(buf)).
+		LogWriter(buf).
 		Invoke(func(registry health.Registry) {
 			healthCheckRegistered = registry.Subscribe()
 			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
@@ -186,6 +187,105 @@ FoundEvent:
 		}
 	default:
 		t.Error("*** health check registration event was not logged")
+	}
+}
+
+func TestHealthCheckResultsAreLogged(t *testing.T) {
+	t.Parallel()
+	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Foo").
+		YellowImpact("app response times are slow").
+		RedImpact("app is unavailable").
+		MustBuild()
+	healthCheckID := ulidgen.MustNew()
+
+	var healthCheckRegistry health.Registry
+	var healthCheckResults <-chan health.Result
+	buf := fxapptest.NewSyncLog() //new(bytes.Buffer)
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(buf).
+		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
+			healthCheckResults = scheduler.Subscribe(nil)
+			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
+				Description("Foo").
+				RedImpact("fatal").
+				Checker(func(ctx context.Context) health.Failure {
+					time.Sleep(time.Millisecond)
+					return nil
+				}).
+				MustBuild()
+
+			registry.Register(FooHealth)
+		}).
+		Populate(&healthCheckRegistry).
+		DisableHTTPServer().
+		Build()
+
+	if err != nil {
+		t.Errorf("*** failed to build app: %v", err)
+	}
+
+	go app.Run()
+	defer func() {
+		app.Shutdown()
+		<-app.Done()
+	}()
+
+	t.Log(<-healthCheckResults)
+
+	type Data struct {
+		ID     string
+		Status uint8
+		Start  uint
+		Dur    uint
+	}
+
+	type LogEvent struct {
+		Name    string `json:"n"`
+		Message string `json:"m"`
+		Data    Data   `json:"01DF3X60Z7XFYVVXGE9TFFQ7Z1"`
+	}
+	var logEvent LogEvent
+
+FoundEvent:
+	for i := 0; i < 3; i++ {
+		reader := bufio.NewReader(buf)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			t.Log(line)
+			err = json.Unmarshal([]byte(line), &logEvent)
+			if err != nil {
+				t.Errorf("*** failed to parse log event: %v : %v", err, line)
+				break
+			}
+			if logEvent.Name == "01DF3X60Z7XFYVVXGE9TFFQ7Z1" {
+				break FoundEvent
+			}
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	switch {
+	case logEvent.Name == "01DF3X60Z7XFYVVXGE9TFFQ7Z1":
+		t.Logf("%#v", logEvent)
+		if logEvent.Data.ID != healthCheckID.String() {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, healthCheckID)
+		}
+		if logEvent.Data.Status != uint8(health.Green) {
+			t.Error("*** status did not match")
+		}
+		if logEvent.Data.Start == 0 {
+			t.Error("*** start should be set")
+		}
+		if logEvent.Data.Dur == 0 {
+			t.Error("*** duration should be set")
+		}
+
+	default:
+		t.Error("*** health check result event was not logged")
 	}
 
 }

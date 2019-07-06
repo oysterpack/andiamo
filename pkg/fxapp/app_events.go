@@ -146,6 +146,8 @@ const (
 	//
 	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
 	HealthCheckRegisteredEventID EventTypeID = "01DF3FV60A2J1WKX5NQHP47H61"
+
+	HealthCheckResultEventID EventTypeID = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 )
 
 // HealthCheckRegistered indicates a health check has been registered for the app
@@ -175,4 +177,21 @@ func (event HealthCheckRegistered) MarshalZerologObject(e *zerolog.Event) {
 	e.
 		Dur("timeout", event.Timeout()).
 		Dur("run_interval", event.RunInterval())
+}
+
+// HealthCheckResult is used to log health check results
+type HealthCheckResult struct {
+	health.Result
+}
+
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
+func (event HealthCheckResult) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Str("id", event.HealthCheckID().String()).
+		Time("start", event.Time()).
+		Dur("dur", event.Duration()).
+		Uint8("status", uint8(event.Status()))
+	if event.Error() != nil {
+		e.Err(event.Error())
+	}
 }

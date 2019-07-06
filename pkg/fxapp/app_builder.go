@@ -265,7 +265,10 @@ func (b *builder) buildOptions() []fx.Option {
 		health.StartScheduler,
 	))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
-	compOptions = append(compOptions, fx.Invoke(logHealthCheckRegistrations))
+	compOptions = append(compOptions, fx.Invoke(
+		logHealthCheckRegistrations,
+		logHealthCheckResults,
+	))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
 	compOptions = append(compOptions, fx.Invoke(healthCheckReadiness))
 
@@ -292,7 +295,7 @@ func (b *builder) buildOptions() []fx.Option {
 // - registers a lifecycle hook that waits until all health checks are run on app start up
 //   - the app is not ready to service requests until all health checks have been run and passed with a Green status
 // - when the app is triggered to shutdown, trigger the health check scheduler to shutdown
-func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle, logger *zerolog.Logger) {
+func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle) {
 	wg.Add(1)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -319,7 +322,7 @@ func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, 
 }
 
 // log health checks as they are registered
-func logHealthCheckRegistrations(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle, logger *zerolog.Logger) {
+func logHealthCheckRegistrations(registry health.Registry, lc fx.Lifecycle, logger *zerolog.Logger) {
 	done := make(chan struct{})
 	log := HealthCheckRegisteredEventID.NewLogEventer(logger, zerolog.NoLevel)
 	healthCheckRegistered := registry.Subscribe()
@@ -339,6 +342,42 @@ func logHealthCheckRegistrations(registry health.Registry, scheduler health.Sche
 			return nil
 		},
 	})
+}
+
+func logHealthCheckResults(scheduler health.Scheduler, logger *zerolog.Logger, lc fx.Lifecycle) {
+	done := make(chan struct{})
+	startHealthCheckLogger := startHealthCheckLoggerFunc(scheduler.Subscribe(nil), logger, done)
+	go startHealthCheckLogger()
+	lc.Append(fx.Hook{
+		OnStop: func(context.Context) error {
+			close(done)
+			return nil
+		},
+	})
+}
+
+// NOTE: this is extracted out in order to make it testable
+func startHealthCheckLoggerFunc(healthCheckResults <-chan health.Result, logger *zerolog.Logger, done <-chan struct{}) func() {
+	logGreenHealthCheck := HealthCheckResultEventID.NewLogEventer(logger, zerolog.NoLevel)
+	logYellowHealthCheck := HealthCheckResultEventID.NewLogEventer(logger, zerolog.WarnLevel)
+	logRedHealthCheck := HealthCheckResultEventID.NewLogEventer(logger, zerolog.ErrorLevel)
+	return func() {
+		for {
+			select {
+			case <-done:
+				return
+			case result := <-healthCheckResults:
+				switch result.Status() {
+				case health.Green:
+					logGreenHealthCheck(HealthCheckResult{result}, "health check is Green")
+				case health.Yellow:
+					logYellowHealthCheck(HealthCheckResult{result}, "health check is Yellow")
+				default:
+					logRedHealthCheck(HealthCheckResult{result}, "health check is Red")
+				}
+			}
+		}
+	}
 }
 
 type fxlogger struct {

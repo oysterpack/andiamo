@@ -18,10 +18,10 @@ package fxapp_test
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"io"
 	"net/http"
 	"testing"
@@ -35,7 +35,7 @@ import (
 // An event is logged when the HTTP server is starting, containing the address the server is listening on and the list
 // of handler endpoints that are registered.
 func TestHTTPServer_WithDefaultOpts(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func() fxapp.HTTPHandler {
@@ -70,7 +70,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 }
 
 func TestHTTPServer_WithProvidedServer(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func() fxapp.HTTPHandler {
@@ -110,7 +110,7 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 }
 
 func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func() fxapp.HTTPHandler {
@@ -137,7 +137,7 @@ func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
 }
 
 func TestHTTPServer_WithNilhandler(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Provide(
 			func() fxapp.HTTPHandler {
