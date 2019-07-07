@@ -165,20 +165,10 @@ func StartScheduler(registry Registry) Scheduler {
 
 		defer close(s.done)
 
-		shutdownTriggered := make(chan struct{})
-		go func() {
-			<-s.shutdown
-			close(shutdownTriggered)
-		}()
-
 		for {
 			select {
-			case <-shutdownTriggered:
-				if s.healthCheckCount == 0 {
-					return
-				}
-				// set the channel to nil to stop listening to the channel
-				shutdownTriggered = nil
+			case <-s.shutdown:
+				return
 			case check := <-healthcheckRegistered:
 				go schedule(check)
 			case <-s.incHealthCheckCounter:
@@ -187,10 +177,6 @@ func StartScheduler(registry Registry) Scheduler {
 			case <-s.decHealthCheckCounter:
 				// health check has been unscheduled
 				s.healthCheckCount--
-				if s.Stopping() && s.healthCheckCount == 0 {
-					// all health checks have been unscheduled
-					return
-				}
 			case reply := <-s.getHealthCheckCount:
 				select {
 				case <-s.shutdown:
