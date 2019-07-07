@@ -115,7 +115,7 @@ func TestAppStartingEventLogged(t *testing.T) {
 		t.Errorf("** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		app.Shutdown()
 		<-app.Done()
 
@@ -179,7 +179,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 		t.Errorf("** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		app.Shutdown()
 		<-app.Done()
 
@@ -243,7 +243,7 @@ func TestAppStoppingEventLogged(t *testing.T) {
 		t.Errorf("** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		app.Shutdown()
 		<-app.Done()
 
@@ -310,7 +310,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 		t.Errorf("** app build failed: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		app.Shutdown()
 		<-app.Done()
 

@@ -67,11 +67,6 @@ type Builder interface {
 	// NOTE: this is useful for unit testing
 	Populate(targets ...interface{}) Builder
 
-	// ConfigurePrometheusHTTPHandler will configure the Prometheus HTTP handler used to expose metrics.
-	//
-	// NOTE: metrics are exposed by default using defaults options - see NewPrometheusHTTPHandlerOpts()
-	ConfigurePrometheusHTTPHandler(opts PrometheusHTTPHandlerOpts) Builder
-
 	// DisableHTTPServer disables the HTTP server
 	//
 	// Uses cases for disabling the HTTP server:
@@ -93,8 +88,6 @@ func NewBuilder(desc Desc) Builder {
 
 		globalLogLevel: zerolog.InfoLevel,
 		logWriter:      os.Stderr,
-
-		prometheusHTTPServerOpts: NewPrometheusHTTPHandlerOpts(),
 	}
 }
 
@@ -113,8 +106,6 @@ type builder struct {
 	globalLogLevel zerolog.Level
 
 	invokeErrorHandlers, startErrorHandlers, stopErrorHandlers []func(error)
-
-	prometheusHTTPServerOpts PrometheusHTTPHandlerOpts
 
 	disableHTTPServer bool
 }
@@ -212,6 +203,7 @@ func (b *builder) validate() error {
 	return err
 }
 
+// This is the key method used to build the app options
 func (b *builder) buildOptions() []fx.Option {
 	compOptions := make([]fx.Option, 0, len(b.invokeErrorHandlers)+8)
 
@@ -225,7 +217,7 @@ func (b *builder) buildOptions() []fx.Option {
 		func() *zerolog.Logger { return logger },
 
 		providePrometheusMetricsSupport,
-		b.prometheusHTTPServerOpts.NewHTTPHandler,
+		newPrometheusHTTPHandler,
 
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
 		readinessProbeHTTPHandler,
@@ -271,16 +263,14 @@ func providePrometheusMetricsSupport(appDesc Desc, instanceID InstanceID) (prome
 		},
 		registry,
 	)
-	regsisterer.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}),
-	)
+	regsisterer.MustRegister(prometheus.NewGoCollector())
 
 	return registry, regsisterer
 }
 
 // - registers a lifecycle hook that waits until all health checks are run on app start up
 //   - the app is not ready to service requests until all health checks have been run and passed with a Green status
+//   - if any health checks fail to run on start up then the app will fail to start up
 // - when the app is triggered to shutdown, trigger the health check scheduler to shutdown
 func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle) {
 	wg.Add(1)
@@ -348,6 +338,9 @@ func logHealthCheckResults(scheduler health.Scheduler, logger *zerolog.Logger, l
 	})
 }
 
+// Creates a function that starts up a listener on the  healthCheckResults channel. The listener stops when a signal
+// is received on the done channel. When a health check result message is received it logs it.
+//
 // NOTE: this is extracted out in order to make it testable
 func startHealthCheckLoggerFunc(healthCheckResults <-chan health.Result, logger *zerolog.Logger, done <-chan struct{}) func() {
 	logGreenHealthCheck := HealthCheckResultEventID.NewLogEventer(logger, zerolog.NoLevel)
@@ -459,14 +452,6 @@ func (b *builder) LogWriter(w io.Writer) Builder {
 
 func (b *builder) LogLevel(level LogLevel) Builder {
 	b.globalLogLevel = level.ZerologLevel()
-	return b
-}
-
-func (b *builder) ConfigurePrometheusHTTPHandler(opts PrometheusHTTPHandlerOpts) Builder {
-	b.prometheusHTTPServerOpts = opts
-	if b.prometheusHTTPServerOpts == nil {
-		b.prometheusHTTPServerOpts = NewPrometheusHTTPHandlerOpts()
-	}
 	return b
 }
 

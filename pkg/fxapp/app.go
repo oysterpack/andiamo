@@ -103,25 +103,50 @@ func (f errorHandler) HandleError(err error) {
 //
 // Prometheus Metrics
 //
+// The following are automatically provided for the app:
+//	- prometheus.Registerer
+//	- prometheus.Gatherer
+//
+// Prometheus metrics are automatically exposed via HTTP (using https://godoc.org/github.com/prometheus/client_golang/prometheus/promhttp#HandlerFor).
+// `PrometheusHTTPHandlerOpts` is used to configure the Prometheus HTTP handler. By default the following options are used:
+// 	- Endpoint = /metrics
+//  - Timeout = 5 secs
+//  - ErrorHandling = promhttp.HTTPErrorOnError (HTTP status code 500 is returned upon the first error encountered)
+// If a `PrometheusHTTPHandlerOpts` is provided, then it will be used instead. However, if the provided endpoint is blank,
+// then it will be set to '/metrics' and if timeout is zero, then it will be set to 5 secs.
+//
 // Health Checks
 //
 // The application provides support to register health checks, which will be automatically run on a schedule.
 //  - Health checks are integrated with the readiness and liveliness probes. Any Red health checks will cause the probes to fail.
 //  - Health check results are logged
-//  - Health checks are integrated with metrics. A gauge is created for each health check, using the health check status
-//    as the gauge value.
-//  - health check HTTP endpoints:
-//    - health check descriptors
-//    - health checks
-//    - health check results
+//  - Health checks are integrated with metrics as gauges, using the health check status as the gauge value.
+//    - the health check gauge is designed as a gauge vec, where the health check name is "U01DF4CVSSF4RT1ZB4EXC44G668" (defined by the `HealthCheckMetricID` const)
+//    - health check gauges have the following labels:
+//		- "h" - health check ID
+//		- "d" - health check descriptor ID
+// 	- health checks are registered with the app readiness probe. The app is not ready until all health checks are pass green.
+//    If any health checks fail, i.e., not green, then the app will fail to start up.
+//  - TODO: health check GRPC API
 //
 // Readiness Probe
 //
-// Liveliness Probe
+// A readiness probe indicates whether the application is ready to service requests. A wait group mechanism is used to implement
+// application readiness functionality via `ReadinessWaitGroup`. During application initialization, components can register
+// with the `ReadinessWaitGroup` and notify the app when it is ready.
+//
+// A readiness probe HTTP endpoint is exposed, which can be used to probe the app for readiness:
+// 	- endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF - which corresponds to the `ReadyEventID` const
+//  - the handler is linked to `ReadinessWaitGroup`
+//    - if the app is ready, then HTTP 200 is returned
+//    - if the app is not ready, then HTTP 503 is returned with response returns header `x-readiness-wait-group-count` set
+//      to the number of components that the app is waiting on
+//
+// TODO: Liveliness Probe
 //
 // HTTP server support
 //
-// If HTTPHandler(s) are discovered, i.e., they have been provided, then the app will run an HTTP server.
+// Any HTTPHandler(s) that are discovered, i.e., have been provided, will be registered with the app's HTTP server.
 // HTTP server settings can be provided via an *http.Server (NOTE: http.Server.Handler will be overwritten using
 // http handlers that are provided by the app). If no *http.Server is discovered, then the app will automatically
 // create an HTTP server with the following settings:
@@ -129,20 +154,30 @@ func (f errorHandler) HandleError(err error) {
 //	- ReadHeaderTimeout: time.Second,
 //	- MaxHeaderBytes:    1024,
 //
-// NOTE: when exposing Prometheus metrics via HTTP will provide an HTTP handler, and thus cause the HTTP server to run.
+// When building the app, the app HTTP server can be disabled - when using the App in unit testing, it is best to disable
+// the HTTP server if HTTP functionality is not being tested.
 //
 // Automatically Provided
-//	- Desc
-//	- InstanceID
-//	- *zerolog.Logger
-//	- fx.Lifecycle - for components to use to bind to the app lifecycle
-//	- fx.Shutdowner - used to trigger app shutdown
-//	- fx.Dotgraph - contains a DOT language visualization of the app dependency graph
-//	- ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
-//	- prometheus.Gatherer
-//	- prometheus.Registerer
-//  - health.Registry
-//  - health.Scheduler
+//  - Application Metadata
+//	  - Desc
+//	  - InstanceID
+//  - fx provided
+//	  - fx.Lifecycle - for components to use to bind to the app lifecycle
+//	  - fx.Shutdowner - used to trigger app shutdown
+//	  - fx.Dotgraph - contains a DOT language visualization of the app dependency graph
+//  - Prometheus metrics related
+//	  - prometheus.Gatherer
+//	  - prometheus.Registerer
+//  - Health Check related
+//    - health.Registry
+//    - health.Scheduler
+//  - Probes
+//	  - ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
+//	- Application Infrastructure Related
+//	  - *zerolog.Logger
+//    - *http.Server
+//      - can be disabled
+//	    - can be customized by providing it
 type App interface {
 	Options
 	LifeCycle

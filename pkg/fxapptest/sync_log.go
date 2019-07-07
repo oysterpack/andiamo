@@ -25,7 +25,7 @@ import (
 //
 // Use Case: used when inspecting logs in unit tests that have multiple go routines writing to the log concurrently
 type SyncLog struct {
-	sync.RWMutex
+	sync.Mutex
 	buf *bytes.Buffer
 }
 
@@ -42,19 +42,19 @@ func (l *SyncLog) Write(data []byte) (int, error) {
 }
 
 func (l *SyncLog) Read(p []byte) (n int, err error) {
-	l.RLock()
-	defer l.RUnlock()
+	l.Lock()
+	defer l.Unlock()
 	return l.buf.Read(p)
 }
 
 func (l *SyncLog) String() string {
-	l.RLock()
-	defer l.RUnlock()
+	l.Lock()
+	defer l.Unlock()
 	return l.buf.String()
 }
 
 func (l *SyncLog) Bytes() []byte {
-	l.RLock()
-	defer l.RUnlock()
+	l.Lock()
+	defer l.Unlock()
 	return l.buf.Bytes()
 }

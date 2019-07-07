@@ -32,9 +32,10 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 	getResult := make(chan chan health.Result)
 	go func() {
 		var result health.Result
+		done := scheduler.Done()
 		for {
 			select {
-			case <-scheduler.Done():
+			case <-done:
 				return
 			case result = <-healthCheckResult:
 			case reply := <-getResult:
@@ -48,7 +49,7 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 	opts := prometheus.GaugeOpts{
 		Name: HealthCheckMetricID,
 		ConstLabels: map[string]string{
-			"c": check.ID().String(),
+			"h": check.ID().String(),
 			"d": check.Desc().ID().String(),
 		},
 		Help: "health check",

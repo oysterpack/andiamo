@@ -74,7 +74,7 @@ func TestDomainEvent(t *testing.T) {
 		t.Errorf("*** app build failure: %v", err)
 	default:
 		go app.Run()
-		<-app.Started()
+		<-app.Ready()
 		app.Shutdown()
 		<-app.Done()
 

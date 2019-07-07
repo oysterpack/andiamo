@@ -44,7 +44,6 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 				})
 			},
 		).
-		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -59,7 +58,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 			app.Shutdown()
 			<-app.Done()
 
-			checkHTTPServerStartingEventLogged(t, buf, ":8008", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
+			checkHTTPServerStartingEventLogged(t, buf, ":8008", []string{"/foo", fxapp.DefaultPrometheusHTTPHandlerOpts().Endpoint})
 		}()
 
 		// Then the HTTP server is running
@@ -84,7 +83,6 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 				}
 			},
 		).
-		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -99,7 +97,7 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 			app.Shutdown()
 			<-app.Done()
 
-			checkHTTPServerStartingEventLogged(t, buf, ":5050", []string{"/foo", fxapp.NewPrometheusHTTPHandlerOpts().Endpoint()})
+			checkHTTPServerStartingEventLogged(t, buf, ":5050", []string{"/foo", fxapp.DefaultPrometheusHTTPHandlerOpts().Endpoint})
 		}()
 
 		// Then the HTTP server is running
@@ -124,7 +122,6 @@ func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
 				})
 			},
 		).
-		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -149,7 +146,6 @@ func TestHTTPServer_WithNilhandler(t *testing.T) {
 				return fxapp.NewHTTPHandler("/bar", nil)
 			},
 		).
-		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		LogWriter(buf).
 		Build()
@@ -170,7 +166,6 @@ func TestHTTPServer_HandlerPanic(t *testing.T) {
 				})
 			},
 		).
-		ConfigurePrometheusHTTPHandler(nil).
 		Invoke(func() {}).
 		Build()
 

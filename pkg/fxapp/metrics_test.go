@@ -180,10 +180,10 @@ func TestMetricGoCollectorRegistered(t *testing.T) {
 	}
 }
 
-func TestMetricProcessCollectorRegistered(t *testing.T) {
+func TestRegisterProcessMetricsCollector(t *testing.T) {
 	var metricsGatherer prometheus.Gatherer
 	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Invoke(func() {}).
+		Invoke(fxapp.RegisterProcessMetricsCollector).
 		Populate(&metricsGatherer).
 		Build()
 
@@ -405,10 +405,8 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
-	prometheusHTTPServerOpts := fxapp.NewPrometheusHTTPHandlerOpts()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func() {}).
-		ConfigurePrometheusHTTPHandler(prometheusHTTPServerOpts).
 		Build()
 
 	switch {
@@ -420,7 +418,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 			app.Shutdown()
 			<-app.Done()
 		}()
-		<-app.Started()
+		<-app.Ready()
 
 		// Then the prometheus HTTP server should be running
 		resp, err := retryablehttp.Get("http://:8008/metrics")
@@ -443,7 +441,6 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts()).
 		Invoke(
 			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
@@ -461,7 +458,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 			app.Shutdown()
 			<-app.Done()
 		}()
-		<-app.Started()
+		<-app.Ready()
 
 		// ensure that the http server is running
 		for {
@@ -489,9 +486,11 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts().
-			HandleErrorWith(promhttp.ContinueOnError),
-		).
+		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
+			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
+			opts.ErrorHandling = promhttp.ContinueOnError
+			return opts
+		}).
 		Invoke(
 			// register a collector that
 			func(registerer prometheus.Registerer) error {
@@ -509,7 +508,7 @@ func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 			app.Shutdown()
 			<-app.Done()
 		}()
-		<-app.Started()
+		<-app.Ready()
 
 		// Then the prometheus HTTP server should be running
 		resp, err := retryablehttp.Get("http://:8008/metrics")
@@ -554,31 +553,16 @@ func (c FailingMetricCollector) Write(*dto.Metric) error {
 	return errors.New("BOOM!")
 }
 
-func TestPrometheusHTTPHandlerOpts_Setters(t *testing.T) {
-	opts := fxapp.NewPrometheusHTTPHandlerOpts()
+func TestDefaultPrometheusHTTPHandlerOpts(t *testing.T) {
+	opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
 	t.Logf("%#v", opts)
-	if opts.Endpoint() != "/metrics" {
+	if opts.Endpoint != "/metrics" {
 		t.Error("*** endpoint option did not match")
 	}
-	if opts.Timeout() != 5*time.Second {
+	if opts.Timeout != 5*time.Second {
 		t.Error("*** timeout option did not match")
 	}
-	if opts.ErrorHandling() != promhttp.HTTPErrorOnError {
-		t.Error("*** error handling option did not match")
-	}
-
-	opts.WithEndpoint("/prometheus/metrics")
-	if opts.Endpoint() != "/prometheus/metrics" {
-		t.Error("*** endpoint option did not match")
-	}
-
-	opts.WithTimeout(time.Minute)
-	if opts.Timeout() != time.Minute {
-		t.Error("*** timeout option did not match")
-	}
-
-	opts.HandleErrorWith(promhttp.ContinueOnError)
-	if opts.ErrorHandling() != promhttp.ContinueOnError {
+	if opts.ErrorHandling != promhttp.HTTPErrorOnError {
 		t.Error("*** error handling option did not match")
 	}
 }

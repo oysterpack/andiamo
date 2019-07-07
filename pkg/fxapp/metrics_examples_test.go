@@ -27,9 +27,11 @@ import (
 
 func ExampleBuilder_ConfigurePrometheusHTTPHandler() {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		ConfigurePrometheusHTTPHandler(fxapp.NewPrometheusHTTPHandlerOpts().
-			WithTimeout(10 * time.Second),
-		).
+		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
+			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
+			opts.Timeout = 10 * time.Second
+			return opts
+		}).
 		Invoke(func() {}).
 		Build()
 
@@ -38,7 +40,7 @@ func ExampleBuilder_ConfigurePrometheusHTTPHandler() {
 	}
 
 	go app.Run()
-	<-app.Started()
+	<-app.Ready()
 	defer func() {
 		app.Shutdown()
 		<-app.Done()

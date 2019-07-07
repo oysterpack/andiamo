@@ -75,6 +75,7 @@ func TestHealthCheckGauge(t *testing.T) {
 		app.Shutdown()
 		<-app.Done()
 	}()
+	<-app.Ready()
 
 	var healthcheckMetrics *io_prometheus_client.MetricFamily
 MetricFamilyLoop:
@@ -101,7 +102,7 @@ HealthCheckLoop:
 		for _, metric := range healthcheckMetrics.Metric {
 			t.Log(metric)
 			for _, labelPair := range metric.GetLabel() {
-				if labelPair.GetName() == "c" && labelPair.GetValue() == check.ID().String() {
+				if labelPair.GetName() == "h" && labelPair.GetValue() == check.ID().String() {
 					continue HealthCheckLoop
 				}
 			}

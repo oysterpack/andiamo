@@ -55,6 +55,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(zerolog.SyncWriter(buf))
 	done := make(chan struct{})
+	defer close(done)
 
 	f := startHealthCheckLoggerFunc(scheduler.Subscribe(nil), &logger, done)
 
@@ -161,6 +162,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(zerolog.SyncWriter(buf))
 	done := make(chan struct{})
+	defer close(done)
 
 	f := startHealthCheckLoggerFunc(scheduler.Subscribe(nil), &logger, done)
 

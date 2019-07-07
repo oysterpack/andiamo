@@ -23,6 +23,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
+	"go.uber.org/fx"
+	"strings"
 	"time"
 )
 
@@ -123,12 +125,8 @@ func getLabels(m *dto.Metric) []string {
 	return names
 }
 
-// PrometheusHTTPHandlerOpts is used to configure the Prometheus HTTP handler that is used to expose metrics
-type PrometheusHTTPHandlerOpts interface {
-	WithTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts
-	WithEndpoint(path string) PrometheusHTTPHandlerOpts
-	HandleErrorWith(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts
-
+// PrometheusHTTPHandlerOpts PrometheusHTTPServer options
+type PrometheusHTTPHandlerOpts struct {
 	// Timeout returns the handler response timeout.
 	//
 	// If handling a request takes longer than Timeout, it is responded to with 503 ServiceUnavailable and a suitable Message.
@@ -136,79 +134,56 @@ type PrometheusHTTPHandlerOpts interface {
 	// simply ends the HTTP requests as described above (and even that only if sending of the body hasn't started yet), while
 	// the bulk work of gathering all the metrics keeps running in the background (with the eventual result to be thrown away).
 	// Until the implementation is improved, it is recommended to implement a separate timeout in potentially slow Collectors.
-	Timeout() time.Duration
-
-	Endpoint() string
-
+	Timeout  time.Duration
+	Endpoint string
 	// ErrorHandling defines how errors are handled.
 	//
-	// // Note that errors are logged regardless of the configured ErrorHandling provided ErrorLog is not nil.
-	ErrorHandling() promhttp.HandlerErrorHandling
-
-	// NewHTTPHandler constructs a new HTTPHandler from the PrometheusHTTPHandlerOpts
-	//
-	// The max requests in flight is limited to 3.
-	NewHTTPHandler(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger) HTTPHandler
+	// Note: errors are always logged regardless of the configured ErrorHandling
+	ErrorHandling promhttp.HandlerErrorHandling
 }
 
-// PrometheusHTTPHandlerOpts PrometheusHTTPServer options
-type prometheusHTTPHandlerOpts struct {
-	timeout       time.Duration
-	endpoint      string
-	errorHandling promhttp.HandlerErrorHandling
-}
-
-// NewPrometheusHTTPHandlerOpts constructs a new PrometheusHTTPHandlerOpts with the following options:
+// DefaultPrometheusHTTPHandlerOpts constructs a new PrometheusHTTPHandlerOpts with the following options:
 // 	- timeout: 5 secs
 //	- endpoint: /metrics
 //	- error handling: promhttp.HTTPErrorOnError
 // 	  - Serve an HTTP status code 500 upon the first error encountered. Report the error message in the body.
-func NewPrometheusHTTPHandlerOpts() PrometheusHTTPHandlerOpts {
-	return &prometheusHTTPHandlerOpts{
-		timeout:  5 * time.Second,
-		endpoint: "/metrics",
+func DefaultPrometheusHTTPHandlerOpts() PrometheusHTTPHandlerOpts {
+	return PrometheusHTTPHandlerOpts{
+		Timeout:  5 * time.Second,
+		Endpoint: "/metrics",
 	}
 }
 
-func (opts *prometheusHTTPHandlerOpts) WithTimeout(timeout time.Duration) PrometheusHTTPHandlerOpts {
-	opts.timeout = timeout
-	return opts
+type prometheusHTTPHandlerParams struct {
+	fx.In
+
+	Opts       PrometheusHTTPHandlerOpts `optional:"true"`
+	Gatherer   prometheus.Gatherer
+	Registerer prometheus.Registerer
+	Logger     *zerolog.Logger
 }
 
-// WithEndpoint sets the endpoint path
-func (opts *prometheusHTTPHandlerOpts) WithEndpoint(path string) PrometheusHTTPHandlerOpts {
-	opts.endpoint = path
-	return opts
-}
+// NewHTTPHandler constructs a new HTTPHandler from the PrometheusHTTPHandlerOpts
+//
+// The max requests in flight is limited to 3.
+func newPrometheusHTTPHandler(params prometheusHTTPHandlerParams) HTTPHandler {
+	if strings.TrimSpace(params.Opts.Endpoint) == "" {
+		params.Opts.Endpoint = "/metrics"
+	}
+	if params.Opts.Timeout == time.Duration(0) {
+		params.Opts.Timeout = 5 * time.Second
+	}
 
-func (opts *prometheusHTTPHandlerOpts) HandleErrorWith(errorHandling promhttp.HandlerErrorHandling) PrometheusHTTPHandlerOpts {
-	opts.errorHandling = errorHandling
-	return opts
-}
-
-func (opts *prometheusHTTPHandlerOpts) Timeout() time.Duration {
-	return opts.timeout
-}
-
-func (opts *prometheusHTTPHandlerOpts) Endpoint() string {
-	return opts.endpoint
-}
-
-func (opts *prometheusHTTPHandlerOpts) ErrorHandling() promhttp.HandlerErrorHandling {
-	return opts.errorHandling
-}
-
-func (opts *prometheusHTTPHandlerOpts) NewHTTPHandler(gatherer prometheus.Gatherer, registerer prometheus.Registerer, logger *zerolog.Logger) HTTPHandler {
-	errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(logger, zerolog.ErrorLevel))
+	errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(params.Logger, zerolog.ErrorLevel))
 	promhttpHandlerOpts := promhttp.HandlerOpts{
 		ErrorLog:            errorLog,
-		ErrorHandling:       opts.errorHandling,
-		Registry:            registerer,
+		ErrorHandling:       params.Opts.ErrorHandling,
+		Registry:            params.Registerer,
 		MaxRequestsInFlight: 3,
-		Timeout:             opts.timeout,
+		Timeout:             params.Opts.Timeout,
 	}
-	handler := promhttp.HandlerFor(gatherer, promhttpHandlerOpts)
-	return NewHTTPHandler(opts.endpoint, handler.ServeHTTP)
+	handler := promhttp.HandlerFor(params.Gatherer, promhttpHandlerOpts)
+	return NewHTTPHandler(params.Opts.Endpoint, handler.ServeHTTP)
 }
 
 // PrometheusHTTPError indicates an error occurred while handling a metrics scrape HTTP request.
@@ -229,4 +204,9 @@ type prometheusHTTPError string
 
 func (err prometheusHTTPError) MarshalZerologObject(e *zerolog.Event) {
 	e.Err(errors.New(string(err)))
+}
+
+// RegisterProcessMetricsCollector is used to register the prometheus built in process metrics collector.
+func RegisterProcessMetricsCollector(registerer prometheus.Registerer) error {
+	return registerer.Register(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{ReportErrors: true}))
 }

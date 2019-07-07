@@ -341,7 +341,7 @@ func TestRunningApp(t *testing.T) {
 	err = app.Run()
 	switch {
 	case err == nil:
-		t.Errorf("*** app run should have failed because it has laready been shutdown")
+		t.Errorf("*** app run should have failed because it has already been shutdown")
 	default:
 		t.Log(err)
 	}
@@ -374,30 +374,23 @@ func TestAppLifeCycleSignals(t *testing.T) {
 		}
 	}()
 
-	var lifecycleEvents []string
 	<-app.Starting()
-	lifecycleEvents = append(lifecycleEvents, "starting")
 	t.Log("app is starting")
 
 	<-app.Started()
-	lifecycleEvents = append(lifecycleEvents, "started")
 	t.Log("app has started")
 
+	<-app.Ready()
+	t.Log("app is ready")
+
 	stopSignal := <-app.Stopping()
-	lifecycleEvents = append(lifecycleEvents, "stopping")
 	t.Logf("app is stopping: %v", stopSignal)
 
 	doneDignal := <-app.Done()
 	if doneDignal != stopSignal {
 		t.Errorf("*** stop and done signals should be the same: %v : %v", stopSignal, doneDignal)
 	}
-	lifecycleEvents = append(lifecycleEvents, "stopped")
 	t.Logf("app is stopped: %v", doneDignal)
-
-	t.Logf("lifecycleEvents: %v", lifecycleEvents)
-	if len(lifecycleEvents) != 4 {
-		t.Errorf("*** lifecycle event count should be 4 but was : %d", len(lifecycleEvents))
-	}
 }
 
 // When the application is run, the registered functions are invoked in the order that they are registered.

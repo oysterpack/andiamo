@@ -73,7 +73,7 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Log(healthChecks)
 
 	go app.Run()
-	<-app.Started()
+	<-app.Ready()
 
 	// When the app is shutdown
 	app.Shutdown()
@@ -201,7 +201,7 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 
 	var healthCheckRegistry health.Registry
 	var healthCheckResults <-chan health.Result
-	buf := fxapptest.NewSyncLog() //new(bytes.Buffer)
+	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
@@ -230,6 +230,7 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 		app.Shutdown()
 		<-app.Done()
 	}()
+	<-app.Ready()
 
 	t.Log(<-healthCheckResults)
 
