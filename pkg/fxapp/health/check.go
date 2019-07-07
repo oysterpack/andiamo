@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"go.uber.org/multierr"
 	"log"
 	"strings"
@@ -77,6 +78,7 @@ type Check interface {
 
 	fmt.Stringer
 	json.Marshaler
+	zerolog.LogObjectMarshaler
 }
 
 // NewBuilder constructs a new health check Builder.
@@ -253,6 +255,30 @@ func (c *check) RedImpact() string {
 
 func (c *check) Desc() Desc {
 	return c.desc
+}
+
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
+func (c *check) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Str("id", c.ID().String()).
+		Str("desc_id", c.Desc().ID().String()).
+		Strs("description", []string{c.Desc().Description(), c.Description()}).
+		Strs("red_impact", []string{c.Desc().RedImpact(), c.RedImpact()})
+
+	var yellowImpact []string
+	if c.Desc().YellowImpact() != "" {
+		yellowImpact = append(yellowImpact, c.Desc().YellowImpact())
+	}
+	if c.YellowImpact() != "" {
+		yellowImpact = append(yellowImpact, c.YellowImpact())
+	}
+	if len(yellowImpact) != 0 {
+		e.Strs("yellow_impact", yellowImpact)
+	}
+
+	e.
+		Dur("timeout", c.Timeout()).
+		Dur("run_interval", c.RunInterval())
 }
 
 func (c *check) Run() Result {

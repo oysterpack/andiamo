@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/oklog/ulid"
+	"github.com/rs/zerolog"
 	"time"
 )
 
@@ -40,6 +41,7 @@ type Result interface {
 
 	fmt.Stringer
 	json.Marshaler
+	zerolog.LogObjectMarshaler
 }
 
 // ResultBuilder is used to construct new Result instances
@@ -135,4 +137,16 @@ func (r *result) Red(err error) Result {
 	r.err = err
 	r.status = Red
 	return r
+}
+
+// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
+func (r *result) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Str("id", r.HealthCheckID().String()).
+		Time("start", r.Time()).
+		Dur("dur", r.Duration()).
+		Uint8("status", uint8(r.Status()))
+	if r.Error() != nil {
+		e.Err(r.Error())
+	}
 }

@@ -26,19 +26,35 @@ const HealthCheckMetricID = "U01DF4CVSSF4RT1ZB4EXC44G668"
 
 func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, registerer prometheus.Registerer) error {
 	healthCheckResult := scheduler.Subscribe(func(c health.Check) bool {
-		return check.ID() == c.ID()
+		return c.ID() == check.ID()
 	})
 
 	getResult := make(chan chan health.Result)
 	go func() {
 		var result health.Result
+
+		// initialize the health check result
+		resultsChan := scheduler.Results(func(result health.Result) bool {
+			return result.HealthCheckID() == check.ID()
+		})
 		done := scheduler.Done()
+		select {
+		case <-done:
+			return
+		case results := <-resultsChan:
+			if len(results) == 1 {
+				result = results[0]
+			} else {
+				result = check.Run()
+			}
+		}
+		// event loop
 		for {
 			select {
 			case <-done:
 				return
-			case result = <-healthCheckResult:
-			case reply := <-getResult:
+			case result = <-healthCheckResult: // update the health check result with the latest result
+			case reply := <-getResult: // metrics are being gathered
 				go func(result health.Result) {
 					reply <- result
 				}(result)
@@ -65,9 +81,6 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 			case <-scheduler.Done():
 				return -1
 			case result := <-ch:
-				if result == nil {
-					return float64(check.Run().Status())
-				}
 				return float64(result.Status())
 			}
 		}

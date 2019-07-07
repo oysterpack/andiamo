@@ -24,6 +24,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"strings"
 	"testing"
@@ -106,6 +107,7 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 			healthCheckRegistered = registry.Subscribe()
 			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
 				Description("Foo").
+				YellowImpact("yellow").
 				RedImpact("fatal").
 				Checker(func(ctx context.Context) health.Failure {
 					return nil
@@ -288,5 +290,44 @@ FoundEvent:
 	default:
 		t.Error("*** health check result event was not logged")
 	}
+
+}
+
+func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
+	t.Parallel()
+	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Foo").
+		YellowImpact("app response times are slow").
+		RedImpact("app is unavailable").
+		MustBuild()
+	healthCheckID := ulidgen.MustNew()
+
+	buf := fxapptest.NewSyncLog()
+	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		LogWriter(buf).
+		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
+			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
+				Description("Foo").
+				RedImpact("fatal").
+				Checker(func(ctx context.Context) health.Failure {
+					return health.YellowFailure(errors.New("yellow"))
+				}).
+				MustBuild()
+
+			registry.Register(FooHealth)
+		}).
+		DisableHTTPServer().
+		Build()
+
+	if err != nil {
+		t.Errorf("*** failed to build app: %v", err)
+	}
+
+	err = app.Run()
+	if err == nil {
+		t.Error("*** app should have failed to startup because of health check failure")
+		return
+	}
+	t.Log(err)
 
 }

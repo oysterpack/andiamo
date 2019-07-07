@@ -20,18 +20,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// EventTypeID is used as an event type ID.
+// Event is used as an event type ID.
 // It must be globally unique - ULIDs are recommended.
-type EventTypeID string
+type Event string
 
-func (e EventTypeID) String() string {
+func (e Event) String() string {
 	return string(e)
 }
 
-// LogEventer is a function used to log events.
-type LogEventer func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string)
+// Logger is a function used to log events.
+type Logger func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string)
 
-// NewLogEventer creates a new function used to log events using a standardized structure that supports use cases for automated
+// ErrorLogger is a function used to log error events
+type ErrorLogger func(eventData zerolog.LogObjectMarshaler, err error, tags ...string)
+
+// NewLogger creates a new function used to log events using a standardized structure that supports use cases for automated
 // monitoring, alerting, querying, and analytics. Having a standardized structure makes it easier to build standardized tools.
 // The goal is to get more value out of log events by enabling the log events to processed programmatically.
 //
@@ -59,8 +62,7 @@ type LogEventer func(eventData zerolog.LogObjectMarshaler, msg string, tags ...s
 //  where
 //      ==== means the field was populated by the application logger
 //		---- means the field was populated by the event logger
-//
-func (e EventTypeID) NewLogEventer(logger *zerolog.Logger, level zerolog.Level) LogEventer {
+func (e Event) NewLogger(logger *zerolog.Logger, level zerolog.Level) Logger {
 	eventLogger := EventLogger(logger, e.String())
 	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
 		event := eventLogger.WithLevel(level)
@@ -76,5 +78,47 @@ func (e EventTypeID) NewLogEventer(logger *zerolog.Logger, level zerolog.Level) 
 		}
 
 		event.Msg(msg)
+	}
+}
+
+// NewErrorLogger creates a new function used to log errors with contextual data. It uses the same structure as `Logger`
+// except that the level is automatically set to `error` and the error is set on the log event.
+//
+// Example application event
+//	{
+//	  "l": "error", -------------------------------------- event level
+//	  "a": "01DE379HHM9Y3QYBDB4MSY7YYQ", ================= app ID
+//	  "r": "01DE379HHNRJ4YS4NY4CMJX5YE", ================= app release ID
+//	  "x": "01DE379HHN2RRX9YQCG2DN9CHG", ================= app instance ID
+//	  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0", ----------------- event type ID
+//    "e": "failure to connect" -------------------------- event error
+//	  "01DE2Z4E07E4T0GJJXCG8NN6A0": { -------------------- event type ID is used as the event object dictionary key (optional)
+//		"id": "01DE379HHNVHQE5G6NHN2BBKAT", -------------- event object data (optional)
+//	  }, ------------------------------------------------- event object data (optional)
+//	  "g": ["tag-a","tag-b"], ---------------------------- event tags (optional)
+//	  "z": "01DE379HHNM87XT4PBHXYYBTYS", ================= event instance ID
+//	  "t": 1561328928, =================================== event timestamp in Unix time
+//	  "m": "health check failed" ------------------------- event short description
+//	}
+//
+//  where
+//      ==== means the field was populated by the application logger
+//		---- means the field was populated by the event logger
+func (e Event) NewErrorLogger(logger *zerolog.Logger) ErrorLogger {
+	eventLogger := EventLogger(logger, e.String())
+	return func(eventObject zerolog.LogObjectMarshaler, err error, tags ...string) {
+		event := eventLogger.Error().Err(err)
+
+		if eventObject != nil {
+			data := zerolog.Dict()
+			eventObject.MarshalZerologObject(data)
+			event.Dict(e.String(), data)
+		}
+
+		if len(tags) > 0 {
+			event.Strs("g", tags)
+		}
+
+		event.Msg("")
 	}
 }

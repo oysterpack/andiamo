@@ -212,7 +212,6 @@ func StartScheduler(registry Registry) Scheduler {
 				case <-s.shutdown:
 				case req.reply <- results:
 				}
-
 			}
 
 		}

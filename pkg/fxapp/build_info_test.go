@@ -18,35 +18,11 @@ package fxapp_test
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/rs/zerolog"
 	"testing"
 )
 
-func BenchmarkEventTypeID_LogEventFunc(b *testing.B) {
-	const FooEvent fxapp.Event = "01DE79DKCAH8DBXZRX9P3THK9G"
-
-	type LogFooEvent func()
-
-	var logEvent LogFooEvent
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		Provide(
-			func(logger *zerolog.Logger) LogFooEvent {
-				logEvent := FooEvent.NewLogger(logger, zerolog.InfoLevel)
-				return func() {
-					logEvent(nil, "foo")
-				}
-			},
-		).
-		Populate(&logEvent).
-		Build()
-
-	switch {
-	case err != nil:
-		b.Errorf("*** app build failure: %v", err)
-	default:
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			logEvent()
-		}
-	}
+func TestReadBuildInfo(t *testing.T) {
+	buildInfo, err := fxapp.ReadBuildInfo()
+	t.Log("BuildInfo: ", buildInfo)
+	t.Log("err: ", err)
 }

@@ -130,10 +130,10 @@ func runHTTPServer(opts httpServerOpts, logger *zerolog.Logger, lc fx.Lifecycle,
 	}
 	opts.Server.Handler = serveMux
 
-	logHTTPServerErr := httpServerErrorLog(HTTPServerError.NewLogEventer(logger, zerolog.ErrorLevel))
+	logHTTPServerErr := httpServerErrorLog(HTTPServerError.NewLogger(logger, zerolog.ErrorLevel))
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			HTTPServerStarting.NewLogEventer(logger, zerolog.InfoLevel)(opts.httpServerInfo(), "starting HTTP server")
+			HTTPServerStarting.NewLogger(logger, zerolog.InfoLevel)(opts.httpServerInfo(), "starting HTTP server")
 			// wait for the HTTP server go routine to start running before returning
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -171,16 +171,16 @@ const (
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	HTTPServerError EventTypeID = "01DEDRH8A9X3SCSJRCJ4PM7749"
+	HTTPServerError Event = "01DEDRH8A9X3SCSJRCJ4PM7749"
 
 	// 	type Data struct {
 	//		Addr      string
 	//		Endpoints []string
 	//	}
-	HTTPServerStarting EventTypeID = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
+	HTTPServerStarting Event = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
 )
 
-type httpServerErrorLog LogEventer
+type httpServerErrorLog Logger
 
 func (log httpServerErrorLog) Println(v ...interface{}) {
 	log(httpServerError(fmt.Sprint(v...)), "HTTP Server error")

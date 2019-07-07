@@ -174,7 +174,7 @@ func newPrometheusHTTPHandler(params prometheusHTTPHandlerParams) HTTPHandler {
 		params.Opts.Timeout = 5 * time.Second
 	}
 
-	errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogEventer(params.Logger, zerolog.ErrorLevel))
+	errorLog := prometheusHTTPErrorLog(PrometheusHTTPError.NewLogger(params.Logger, zerolog.ErrorLevel))
 	promhttpHandlerOpts := promhttp.HandlerOpts{
 		ErrorLog:            errorLog,
 		ErrorHandling:       params.Opts.ErrorHandling,
@@ -191,9 +191,9 @@ func newPrometheusHTTPHandler(params prometheusHTTPHandlerParams) HTTPHandler {
 // 	type Data struct {
 //		Err string `json:"e"`
 //	}
-const PrometheusHTTPError EventTypeID = "01DEARG17HNQ606ARQNYFY7PG5"
+const PrometheusHTTPError Event = "01DEARG17HNQ606ARQNYFY7PG5"
 
-type prometheusHTTPErrorLog LogEventer
+type prometheusHTTPErrorLog Logger
 
 // implements promhttp.Logger interface
 func (log prometheusHTTPErrorLog) Println(v ...interface{}) {

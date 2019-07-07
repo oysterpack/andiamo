@@ -101,6 +101,10 @@ func (f errorHandler) HandleError(err error) {
 // The zerolog application logger is plugged in as the go standard log, where log events are logged with no level and logged
 // using a component logger named 'log' ("c":"log")
 //
+// All application log events should be defined as an `Event` and logged via `Event` logger functions. This makes it easy
+// to document and understand application logs. All events are assigned a unique identifier - it is recommended to use
+// a ULID as the event name.
+//
 // Prometheus Metrics
 //
 // The following are automatically provided for the app:
@@ -414,31 +418,31 @@ func (a *app) Shutdown() error {
 }
 
 func (a *app) logAppInitialized() {
-	logEvent := InitializedEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := InitializedEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(AppInitialized{App: a}, "app initialized")
 }
 
 func (a *app) logAppStarting() {
-	logEvent := StartingEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := StartingEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app starting")
 }
 
 func (a *app) logAppStarted(startupTime time.Duration) {
-	logEvent := StartedEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := StartedEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(AppStarted{startupTime}, "app started")
 }
 
 func (a *app) logAppReady() {
-	logEvent := ReadyEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := ReadyEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app is ready to service requests")
 }
 
 func (a *app) logAppStopping() {
-	logEvent := StoppingEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := StoppingEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app stopping")
 }
 
 func (a *app) logAppStopped(shutdownDuration time.Duration) {
-	logEvent := StoppedEventID.NewLogEventer(a.logger, zerolog.NoLevel)
+	logEvent := StoppedEventID.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(AppStopped{shutdownDuration}, "app stopped")
 }

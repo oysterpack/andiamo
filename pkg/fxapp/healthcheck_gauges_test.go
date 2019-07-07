@@ -52,6 +52,7 @@ func TestHealthCheckGauge(t *testing.T) {
 		MustBuild()
 
 	var gatherer prometheus.Gatherer
+	var scheduler health.Scheduler
 	app, err := fxapp.NewBuilder(newDesc("foo", "2019.0706.160500")).
 		Invoke(func(registry health.Registry) error {
 			if err := registry.Register(Foo1); err != nil {
@@ -62,7 +63,7 @@ func TestHealthCheckGauge(t *testing.T) {
 			}
 			return nil
 		}).
-		Populate(&gatherer).
+		Populate(&gatherer, &scheduler).
 		DisableHTTPServer().
 		Build()
 
@@ -104,6 +105,44 @@ HealthCheckLoop:
 			for _, labelPair := range metric.GetLabel() {
 				if labelPair.GetName() == "h" && labelPair.GetValue() == check.ID().String() {
 					continue HealthCheckLoop
+				}
+			}
+		}
+		t.Errorf("*** health check was not gathered: %v", check)
+	}
+
+	app.Shutdown()
+	<-app.Done()
+
+	// after the the scheduler is shutdown, then the health check gauges should return -1
+	<-scheduler.Done()
+
+MetricFamilyLoop2:
+	for {
+		mfs, err := gatherer.Gather()
+		if err != nil {
+			t.Errorf("*** failed to gather metrics: %v", err)
+			return
+		}
+
+		healthcheckMetrics = fxapp.FindMetricFamily(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+			return mf.GetName() == fxapp.HealthCheckMetricID
+		})
+		if healthcheckMetrics != nil && len(healthcheckMetrics.Metric) >= 2 {
+			break MetricFamilyLoop2
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+HealthCheckLoop2:
+	for _, check := range []health.Check{Foo1, Foo2} {
+		t.Log(check)
+		for _, metric := range healthcheckMetrics.Metric {
+			t.Log(metric)
+			for _, labelPair := range metric.GetLabel() {
+				if labelPair.GetName() == "h" && metric.Gauge.GetValue() < 0 {
+					continue HealthCheckLoop2
 				}
 			}
 		}

@@ -17,7 +17,6 @@
 package fxapp
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/rs/zerolog"
 	"os"
 	"reflect"
@@ -32,35 +31,35 @@ const (
 	//		Provides     []string
 	//		Invokes      []string
 	//	}
-	InitializedEventID EventTypeID = "01DE4STZ0S24RG7R08PAY1RQX3"
+	InitializedEventID Event = "01DE4STZ0S24RG7R08PAY1RQX3"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	InitFailedEventID EventTypeID = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	InitFailedEventID Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	StartingEventID EventTypeID = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartingEventID Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StartFailedEventID EventTypeID = "01DE4SY6RYCD0356KYJV7G7THW"
+	StartFailedEventID Event = "01DE4SY6RYCD0356KYJV7G7THW"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StartedEventID EventTypeID = "01DE4X10QCV1M8TKRNXDK6AK7C"
+	StartedEventID Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	ReadyEventID EventTypeID = "01DEJ5RA8XRZVECJDJFAA2PWJF"
+	ReadyEventID Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
 
-	StoppingEventID EventTypeID = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StoppingEventID Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StopFailedEventID EventTypeID = "01DE4T0W35RPD6QMDS42WQXR48"
+	StopFailedEventID Event = "01DE4T0W35RPD6QMDS42WQXR48"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StoppedEventID EventTypeID = "01DE4T1V9N50BB67V424S6MG5C"
+	StoppedEventID Event = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
 // AppInitialized indicates the application has successfully initialized
@@ -124,7 +123,7 @@ func (event AppFailed) MarshalZerologObject(e *zerolog.Event) {
 
 // health check related events
 const (
-	// HealthCheckRegistered is used to generate the event data, e.g.,
+	// HealthCheck is used to generate the event data, e.g.,
 	//
 	// "01DF3FV60A2J1WKX5NQHP47H61": {
 	//    "id": "01DF3MNDKPB69AJR7ZGDNB3KA1",
@@ -145,53 +144,9 @@ const (
 	//  }
 	//
 	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
-	HealthCheckRegisteredEventID EventTypeID = "01DF3FV60A2J1WKX5NQHP47H61"
+	HealthCheckRegisteredEventID Event = "01DF3FV60A2J1WKX5NQHP47H61"
 
-	HealthCheckResultEventID EventTypeID = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
+	HealthCheckResultEventID Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
+
+	HealthCheckGaugeRegistrationErrorEventId Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )
-
-// HealthCheckRegistered indicates a health check has been registered for the app
-type HealthCheckRegistered struct {
-	health.Check
-}
-
-// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event HealthCheckRegistered) MarshalZerologObject(e *zerolog.Event) {
-	e.
-		Str("id", event.ID().String()).
-		Str("desc_id", event.Desc().ID().String()).
-		Strs("description", []string{event.Desc().Description(), event.Description()}).
-		Strs("red_impact", []string{event.Desc().RedImpact(), event.RedImpact()})
-
-	var yellowImpact []string
-	if event.Desc().YellowImpact() != "" {
-		yellowImpact = append(yellowImpact, event.Desc().YellowImpact())
-	}
-	if event.YellowImpact() != "" {
-		yellowImpact = append(yellowImpact, event.YellowImpact())
-	}
-	if len(yellowImpact) != 0 {
-		e.Strs("yellow_impact", yellowImpact)
-	}
-
-	e.
-		Dur("timeout", event.Timeout()).
-		Dur("run_interval", event.RunInterval())
-}
-
-// HealthCheckResult is used to log health check results
-type HealthCheckResult struct {
-	health.Result
-}
-
-// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event HealthCheckResult) MarshalZerologObject(e *zerolog.Event) {
-	e.
-		Str("id", event.HealthCheckID().String()).
-		Time("start", event.Time()).
-		Dur("dur", event.Duration()).
-		Uint8("status", uint8(event.Status()))
-	if event.Error() != nil {
-		e.Err(event.Error())
-	}
-}
