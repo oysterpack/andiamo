@@ -148,5 +148,5 @@ const (
 
 	HealthCheckResultEventID Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
-	HealthCheckGaugeRegistrationErrorEventId Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
+	HealthCheckGaugeRegistrationErrorEventID Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )

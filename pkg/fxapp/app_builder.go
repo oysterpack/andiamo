@@ -303,7 +303,7 @@ func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, 
 func handleHealthCheckRegistrations(registry health.Registry, scheduler health.Scheduler, metricRegisterer prometheus.Registerer, lc fx.Lifecycle, logger *zerolog.Logger) {
 	done := make(chan struct{})
 	logHealthCheckRegistered := HealthCheckRegisteredEventID.NewLogger(logger, zerolog.NoLevel)
-	logHealthCheckGaugeRegistrationError := HealthCheckGaugeRegistrationErrorEventId.NewErrorLogger(logger)
+	logHealthCheckGaugeRegistrationError := HealthCheckGaugeRegistrationErrorEventID.NewErrorLogger(logger)
 	healthCheckRegistered := registry.Subscribe()
 	go func() {
 		for {
