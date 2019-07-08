@@ -19,15 +19,21 @@ package fxapp_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"go.uber.org/fx"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Ready is an app lifecycle state. To be ready means the app is ready to serve requests.
@@ -184,4 +190,139 @@ func TestNewReadinessWaitgroup_Async(t *testing.T) {
 	if readinessGroup.Count() != 0 {
 		t.Errorf("*** count should be 0: %d", readinessGroup.Count())
 	}
+}
+
+func TestLivenessProbe(t *testing.T) {
+	t.Parallel()
+	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Foo").
+		RedImpact("RED").
+		MustBuild()
+
+	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
+		FooCheck := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
+			Description("check").
+			RedImpact("RED").
+			Checker(func(ctx context.Context) health.Failure {
+				switch status {
+				case health.Green:
+					return nil
+				case health.Yellow:
+					return health.YellowFailure(errors.New("YELLOW"))
+				default:
+					return health.RedFailure(errors.New("RED"))
+				}
+			}).
+			MustBuild()
+
+		var probe fxapp.LivenessProbe
+		var healthCheckRegistry health.Registry
+		var healthCheckScheduler health.Scheduler
+		var gatherer prometheus.Gatherer
+		app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+			Invoke(func() {}).
+			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
+			Build()
+
+		if err != nil {
+			t.Errorf("*** app failed to build: %v", err)
+		}
+
+		go app.Run()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+		<-app.Ready()
+
+		if err := probe(); err != nil {
+			t.Errorf("*** probe should succeed, but instead failed: %v", err)
+		}
+
+		// Register a failing health check
+		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
+			return check.ID() == FooCheck.ID()
+		})
+		healthCheckRegistry.Register(FooCheck)
+		select {
+		case <-time.After(time.Millisecond):
+		case <-healthCheckResultChan:
+		}
+
+		for {
+			mfs, err := gatherer.Gather()
+			if err != nil {
+				t.Errorf("*** failed to gather metrics: %v", err)
+				return
+			}
+			healthCheckMetricFamily := fxapp.FindMetricFamily(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+				if mf.GetName() == fxapp.HealthCheckMetricID {
+					for _, metric := range mf.Metric {
+						for _, labelPair := range metric.Label {
+							if labelPair.GetValue() == FooCheck.ID().String() {
+								return true
+							}
+						}
+					}
+				}
+				return false
+			})
+
+			if healthCheckMetricFamily != nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+
+		test(t, probe)
+	}
+
+	t.Run("no health checks registered", func(t *testing.T) {
+		t.Parallel()
+		var probe fxapp.LivenessProbe
+		_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+			Invoke(func() {}).
+			Populate(&probe).
+			DisableHTTPServer().
+			Build()
+
+		if err != nil {
+			t.Errorf("*** app failed to build: %v", err)
+		}
+
+		if err := probe(); err != nil {
+			t.Errorf("*** probe should succeed, but instead failed: %v", err)
+		}
+	})
+
+	t.Run("green health checks registered", func(t *testing.T) {
+		t.Parallel()
+		checkProbe(t, health.Green, func(t *testing.T, probe fxapp.LivenessProbe) {
+			if err := probe(); err != nil {
+				t.Errorf("*** probe should succeed, but instead failed: %v", err)
+			}
+		})
+	})
+
+	// liveness probe should succeed if health checks are yellow
+	t.Run("yellow health checks registered", func(t *testing.T) {
+		t.Parallel()
+		checkProbe(t, health.Yellow, func(t *testing.T, probe fxapp.LivenessProbe) {
+			if err := probe(); err != nil {
+				t.Errorf("*** probe should succeed, but instead failed: %v", err)
+			}
+		})
+	})
+
+	t.Run("red health checks registered", func(t *testing.T) {
+		t.Parallel()
+		checkProbe(t, health.Red, func(t *testing.T, probe fxapp.LivenessProbe) {
+			if err := probe(); err == nil {
+				t.Error("*** probe should have failed")
+			} else {
+				t.Log(err)
+			}
+		})
+	})
+
 }

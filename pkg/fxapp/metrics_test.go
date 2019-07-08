@@ -18,6 +18,7 @@ package fxapp_test
 
 import (
 	"errors"
+	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/prometheus/client_golang/prometheus"
@@ -421,7 +422,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 		<-app.Ready()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := retryablehttp.Get("http://:8008/metrics")
+		resp, err := retryablehttp.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
@@ -462,14 +463,14 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 
 		// ensure that the http server is running
 		for {
-			if _, err := http.Get("http://:8008/metrics"); err == nil {
+			if _, err := http.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint)); err == nil {
 				break
 			}
 			time.Sleep(time.Microsecond)
 		}
 
 		// Then the prometheus HTTP server should be running
-		resp, err := http.Get("http://:8008/metrics")
+		resp, err := http.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
@@ -511,7 +512,7 @@ func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
 		<-app.Ready()
 
 		// Then the prometheus HTTP server should be running
-		resp, err := retryablehttp.Get("http://:8008/metrics")
+		resp, err := retryablehttp.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 		switch {
 		case err != nil:
 			t.Errorf("*** failed to HTTP scrape metrics: %v", err)
@@ -556,7 +557,7 @@ func (c FailingMetricCollector) Write(*dto.Metric) error {
 func TestDefaultPrometheusHTTPHandlerOpts(t *testing.T) {
 	opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
 	t.Logf("%#v", opts)
-	if opts.Endpoint != "/metrics" {
+	if opts.Endpoint != fmt.Sprintf("/%s", fxapp.MetricsEndpoint) {
 		t.Error("*** endpoint option did not match")
 	}
 	if opts.Timeout != 5*time.Second {

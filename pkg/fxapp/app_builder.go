@@ -174,12 +174,12 @@ func (b *builder) Build() (App, error) {
 		Shutdowner: shutdowner,
 	}
 	app.startErrorHandlers = append(app.startErrorHandlers, func(e error) {
-		logEvent := StartFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
-		logEvent(AppFailed{e}, "app start failed")
+		logEvent := StartFailedEvent.NewErrorLogger(logger)
+		logEvent(nil, multierr.Combine(errors.New("app start failed"), e))
 	})
 	app.stopErrorHandlers = append(app.stopErrorHandlers, func(e error) {
-		logEvent := StopFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
-		logEvent(AppFailed{e}, "app stop failed")
+		logEvent := StopFailedEvent.NewErrorLogger(logger)
+		logEvent(nil, multierr.Combine(errors.New("app stop failed"), e))
 	})
 
 	if err := app.Err(); err != nil {
@@ -221,6 +221,9 @@ func (b *builder) buildOptions() []fx.Option {
 		func() ReadinessWaitGroup { return NewReadinessWaitgroup(1) },
 		readinessProbeHTTPHandler,
 
+		livenessProbe,
+		livenessProbeHTTPHandler,
+
 		health.NewRegistry,
 		health.StartScheduler,
 	))
@@ -244,8 +247,8 @@ func (b *builder) buildOptions() []fx.Option {
 			compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 		}
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
-			logEvent := InitFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
-			logEvent(AppFailed{err}, "app init failed")
+			logEvent := InitFailedEvent.NewErrorLogger(logger)
+			logEvent(nil, multierr.Combine(errors.New("app init failed"), err))
 		})))
 	}
 

@@ -18,6 +18,7 @@ package fxapp_test
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"log"
@@ -25,8 +26,9 @@ import (
 	"time"
 )
 
-func ExampleBuilder_ConfigurePrometheusHTTPHandler() {
+func ExamplePrometheusHTTPHandlerOpts() {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		// Provide custom PrometheusHTTPHandlerOpts, which will be used to configure the Prometheus HTTP handler
 		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
 			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
 			opts.Timeout = 10 * time.Second
@@ -46,7 +48,7 @@ func ExampleBuilder_ConfigurePrometheusHTTPHandler() {
 		<-app.Done()
 	}()
 
-	resp, err := retryablehttp.Get("http://:8008/metrics")
+	resp, err := retryablehttp.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 	switch {
 	case err != nil:
 		log.Panic(err)

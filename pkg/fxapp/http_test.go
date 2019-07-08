@@ -19,6 +19,7 @@ package fxapp_test
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
@@ -64,7 +65,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 		// Then the HTTP server is running
 		// And the registered endpoints are acccessible
 		checkHTTPGetResponseStatusOK(t, "http://:8008/foo")
-		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
+		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 	}
 }
 
@@ -103,7 +104,7 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 		// Then the HTTP server is running
 		// And the registered endpoints are acccessible
 		checkHTTPGetResponseStatusOK(t, "http://:5050/foo")
-		checkHTTPGetResponseStatusOK(t, "http://:5050/metrics")
+		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:5050/%s", fxapp.MetricsEndpoint))
 	}
 }
 
@@ -187,7 +188,7 @@ func TestHTTPServer_HandlerPanic(t *testing.T) {
 			t.Log(err)
 		}
 		// And HTTP server should still be able to serve other requests
-		checkHTTPGetResponseStatusOK(t, "http://:8008/metrics")
+		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
 	}
 }
 

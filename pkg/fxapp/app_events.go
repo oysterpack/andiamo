@@ -19,7 +19,6 @@ package fxapp
 import (
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
-	"os"
 	"reflect"
 	"time"
 )
@@ -31,7 +30,7 @@ const (
 	//		StopTimeout  	uint `json:"stop_timeout"`
 	//		Provides     	[]string
 	//		Invokes      	[]string
-	//		DependencyGraph string `json:"dot_graph"` // DOT language visualization of the dependency graph
+	//		DependencyGraph string `json:"dot_graph"` // DOT language visualization of the app dependency graph
 	//	}
 	InitializedEvent Event = "01DE4STZ0S24RG7R08PAY1RQX3"
 	// 	type Data struct {
@@ -64,14 +63,13 @@ const (
 	StoppedEvent Event = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
-// AppInitialized indicates the application has successfully initialized
-type AppInitialized struct {
+type appInfo struct {
 	App
 	fx.DotGraph
 }
 
 // MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event AppInitialized) MarshalZerologObject(e *zerolog.Event) {
+func (event appInfo) MarshalZerologObject(e *zerolog.Event) {
 	e.Dur("start_timeout", event.StartTimeout())
 	e.Dur("stop_timeout", event.StopTimeout())
 
@@ -88,41 +86,11 @@ func (event AppInitialized) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("dot_graph", string(event.DotGraph))
 }
 
-// AppStarted indicates the app has successfully been started.
-type AppStarted struct {
-	time.Duration
-}
+type duration time.Duration
 
 // MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event AppStarted) MarshalZerologObject(e *zerolog.Event) {
-	e.Dur("duration", event.Duration)
-}
-
-// AppStopping indicates the app has been triggered to shutdown.
-type AppStopping struct {
-	os.Signal
-}
-
-// AppStopped indicates that the app has been stopped.
-// This will always be logged, regardless whether the app failed to shutdown cleanly or not, i.e., if an error occurs
-// while shutting down the app, then both the AppStopFailed and AppStopped events will be logged.
-type AppStopped struct {
-	time.Duration
-}
-
-// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event AppStopped) MarshalZerologObject(e *zerolog.Event) {
-	e.Dur("duration", event.Duration)
-}
-
-// AppFailed indicates the application failed to be built and initialized
-type AppFailed struct {
-	Err error
-}
-
-// MarshalZerologObject implements zerolog.LogObjectMarshaler interface
-func (event AppFailed) MarshalZerologObject(e *zerolog.Event) {
-	e.Err(event.Err)
+func (d duration) MarshalZerologObject(e *zerolog.Event) {
+	e.Dur("duration", time.Duration(d))
 }
 
 // health check related events
@@ -153,4 +121,12 @@ const (
 	HealthCheckResultEvent Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
 	HealthCheckGaugeRegistrationErrorEvent Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
+)
+
+// probe related events
+const (
+	// 	type Data struct {
+	//		Duration uint
+	//	}
+	LivenessProbeEvent Event = "01DF91XTSXWVDJQ4XJ432KQFXY"
 )

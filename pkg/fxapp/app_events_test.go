@@ -383,19 +383,16 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 	default:
 		t.Logf("\n%v", buf)
 
-		type Data struct {
-			Err string `json:"e"`
-		}
-
 		type LogEvent struct {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Data    Data   `json:"01DE4SWMZXD1ZB40QRT7RGQVPN"`
+			Err     string `json:"e"`
 		}
 
 		var logEvent LogEvent
 		for _, line := range strings.Split(buf.String(), "\n") {
+			logEvent = LogEvent{}
 			if line == "" {
 				break
 			}
@@ -410,16 +407,16 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 		}
 		switch {
 		case logEvent.Name == fxapp.InitFailedEvent.String():
-			if logEvent.Message != "app init failed" {
-				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			if !strings.Contains(logEvent.Err, "app init failed") {
+				t.Errorf("*** event error message did not match: %v", logEvent.Err)
 			}
 
 			if logEvent.Level != zerolog.ErrorLevel.String() {
 				t.Errorf("*** log level should be error: %v", logEvent.Level)
 			}
 
-			if logEvent.Data.Err == "" {
-				t.Error("*** error was not logged")
+			if logEvent.Message != "" {
+				t.Errorf("*** message should be blank: %v", logEvent.Message)
 			}
 		default:
 			t.Error("*** app event was not logged")
@@ -483,19 +480,16 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 
 		t.Logf("\n%v", buf)
 
-		type Data struct {
-			Err string `json:"e"`
-		}
-
 		type LogEvent struct {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Data    Data   `json:"01DE4SY6RYCD0356KYJV7G7THW"`
+			Err     string `json:"e"`
 		}
 
 		var logEvent LogEvent
 		for _, line := range strings.Split(buf.String(), "\n") {
+			logEvent = LogEvent{}
 			if line == "" {
 				break
 			}
@@ -510,16 +504,16 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 		}
 		switch {
 		case logEvent.Name == fxapp.StartFailedEvent.String():
-			if logEvent.Message != "app start failed" {
-				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			if !strings.HasPrefix(logEvent.Err, "app start failed") {
+				t.Errorf("*** event error message did not match: %v", logEvent.Err)
 			}
 
 			if logEvent.Level != zerolog.ErrorLevel.String() {
 				t.Errorf("*** log level should be error: %v", logEvent.Level)
 			}
 
-			if logEvent.Data.Err == "" {
-				t.Error("*** error was not logged")
+			if logEvent.Message != "" {
+				t.Error("*** message should be blank")
 			}
 		default:
 			t.Error("*** app event was not logged")
@@ -591,10 +585,12 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
+			Err     string `json:"e"`
 		}
 
 		var logEvent LogEvent
 		for _, line := range strings.Split(buf.String(), "\n") {
+			logEvent = LogEvent{}
 			if line == "" {
 				break
 			}
@@ -609,8 +605,8 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 		}
 		switch {
 		case logEvent.Name == fxapp.StartFailedEvent.String():
-			if logEvent.Message != "app start failed" {
-				t.Errorf("*** event message did not match: %v", logEvent.Message)
+			if !strings.HasPrefix(logEvent.Err, "app start failed") {
+				t.Errorf("*** event message did not match: %v", logEvent.Err)
 			}
 
 			if logEvent.Level != zerolog.ErrorLevel.String() {

@@ -18,8 +18,13 @@ package fxapp
 
 import (
 	"fmt"
+	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
+	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/rs/zerolog"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // ReadinessWaitGroup is used by application components to signal when they are ready to service requests
@@ -90,8 +95,7 @@ func (r *readinessWaitGroup) Ready() <-chan struct{} {
 }
 
 func readinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
-	endpoint := fmt.Sprintf("/%s", ReadyEvent)
-	return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+	return NewHTTPHandler(fmt.Sprintf("/%s", ReadyEvent), func(writer http.ResponseWriter, request *http.Request) {
 		count := readiness.Count()
 		switch count {
 		case 0:
@@ -100,5 +104,52 @@ func readinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
 			writer.Header().Add("x-readiness-wait-group-count", fmt.Sprint(count))
 			writer.WriteHeader(http.StatusServiceUnavailable)
 		}
+	})
+}
+
+// LivenessProbe checks if the app is healthy. It returns an error if probe fails, indicating the app is unhealthy.
+type LivenessProbe func() error
+
+func livenessProbe(gatherer prometheus.Gatherer) LivenessProbe {
+	healthCheckID := func(m *io_prometheus_client.Metric) string {
+		for _, label := range m.Label {
+			if label.GetName() == "h" {
+				return label.GetValue()
+			}
+		}
+		return ""
+	}
+	return func() error {
+		mfs, err := gatherer.Gather()
+		if err != nil {
+			return err
+		}
+		healthCheckMetricFamily := FindMetricFamily(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+			return mf.GetName() == HealthCheckMetricID
+		})
+		for _, metric := range healthCheckMetricFamily.GetMetric() {
+			if health.Status(metric.Gauge.GetValue()) == health.Red {
+				return fmt.Errorf("liveness probe failed because health check is RED: %v", healthCheckID(metric))
+			}
+		}
+		return nil
+	}
+}
+
+// if any health check status is Red, then the liveness check fails
+func livenessProbeHTTPHandler(probe LivenessProbe, logger *zerolog.Logger) HTTPHandler {
+	logProbeSuccess := LivenessProbeEvent.NewLogger(logger, zerolog.InfoLevel)
+	logProbeFailure := LivenessProbeEvent.NewErrorLogger(logger)
+	return NewHTTPHandler(fmt.Sprintf("/%s", LivenessProbeEvent), func(writer http.ResponseWriter, request *http.Request) {
+		start := time.Now()
+		err := probe()
+		probeDuration := duration(time.Since(start))
+		if err != nil {
+			writer.WriteHeader(http.StatusServiceUnavailable)
+			logProbeFailure(probeDuration, err)
+			return
+		}
+		writer.WriteHeader(http.StatusOK)
+		logProbeSuccess(probeDuration, "liveness probe success")
 	})
 }

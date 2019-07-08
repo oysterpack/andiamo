@@ -150,7 +150,7 @@ type PrometheusHTTPHandlerOpts struct {
 func DefaultPrometheusHTTPHandlerOpts() PrometheusHTTPHandlerOpts {
 	return PrometheusHTTPHandlerOpts{
 		Timeout:  5 * time.Second,
-		Endpoint: "/metrics",
+		Endpoint: fmt.Sprintf("/%s", MetricsEndpoint),
 	}
 }
 
@@ -163,12 +163,14 @@ type prometheusHTTPHandlerParams struct {
 	Logger     *zerolog.Logger
 }
 
+const MetricsEndpoint = "01DF9JKZ73Y3V1AJN89B58D9HY"
+
 // NewHTTPHandler constructs a new HTTPHandler from the PrometheusHTTPHandlerOpts
 //
 // The max requests in flight is limited to 3.
 func newPrometheusHTTPHandler(params prometheusHTTPHandlerParams) HTTPHandler {
 	if strings.TrimSpace(params.Opts.Endpoint) == "" {
-		params.Opts.Endpoint = "/metrics"
+		params.Opts.Endpoint = fmt.Sprintf("/%s", MetricsEndpoint)
 	}
 	if params.Opts.Timeout == time.Duration(0) {
 		params.Opts.Timeout = 5 * time.Second

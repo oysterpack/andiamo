@@ -113,11 +113,13 @@ func (f errorHandler) HandleError(err error) {
 //
 // Prometheus metrics are automatically exposed via HTTP (using https://godoc.org/github.com/prometheus/client_golang/prometheus/promhttp#HandlerFor).
 // `PrometheusHTTPHandlerOpts` is used to configure the Prometheus HTTP handler. By default the following options are used:
-// 	- Endpoint = /metrics
+// 	- Endpoint = /01DF9JKZ73Y3V1AJN89B58D9HY
 //  - Timeout = 5 secs
 //  - ErrorHandling = promhttp.HTTPErrorOnError (HTTP status code 500 is returned upon the first error encountered)
 // If a `PrometheusHTTPHandlerOpts` is provided, then it will be used instead. However, if the provided endpoint is blank,
 // then it will be set to '/metrics' and if timeout is zero, then it will be set to 5 secs.
+//
+// TODO: Metrics are logged on a scheduled basis. By default, every minute - but is configurable.
 //
 // Health Checks
 //
@@ -139,14 +141,22 @@ func (f errorHandler) HandleError(err error) {
 // application readiness functionality via `ReadinessWaitGroup`. During application initialization, components can register
 // with the `ReadinessWaitGroup` and notify the app when it is ready.
 //
-// A readiness probe HTTP endpoint is exposed, which can be used to probe the app for readiness:
-// 	- endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF - which corresponds to the `ReadyEvent` const
+// A readiness probe HTTP endpoint is exposed:
+// 	- endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF - corresponds to `ReadyEvent`
 //  - the handler is linked to `ReadinessWaitGroup`
 //    - if the app is ready, then HTTP 200 is returned
 //    - if the app is not ready, then HTTP 503 is returned with response returns header `x-readiness-wait-group-count` set
 //      to the number of components that the app is waiting on
 //
-// TODO: Liveliness Probe
+// Liveliness Probe
+//
+// The application liveness probe fails if any health checks fail with a RED status.
+//
+// A liveness probe HTTP endpoint is exposed:
+// 	- /01DF91XTSXWVDJQ4XJ432KQFXY - corresponds to `LivenessProbeEvent`
+//  - HTTP 503 is returned if the probe fails
+//  - LivenessProbeEvent is logged each time the endpoint handler is invoked
+//    - the probe duration is logged with the event
 //
 // HTTP server support
 //
@@ -177,11 +187,16 @@ func (f errorHandler) HandleError(err error) {
 //    - health.Scheduler
 //  - Probes
 //	  - ReadinessWaitGroup - the readiness probe uses the ReadinessWaitGroup to know when the application is ready to serve requests
+//    - LivenessProbe - returns an error if any health check is RED
 //	- Application Infrastructure Related
 //	  - *zerolog.Logger
 //    - *http.Server
 //      - can be disabled
 //	    - can be customized by providing it
+//	- HTTP endpoints
+//    - /01DF9JKZ73Y3V1AJN89B58D9HY - exposes prometheus metrics
+//    - /01DEJ5RA8XRZVECJDJFAA2PWJF - readiness probe
+//    - /01DF91XTSXWVDJQ4XJ432KQFXY - liveness probe
 type App interface {
 	Options
 	LifeCycle
@@ -419,7 +434,7 @@ func (a *app) Shutdown() error {
 
 func (a *app) logAppInitialized(dependencyGraph fx.DotGraph) {
 	logEvent := InitializedEvent.NewLogger(a.logger, zerolog.NoLevel)
-	logEvent(AppInitialized{a, dependencyGraph}, "app initialized")
+	logEvent(appInfo{a, dependencyGraph}, "app initialized")
 }
 
 func (a *app) logAppStarting() {
@@ -429,7 +444,7 @@ func (a *app) logAppStarting() {
 
 func (a *app) logAppStarted(startupTime time.Duration) {
 	logEvent := StartedEvent.NewLogger(a.logger, zerolog.NoLevel)
-	logEvent(AppStarted{startupTime}, "app started")
+	logEvent(duration(startupTime), "app started")
 }
 
 func (a *app) logAppReady() {
@@ -444,5 +459,5 @@ func (a *app) logAppStopping() {
 
 func (a *app) logAppStopped(shutdownDuration time.Duration) {
 	logEvent := StoppedEvent.NewLogger(a.logger, zerolog.NoLevel)
-	logEvent(AppStopped{shutdownDuration}, "app stopped")
+	logEvent(duration(shutdownDuration), "app stopped")
 }
