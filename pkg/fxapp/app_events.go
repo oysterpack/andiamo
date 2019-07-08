@@ -18,6 +18,7 @@ package fxapp
 
 import (
 	"github.com/rs/zerolog"
+	"go.uber.org/fx"
 	"os"
 	"reflect"
 	"time"
@@ -26,45 +27,47 @@ import (
 // app lifecycle event IDs
 const (
 	// 	type Data struct {
-	//		StartTimeout uint `json:"start_timeout"`
-	//		StopTimeout  uint `json:"stop_timeout"`
-	//		Provides     []string
-	//		Invokes      []string
+	//		StartTimeout 	uint `json:"start_timeout"`
+	//		StopTimeout  	uint `json:"stop_timeout"`
+	//		Provides     	[]string
+	//		Invokes      	[]string
+	//		DependencyGraph string `json:"dot_graph"` // DOT language visualization of the dependency graph
 	//	}
-	InitializedEventID Event = "01DE4STZ0S24RG7R08PAY1RQX3"
+	InitializedEvent Event = "01DE4STZ0S24RG7R08PAY1RQX3"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	InitFailedEventID Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	InitFailedEvent Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	StartingEventID Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartingEvent Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StartFailedEventID Event = "01DE4SY6RYCD0356KYJV7G7THW"
+	StartFailedEvent Event = "01DE4SY6RYCD0356KYJV7G7THW"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StartedEventID Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
+	StartedEvent Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	ReadyEventID Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
+	ReadyEvent Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
 
-	StoppingEventID Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StoppingEvent Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StopFailedEventID Event = "01DE4T0W35RPD6QMDS42WQXR48"
+	StopFailedEvent Event = "01DE4T0W35RPD6QMDS42WQXR48"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StoppedEventID Event = "01DE4T1V9N50BB67V424S6MG5C"
+	StoppedEvent Event = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
 // AppInitialized indicates the application has successfully initialized
 type AppInitialized struct {
 	App
+	fx.DotGraph
 }
 
 // MarshalZerologObject implements zerolog.LogObjectMarshaler interface
@@ -82,6 +85,7 @@ func (event AppInitialized) MarshalZerologObject(e *zerolog.Event) {
 
 	e.Strs("provides", typeNames(event.App.ConstructorTypes()))
 	e.Strs("invokes", typeNames(event.App.FuncTypes()))
+	e.Str("dot_graph", string(event.DotGraph))
 }
 
 // AppStarted indicates the app has successfully been started.
@@ -144,9 +148,9 @@ const (
 	//  }
 	//
 	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
-	HealthCheckRegisteredEventID Event = "01DF3FV60A2J1WKX5NQHP47H61"
+	HealthCheckRegisteredEvent Event = "01DF3FV60A2J1WKX5NQHP47H61"
 
-	HealthCheckResultEventID Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
+	HealthCheckResultEvent Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
-	HealthCheckGaugeRegistrationErrorEventID Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
+	HealthCheckGaugeRegistrationErrorEvent Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )

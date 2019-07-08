@@ -90,7 +90,7 @@ func (r *readinessWaitGroup) Ready() <-chan struct{} {
 }
 
 func readinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
-	endpoint := fmt.Sprintf("/%s", ReadyEventID)
+	endpoint := fmt.Sprintf("/%s", ReadyEvent)
 	return NewHTTPHandler(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		count := readiness.Count()
 		switch count {

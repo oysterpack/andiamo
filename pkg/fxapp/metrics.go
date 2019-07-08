@@ -56,7 +56,7 @@ type MetricDesc struct {
 	Name string
 	Help string
 	MetricType
-	Labels []string
+	Labels []string // label names
 }
 
 // DescsFromMetricFamilies extracts metric descriptors from gathered metrics

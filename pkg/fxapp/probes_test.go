@@ -70,7 +70,7 @@ func TestReadinessProbe(t *testing.T) {
 		<-app.Ready()
 
 		// Then the app's readiness HTTP endpoint should pass
-		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEventID))
+		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEvent))
 
 		app.Shutdown()
 		<-app.Done()
@@ -90,12 +90,12 @@ func TestReadinessProbe(t *testing.T) {
 				break
 			}
 
-			if logEvent.Name == fxapp.ReadyEventID.String() {
+			if logEvent.Name == fxapp.ReadyEvent.String() {
 				break
 			}
 		}
 
-		if logEvent.Name != fxapp.ReadyEventID.String() {
+		if logEvent.Name != fxapp.ReadyEvent.String() {
 			t.Error("*** app readiness log event was not logged")
 		}
 	}
@@ -134,8 +134,8 @@ func TestReadinessProbeNotReady(t *testing.T) {
 		}()
 		<-app.Started()
 
-		checkHTTPGetResponseStatus(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEventID), http.StatusServiceUnavailable)
-		checkHTTPGetResponse(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEventID), func(response *http.Response) {
+		checkHTTPGetResponseStatus(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEvent), http.StatusServiceUnavailable)
+		checkHTTPGetResponse(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEvent), func(response *http.Response) {
 			t.Log("status ", response.StatusCode)
 			if count, err := strconv.ParseUint(response.Header.Get("x-readiness-wait-group-count"), 10, 64); err != nil {
 				t.Errorf("*** failed to parse `x-readiness-wait-group-count` header into num: %v", err)
@@ -149,7 +149,7 @@ func TestReadinessProbeNotReady(t *testing.T) {
 		<-app.Ready()
 
 		// Then the app's readiness HTTP endpoint should pass
-		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEventID))
+		checkHTTPGetResponseStatusOK(t, fmt.Sprintf("http://:8008/%s", fxapp.ReadyEvent))
 	}
 }
 

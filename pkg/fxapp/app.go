@@ -140,7 +140,7 @@ func (f errorHandler) HandleError(err error) {
 // with the `ReadinessWaitGroup` and notify the app when it is ready.
 //
 // A readiness probe HTTP endpoint is exposed, which can be used to probe the app for readiness:
-// 	- endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF - which corresponds to the `ReadyEventID` const
+// 	- endpoint: /01DEJ5RA8XRZVECJDJFAA2PWJF - which corresponds to the `ReadyEvent` const
 //  - the handler is linked to `ReadinessWaitGroup`
 //    - if the app is ready, then HTTP 200 is returned
 //    - if the app is not ready, then HTTP 503 is returned with response returns header `x-readiness-wait-group-count` set
@@ -417,32 +417,32 @@ func (a *app) Shutdown() error {
 
 }
 
-func (a *app) logAppInitialized() {
-	logEvent := InitializedEventID.NewLogger(a.logger, zerolog.NoLevel)
-	logEvent(AppInitialized{App: a}, "app initialized")
+func (a *app) logAppInitialized(dependencyGraph fx.DotGraph) {
+	logEvent := InitializedEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent(AppInitialized{a, dependencyGraph}, "app initialized")
 }
 
 func (a *app) logAppStarting() {
-	logEvent := StartingEventID.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := StartingEvent.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app starting")
 }
 
 func (a *app) logAppStarted(startupTime time.Duration) {
-	logEvent := StartedEventID.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := StartedEvent.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(AppStarted{startupTime}, "app started")
 }
 
 func (a *app) logAppReady() {
-	logEvent := ReadyEventID.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := ReadyEvent.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app is ready to service requests")
 }
 
 func (a *app) logAppStopping() {
-	logEvent := StoppingEventID.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := StoppingEvent.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(nil, "app stopping")
 }
 
 func (a *app) logAppStopped(shutdownDuration time.Duration) {
-	logEvent := StoppedEventID.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := StoppedEvent.NewLogger(a.logger, zerolog.NoLevel)
 	logEvent(AppStopped{shutdownDuration}, "app stopped")
 }

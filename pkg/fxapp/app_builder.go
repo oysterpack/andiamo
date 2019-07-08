@@ -149,7 +149,8 @@ func (b *builder) Build() (App, error) {
 	var shutdowner fx.Shutdowner
 	var logger *zerolog.Logger
 	var readinessWaitGroup ReadinessWaitGroup
-	b.populateTargets = append(b.populateTargets, &shutdowner, &logger, &readinessWaitGroup)
+	var dotGraph fx.DotGraph
+	b.populateTargets = append(b.populateTargets, &shutdowner, &logger, &readinessWaitGroup, &dotGraph)
 	app := &app{
 		instanceID:   b.instanceID,
 		desc:         b.desc,
@@ -173,11 +174,11 @@ func (b *builder) Build() (App, error) {
 		Shutdowner: shutdowner,
 	}
 	app.startErrorHandlers = append(app.startErrorHandlers, func(e error) {
-		logEvent := StartFailedEventID.NewLogger(logger, zerolog.ErrorLevel)
+		logEvent := StartFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
 		logEvent(AppFailed{e}, "app start failed")
 	})
 	app.stopErrorHandlers = append(app.stopErrorHandlers, func(e error) {
-		logEvent := StopFailedEventID.NewLogger(logger, zerolog.ErrorLevel)
+		logEvent := StopFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
 		logEvent(AppFailed{e}, "app stop failed")
 	})
 
@@ -186,7 +187,7 @@ func (b *builder) Build() (App, error) {
 	}
 	app.logger = logger
 	app.readiness = readinessWaitGroup
-	app.logAppInitialized()
+	app.logAppInitialized(dotGraph)
 	return app, nil
 }
 
@@ -212,9 +213,7 @@ func (b *builder) buildOptions() []fx.Option {
 	logger := b.initZerolog()
 
 	compOptions = append(compOptions, fx.Provide(
-		func() Desc { return desc },
-		func() InstanceID { return instanceID },
-		func() *zerolog.Logger { return logger },
+		func() (Desc, InstanceID, *zerolog.Logger) { return desc, instanceID, logger },
 
 		providePrometheusMetricsSupport,
 		newPrometheusHTTPHandler,
@@ -245,7 +244,7 @@ func (b *builder) buildOptions() []fx.Option {
 			compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 		}
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
-			logEvent := InitFailedEventID.NewLogger(logger, zerolog.ErrorLevel)
+			logEvent := InitFailedEvent.NewLogger(logger, zerolog.ErrorLevel)
 			logEvent(AppFailed{err}, "app init failed")
 		})))
 	}
@@ -302,8 +301,8 @@ func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, 
 // - register health check gauge
 func handleHealthCheckRegistrations(registry health.Registry, scheduler health.Scheduler, metricRegisterer prometheus.Registerer, lc fx.Lifecycle, logger *zerolog.Logger) {
 	done := make(chan struct{})
-	logHealthCheckRegistered := HealthCheckRegisteredEventID.NewLogger(logger, zerolog.NoLevel)
-	logHealthCheckGaugeRegistrationError := HealthCheckGaugeRegistrationErrorEventID.NewErrorLogger(logger)
+	logHealthCheckRegistered := HealthCheckRegisteredEvent.NewLogger(logger, zerolog.NoLevel)
+	logHealthCheckGaugeRegistrationError := HealthCheckGaugeRegistrationErrorEvent.NewErrorLogger(logger)
 	healthCheckRegistered := registry.Subscribe()
 	go func() {
 		for {
@@ -344,9 +343,9 @@ func logHealthCheckResults(scheduler health.Scheduler, logger *zerolog.Logger, l
 //
 // NOTE: this is extracted out in order to make it testable
 func startHealthCheckLoggerFunc(healthCheckResults <-chan health.Result, logger *zerolog.Logger, done <-chan struct{}) func() {
-	logGreenHealthCheck := HealthCheckResultEventID.NewLogger(logger, zerolog.NoLevel)
-	logYellowHealthCheck := HealthCheckResultEventID.NewLogger(logger, zerolog.WarnLevel)
-	logRedHealthCheck := HealthCheckResultEventID.NewLogger(logger, zerolog.ErrorLevel)
+	logGreenHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.NoLevel)
+	logYellowHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.WarnLevel)
+	logRedHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.ErrorLevel)
 	return func() {
 		for {
 			select {
