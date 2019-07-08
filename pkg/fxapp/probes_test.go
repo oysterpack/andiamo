@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
@@ -325,4 +326,137 @@ func TestLivenessProbe(t *testing.T) {
 		})
 	})
 
+}
+
+func TestLivenessProbHTTPEndpoint(t *testing.T) {
+	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
+		Description("Foo").
+		RedImpact("RED").
+		MustBuild()
+
+	livenessProbeEndpoint := fmt.Sprintf("http://:8008/%s", fxapp.LivenessProbeEvent)
+
+	checkProbe := func(t *testing.T, status health.Status) {
+		FooCheck := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
+			Description("check").
+			RedImpact("RED").
+			Checker(func(ctx context.Context) health.Failure {
+				switch status {
+				case health.Green:
+					return nil
+				case health.Yellow:
+					return health.YellowFailure(errors.New("YELLOW"))
+				default:
+					return health.RedFailure(errors.New("RED"))
+				}
+			}).
+			MustBuild()
+
+		var probe fxapp.LivenessProbe
+		var healthCheckRegistry health.Registry
+		var healthCheckScheduler health.Scheduler
+		var gatherer prometheus.Gatherer
+		app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+			Invoke(func() {}).
+			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
+			Build()
+
+		if err != nil {
+			t.Errorf("*** app failed to build: %v", err)
+		}
+
+		go app.Run()
+		defer func() {
+			app.Shutdown()
+			<-app.Done()
+		}()
+		<-app.Ready()
+
+		if err := probe(); err != nil {
+			t.Errorf("*** probe should succeed, but instead failed: %v", err)
+		}
+
+		// Register a failing health check
+		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
+			return check.ID() == FooCheck.ID()
+		})
+		healthCheckRegistry.Register(FooCheck)
+		select {
+		case <-time.After(time.Millisecond):
+		case <-healthCheckResultChan:
+		}
+
+		for {
+			mfs, err := gatherer.Gather()
+			if err != nil {
+				t.Errorf("*** failed to gather metrics: %v", err)
+				return
+			}
+			healthCheckMetricFamily := fxapp.FindMetricFamily(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
+				if mf.GetName() == fxapp.HealthCheckMetricID {
+					for _, metric := range mf.Metric {
+						for _, labelPair := range metric.Label {
+							if labelPair.GetValue() == FooCheck.ID().String() {
+								return true
+							}
+						}
+					}
+				}
+				return false
+			})
+
+			if healthCheckMetricFamily != nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+
+		// ensure that the HTTP server is running
+		retryablehttp.Get(fmt.Sprintf("http://:8008/%s", fxapp.MetricsEndpoint))
+
+		httpResponse, err := http.Get(livenessProbeEndpoint)
+		if err != nil {
+			t.Errorf("*** liveness probe HTTP GET failed: %v", err)
+		}
+		err = probe()
+		if err == nil {
+			if httpResponse.StatusCode != http.StatusOK {
+				t.Errorf("*** liveness probe should have returned HTTP 200: %v", httpResponse.StatusCode)
+			}
+		} else {
+			if httpResponse.StatusCode != http.StatusServiceUnavailable {
+				t.Errorf("*** liveness probe should have returned HTTP 503: %v", httpResponse.StatusCode)
+			}
+		}
+	}
+
+	t.Run("no health checks registered", func(t *testing.T) {
+		t.Parallel()
+		var probe fxapp.LivenessProbe
+		_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+			Invoke(func() {}).
+			Populate(&probe).
+			Build()
+
+		if err != nil {
+			t.Errorf("*** app failed to build: %v", err)
+		}
+
+		if err := probe(); err != nil {
+			t.Errorf("*** probe should succeed, but instead failed: %v", err)
+		}
+	})
+
+	t.Run("green health checks registered", func(t *testing.T) {
+		checkProbe(t, health.Green)
+	})
+
+	// liveness probe should succeed if health checks are yellow
+	t.Run("yellow health checks registered", func(t *testing.T) {
+		checkProbe(t, health.Yellow)
+	})
+
+	t.Run("red health checks registered", func(t *testing.T) {
+		checkProbe(t, health.Red)
+	})
 }
