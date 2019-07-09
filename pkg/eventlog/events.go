@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fxapp
+package eventlog
 
 import (
 	"github.com/rs/zerolog"
@@ -63,7 +63,7 @@ type ErrorLogger func(eventData zerolog.LogObjectMarshaler, err error, tags ...s
 //      ==== means the field was populated by the application logger
 //		---- means the field was populated by the event logger
 func (e Event) NewLogger(logger *zerolog.Logger, level zerolog.Level) Logger {
-	eventLogger := EventLogger(logger, e.String())
+	eventLogger := ForEvent(logger, e.String())
 	return func(eventObject zerolog.LogObjectMarshaler, msg string, tags ...string) {
 		event := eventLogger.WithLevel(level)
 
@@ -105,7 +105,7 @@ func (e Event) NewLogger(logger *zerolog.Logger, level zerolog.Level) Logger {
 //      ==== means the field was populated by the application logger
 //		---- means the field was populated by the event logger
 func (e Event) NewErrorLogger(logger *zerolog.Logger) ErrorLogger {
-	eventLogger := EventLogger(logger, e.String())
+	eventLogger := ForEvent(logger, e.String())
 	return func(eventObject zerolog.LogObjectMarshaler, err error, tags ...string) {
 		event := eventLogger.Error().Err(err)
 

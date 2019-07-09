@@ -17,6 +17,7 @@
 package fxapp
 
 import (
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"reflect"
@@ -32,35 +33,35 @@ const (
 	//		Invokes      	[]string
 	//		DependencyGraph string `json:"dot_graph"` // DOT language visualization of the app dependency graph
 	//	}
-	InitializedEvent Event = "01DE4STZ0S24RG7R08PAY1RQX3"
+	InitializedEvent eventlog.Event = "01DE4STZ0S24RG7R08PAY1RQX3"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	InitFailedEvent Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	InitFailedEvent eventlog.Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	StartingEvent Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartingEvent eventlog.Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StartFailedEvent Event = "01DE4SY6RYCD0356KYJV7G7THW"
+	StartFailedEvent eventlog.Event = "01DE4SY6RYCD0356KYJV7G7THW"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StartedEvent Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
+	StartedEvent eventlog.Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	ReadyEvent Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
+	ReadyEvent eventlog.Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
 
-	StoppingEvent Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StoppingEvent eventlog.Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StopFailedEvent Event = "01DE4T0W35RPD6QMDS42WQXR48"
+	StopFailedEvent eventlog.Event = "01DE4T0W35RPD6QMDS42WQXR48"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StoppedEvent Event = "01DE4T1V9N50BB67V424S6MG5C"
+	StoppedEvent eventlog.Event = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
 type appInfo struct {
@@ -116,11 +117,11 @@ const (
 	//  }
 	//
 	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
-	HealthCheckRegisteredEvent Event = "01DF3FV60A2J1WKX5NQHP47H61"
+	HealthCheckRegisteredEvent eventlog.Event = "01DF3FV60A2J1WKX5NQHP47H61"
 
-	HealthCheckResultEvent Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
+	HealthCheckResultEvent eventlog.Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
-	HealthCheckGaugeRegistrationErrorEvent Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
+	HealthCheckGaugeRegistrationErrorEvent eventlog.Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )
 
 // probe related events
@@ -128,5 +129,5 @@ const (
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	LivenessProbeEvent Event = "01DF91XTSXWVDJQ4XJ432KQFXY"
+	LivenessProbeEvent eventlog.Event = "01DF91XTSXWVDJQ4XJ432KQFXY"
 )

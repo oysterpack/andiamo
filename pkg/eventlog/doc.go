@@ -14,33 +14,16 @@
  * limitations under the License.
  */
 
-package fxapp
-
-import (
-	"github.com/rs/zerolog"
-)
-
-// LogLevel defines the supported app log levels
-type LogLevel uint
-
-// LogLevel enum
-const (
-	DebugLogLevel LogLevel = iota
-	InfoLogLevel
-	WarnLogLevel
-	ErrorLogLevel
-)
-
-// ZerologLevel maps LogLevel to a zerolog.Level
-func (level LogLevel) ZerologLevel() zerolog.Level {
-	switch level {
-	case InfoLogLevel:
-		return zerolog.InfoLevel
-	case WarnLogLevel:
-		return zerolog.WarnLevel
-	case ErrorLogLevel:
-		return zerolog.ErrorLevel
-	default:
-		return zerolog.DebugLevel
-	}
-}
+// Package eventlog standardizes structured JSON logging using zerolog as the underlying logging framework.
+//
+// Zerolog is initialized with the following settings:
+//	- the following standard logger field names are shortened
+//	  - Timestamp -> t
+//	  - Level -> l
+//	  - Message -> m
+//	  - Error -> err
+//	- Unix time format is used for performance reasons - seconds granularity is sufficient for log events
+//  - an error stack marshaller is configured
+//  - time.Duration fields are rendered as int instead float because it's more efficiency
+//
+package eventlog

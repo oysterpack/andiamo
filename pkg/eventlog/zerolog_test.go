@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package fxapp_test
+package eventlog_test
 
 import (
+	"bytes"
 	"encoding/json"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
+	"github.com/oklog/ulid"
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"testing"
@@ -42,10 +43,10 @@ func TestZerologFieldNames(t *testing.T) {
 		Stack     []StackFrame
 	}
 
-	buf := fxapptest.NewSyncLog()
+	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf).With().Timestamp().Logger()
-	compLogger := fxapp.ComponentLogger(&logger, "foo")
-	eventLogger := fxapp.EventLogger(compLogger, "bar")
+	compLogger := eventlog.ForComponent(&logger, "foo")
+	eventLogger := eventlog.ForEvent(compLogger, "bar")
 
 	eventLogger.Error().
 		Stack().
@@ -85,10 +86,10 @@ func TestZerologFieldNames(t *testing.T) {
 	}
 }
 
-func TestComponentLogger(t *testing.T) {
-	buf := fxapptest.NewSyncLog()
+func TestForComponent(t *testing.T) {
+	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
-	componentLogger := fxapp.ComponentLogger(&logger, "foo")
+	componentLogger := eventlog.ForComponent(&logger, "foo")
 	componentLogger.Log().Msg("")
 
 	type LogEvent struct {
@@ -108,10 +109,10 @@ func TestComponentLogger(t *testing.T) {
 	}
 }
 
-func TestEventLogger(t *testing.T) {
-	buf := fxapptest.NewSyncLog()
+func TestForEvent(t *testing.T) {
+	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
-	eventLogger := fxapp.EventLogger(&logger, "foo")
+	eventLogger := eventlog.ForEvent(&logger, "foo")
 	eventLogger.Log().Msg("")
 
 	type LogEvent struct {
@@ -128,5 +129,25 @@ func TestEventLogger(t *testing.T) {
 		if logEvent.Name != "foo" {
 			t.Errorf("*** event name field did not match: %#v", logEvent)
 		}
+	}
+}
+
+func TestWithEventULID(t *testing.T) {
+	buf := new(bytes.Buffer)
+	eventLogger := eventlog.WithEventULID(zerolog.New(buf))
+	eventLogger.Log().Msg("")
+
+	type LogEvent struct {
+		ULID string `json:"z"`
+	}
+
+	var logEvent LogEvent
+	err := json.Unmarshal(buf.Bytes(), &logEvent)
+	switch {
+	case err != nil:
+		t.Errorf("*** failed to parse log event as JSON: %v : %v", err, buf.String())
+	default:
+		t.Log(logEvent)
+		ulid.MustParse(logEvent.ULID)
 	}
 }

@@ -21,8 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -373,7 +373,7 @@ type fxlogger struct {
 }
 
 func newFxLogger(logger *zerolog.Logger) fxlogger {
-	return fxlogger{ComponentLogger(logger, "fx")}
+	return fxlogger{eventlog.ForComponent(logger, "fx")}
 }
 
 func (l fxlogger) Printf(msg string, params ...interface{}) {
@@ -382,11 +382,7 @@ func (l fxlogger) Printf(msg string, params ...interface{}) {
 
 func (b *builder) initZerolog() *zerolog.Logger {
 	zerolog.SetGlobalLevel(b.globalLogLevel)
-	var newEventID = ulidgen.MonotonicULIDGenerator()
-	logger := zerolog.New(b.logWriter).
-		Hook(zerolog.HookFunc(func(e *zerolog.Event, _ zerolog.Level, _ string) {
-			e.Str(EventLabel, newEventID().String())
-		})).
+	logger := eventlog.WithEventULID(zerolog.New(b.logWriter)).
 		With().
 		Timestamp().
 		Str(AppIDLabel, b.desc.ID().String()).
@@ -396,7 +392,7 @@ func (b *builder) initZerolog() *zerolog.Logger {
 
 	// use the logger as the go standard log output
 	log.SetFlags(0)
-	log.SetOutput(ComponentLogger(&logger, "log"))
+	log.SetOutput(eventlog.ForComponent(&logger, "log"))
 
 	return &logger
 }

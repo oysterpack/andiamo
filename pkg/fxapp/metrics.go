@@ -18,6 +18,7 @@ package fxapp
 
 import (
 	"fmt"
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -193,9 +194,9 @@ func newPrometheusHTTPHandler(params prometheusHTTPHandlerParams) HTTPHandler {
 // 	type Data struct {
 //		Err string `json:"e"`
 //	}
-const PrometheusHTTPError Event = "01DEARG17HNQ606ARQNYFY7PG5"
+const PrometheusHTTPError eventlog.Event = "01DEARG17HNQ606ARQNYFY7PG5"
 
-type prometheusHTTPErrorLog Logger
+type prometheusHTTPErrorLog eventlog.Logger
 
 // implements promhttp.Logger interface
 func (log prometheusHTTPErrorLog) Println(v ...interface{}) {

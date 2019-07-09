@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
@@ -171,16 +172,16 @@ const (
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	HTTPServerError Event = "01DEDRH8A9X3SCSJRCJ4PM7749"
+	HTTPServerError eventlog.Event = "01DEDRH8A9X3SCSJRCJ4PM7749"
 
 	// 	type Data struct {
 	//		Addr      string
 	//		Endpoints []string
 	//	}
-	HTTPServerStarting Event = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
+	HTTPServerStarting eventlog.Event = "01DEFM9FFSH58ZGNPSR7Z4C3G2"
 )
 
-type httpServerErrorLog Logger
+type httpServerErrorLog eventlog.Logger
 
 func (log httpServerErrorLog) Println(v ...interface{}) {
 	log(httpServerError(fmt.Sprint(v...)), "HTTP Server error")

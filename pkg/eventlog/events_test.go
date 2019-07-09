@@ -14,67 +14,83 @@
  * limitations under the License.
  */
 
-package fxapp_test
+package eventlog_test
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"strings"
+	"sync"
 	"testing"
 )
 
-type HealthCheckFailure struct {
-	healthCheckID string
-	err           error
+type LogFoo func(id FooID, tags ...string)
+
+const Foo eventlog.Event = "01DE2Z4E07E4T0GJJXCG8NN6A0"
+
+type FooID string
+
+func (id FooID) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("id", string(id))
 }
 
-func (event *HealthCheckFailure) MarshalZerologObject(e *zerolog.Event) {
-	e.Str("id", event.healthCheckID)
-}
-
-func TestEventTypeID_NewLogger(t *testing.T) {
-	type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
-
-	const HealthCheckEventID fxapp.Event = "01DE2Z4E07E4T0GJJXCG8NN6A0"
-
-	NewHealthCheckFailure := func(logger *zerolog.Logger) LogHealthCheckFailure {
-		logEvent := HealthCheckEventID.NewLogger(logger, zerolog.ErrorLevel)
-		return func(event HealthCheckFailure, tags ...string) {
-			logEvent(&event, event.err.Error(), tags...)
-		}
-	}
+func TestEvent_NewLogger(t *testing.T) {
+	t.Parallel()
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		LogWriter(buf).
-		Provide(NewHealthCheckFailure).
-		Invoke(func(lc fx.Lifecycle, logHealthCheckFailure LogHealthCheckFailure) {
+	logger := zerolog.New(buf)
+
+	var shutdowner fx.Shutdowner
+	app := fx.New(
+		fx.Logger(&logger),
+		fx.Provide(
+			func() *zerolog.Logger { return &logger },
+			func(logger *zerolog.Logger) LogFoo {
+				logEvent := Foo.NewLogger(logger, zerolog.InfoLevel)
+				return func(event FooID, tags ...string) {
+					logEvent(event, "foo", tags...)
+				}
+			},
+		),
+		fx.Invoke(func(lc fx.Lifecycle, log LogFoo) {
 			lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
-					healthCheckFailure := HealthCheckFailure{
-						"01DF6P4G2WZ7HKDBES9YPXRHQ0",
-						errors.New("failure to connect"),
-					}
-					logHealthCheckFailure(healthCheckFailure, "tag-a", "tag-b")
+					log(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), "tag-a", "tag-b")
 					return nil
 				},
 			})
-		}).
-		Build()
+		}),
+		fx.Populate(&shutdowner),
+	)
 
 	switch {
-	case err != nil:
-		t.Errorf("*** app build failure: %v", err)
+	case app.Err() != nil:
+		t.Errorf("*** app build failure: %v", app.Err())
 	default:
-		go app.Run()
-		<-app.Ready()
-		app.Shutdown()
-		<-app.Done()
+		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer close(done)
+			wg.Done()
+			app.Run()
+		}()
+		wg.Wait()
+		shutdowner.Shutdown()
+	Shutdown:
+		for {
+			select {
+			case <-done:
+				break Shutdown
+			default:
+				shutdowner.Shutdown()
+			}
+		}
 
 		type Data struct {
 			ID string
@@ -97,14 +113,14 @@ func TestEventTypeID_NewLogger(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v", err)
 				break
 			}
-			if logEvent.Name == HealthCheckEventID.String() {
+			if logEvent.Name == Foo.String() {
 				t.Log(line)
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == HealthCheckEventID.String():
-			if logEvent.Level != "error" {
+		case logEvent.Name == Foo.String():
+			if logEvent.Level != "info" {
 				t.Errorf("*** level did not match: %v", logEvent.Level)
 			}
 			if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
@@ -124,44 +140,58 @@ func TestEventTypeID_NewLogger(t *testing.T) {
 	}
 }
 
-func TestEventTypeID_NewErrorLogger(t *testing.T) {
-	type LogHealthCheckFailure func(event HealthCheckFailure, tags ...string)
-
-	const HealthCheckEventID fxapp.Event = "01DE2Z4E07E4T0GJJXCG8NN6A0"
-
-	NewHealthCheckFailure := func(logger *zerolog.Logger) LogHealthCheckFailure {
-		logEvent := HealthCheckEventID.NewErrorLogger(logger)
-		return func(event HealthCheckFailure, tags ...string) {
-			logEvent(&event, event.err, tags...)
-		}
-	}
+func TestEvent_NewErrorLogger(t *testing.T) {
+	type LogFooFailure func(id FooID, err error, tags ...string)
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
-		LogWriter(buf).
-		Provide(NewHealthCheckFailure).
-		Invoke(func(lc fx.Lifecycle, logHealthCheckFailure LogHealthCheckFailure) {
+	logger := zerolog.New(buf)
+
+	var shutdowner fx.Shutdowner
+	app := fx.New(
+		fx.Logger(&logger),
+		fx.Provide(
+			func() *zerolog.Logger { return &logger },
+			func(logger *zerolog.Logger) LogFooFailure {
+				log := Foo.NewErrorLogger(logger)
+				return func(id FooID, err error, tags ...string) {
+					log(id, err, tags...)
+				}
+			},
+		),
+		fx.Invoke(func(lc fx.Lifecycle, log LogFooFailure) {
 			lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
-					healthCheckFailure := HealthCheckFailure{
-						"01DF6P4G2WZ7HKDBES9YPXRHQ0",
-						errors.New("failure to connect"),
-					}
-					logHealthCheckFailure(healthCheckFailure, "tag-a", "tag-b")
+					log(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), errors.New("failure to connect"), "tag-a", "tag-b")
 					return nil
 				},
 			})
-		}).
-		Build()
+		}),
+		fx.Populate(&shutdowner),
+	)
 
 	switch {
-	case err != nil:
-		t.Errorf("*** app build failure: %v", err)
+	case app.Err() != nil:
+		t.Errorf("*** app build failure: %v", app.Err())
 	default:
-		go app.Run()
-		<-app.Ready()
-		app.Shutdown()
-		<-app.Done()
+		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer close(done)
+			wg.Done()
+			app.Run()
+		}()
+		wg.Wait()
+		shutdowner.Shutdown()
+	Shutdown:
+		for {
+			select {
+			case <-done:
+				break Shutdown
+			default:
+				shutdowner.Shutdown()
+			}
+		}
 
 		type Data struct {
 			ID string
@@ -185,13 +215,13 @@ func TestEventTypeID_NewErrorLogger(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v", err)
 				break
 			}
-			if logEvent.Name == HealthCheckEventID.String() {
+			if logEvent.Name == Foo.String() {
 				t.Log(line)
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == HealthCheckEventID.String():
+		case logEvent.Name == Foo.String():
 			if logEvent.Level != "error" {
 				t.Errorf("*** level did not match: %v", logEvent.Level)
 			}
