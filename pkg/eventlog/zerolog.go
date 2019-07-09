@@ -19,7 +19,7 @@ package eventlog
 import (
 	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/pkgerrors"
+	"io"
 )
 
 // Applies standard zerolog initialization.
@@ -32,8 +32,6 @@ import (
 //     - Error -> err
 //   - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 //   - time.Duration fields are rendered as int instead float because it's more efficiency
-//
-// An error stack marshaller is configured.
 func init() {
 	zerolog.TimestampFieldName = "t"
 	zerolog.LevelFieldName = "l"
@@ -42,8 +40,6 @@ func init() {
 
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.DurationFieldInteger = true
-
-	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 }
 
 // standard top level logger field names
@@ -78,4 +74,21 @@ func WithEventULID(logger zerolog.Logger) zerolog.Logger {
 	return logger.Hook(zerolog.HookFunc(func(e *zerolog.Event, _ zerolog.Level, _ string) {
 		e.Str(ULID, newEventID().String())
 	}))
+}
+
+// NewZeroLogger constructs a new zerolog.Logger that is configured to add the following fields:
+//  - timestamp in UNIX time format
+//  - event ULID
+//
+// Example log message:
+//
+// {"z":"01DFBGCFD9WD29SGRJPK8KZKQS","t":1562680638,"m":"Hello World"}
+//
+// where z -> event ULID
+//       t -> event timestamp
+func NewZeroLogger(w io.Writer) zerolog.Logger {
+	return WithEventULID(zerolog.New(w)).
+		With().
+		Timestamp().
+		Logger()
 }

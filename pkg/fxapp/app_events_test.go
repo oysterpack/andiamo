@@ -57,7 +57,7 @@ func TestAppInitializedEventLogged(t *testing.T) {
 		type LogEvent struct {
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Data    Data   `json:"01DE4STZ0S24RG7R08PAY1RQX3"`
+			Data    Data   `json:"d"`
 		}
 
 		var logEvent LogEvent
@@ -67,13 +67,13 @@ func TestAppInitializedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.InitializedEvent.String() {
+			if logEvent.Name == string(fxapp.InitializedEvent) {
 				t.Log(line)
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.InitializedEvent.String():
+		case logEvent.Name == string(fxapp.InitializedEvent):
 			if logEvent.Message != "app initialized" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -141,12 +141,12 @@ func TestAppStartingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StartingEvent.String() {
+			if logEvent.Name == string(fxapp.StartingEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StartingEvent.String():
+		case logEvent.Name == string(fxapp.StartingEvent):
 			if logEvent.Message != "app starting" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -197,7 +197,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 		type LogEvent struct {
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Data    Data   `json:"01DE4X10QCV1M8TKRNXDK6AK7C"`
+			Data    Data   `json:"d"`
 		}
 
 		var logEvent LogEvent
@@ -210,12 +210,12 @@ func TestAppStartedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StartedEvent.String() {
+			if logEvent.Name == string(fxapp.StartedEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StartedEvent.String():
+		case logEvent.Name == string(fxapp.StartedEvent):
 			if logEvent.Message != "app started" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -269,12 +269,12 @@ func TestAppStoppingEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StoppingEvent.String() {
+			if logEvent.Name == string(fxapp.StoppingEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StoppingEvent.String():
+		case logEvent.Name == string(fxapp.StoppingEvent):
 			if logEvent.Message != "app stopping" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -328,7 +328,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 		type LogEvent struct {
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Data    Data   `json:"01DE4T1V9N50BB67V424S6MG5C"`
+			Data    Data   `json:"d"`
 		}
 
 		var logEvent LogEvent
@@ -341,12 +341,12 @@ func TestAppStoppedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StoppedEvent.String() {
+			if logEvent.Name == string(fxapp.StoppedEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StoppedEvent.String():
+		case logEvent.Name == string(fxapp.StoppedEvent):
 			if logEvent.Message != "app stopped" {
 				t.Errorf("*** event message did not match: %v", logEvent.Message)
 			}
@@ -401,13 +401,13 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.InitFailedEvent.String() {
+			if logEvent.Name == string(fxapp.InitFailedEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.InitFailedEvent.String():
-			if !strings.Contains(logEvent.Err, "app init failed") {
+		case logEvent.Name == string(fxapp.InitFailedEvent):
+			if !strings.Contains(logEvent.Err, "BOOM!!!") {
 				t.Errorf("*** event error message did not match: %v", logEvent.Err)
 			}
 
@@ -415,8 +415,8 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 				t.Errorf("*** log level should be error: %v", logEvent.Level)
 			}
 
-			if logEvent.Message != "" {
-				t.Errorf("*** message should be blank: %v", logEvent.Message)
+			if logEvent.Message != "app init failed" {
+				t.Errorf("*** message did not match: %v", logEvent.Message)
 			}
 		default:
 			t.Error("*** app event was not logged")
@@ -498,13 +498,13 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StartFailedEvent.String() {
+			if logEvent.Name == string(fxapp.StartFailedEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StartFailedEvent.String():
-			if !strings.HasPrefix(logEvent.Err, "app start failed") {
+		case logEvent.Name == string(fxapp.StartFailedEvent):
+			if !strings.Contains(logEvent.Err, "BOOM!!!") {
 				t.Errorf("*** event error message did not match: %v", logEvent.Err)
 			}
 
@@ -512,8 +512,8 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 				t.Errorf("*** log level should be error: %v", logEvent.Level)
 			}
 
-			if logEvent.Message != "" {
-				t.Error("*** message should be blank")
+			if logEvent.Message != "app start failed" {
+				t.Errorf("*** message did not match: %v", logEvent.Message)
 			}
 		default:
 			t.Error("*** app event was not logged")
@@ -599,13 +599,13 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 				t.Errorf("*** failed to parse log event: %v : %v", err, line)
 				continue
 			}
-			if logEvent.Name == fxapp.StartFailedEvent.String() {
+			if logEvent.Name == string(fxapp.StartFailedEvent) {
 				break
 			}
 		}
 		switch {
-		case logEvent.Name == fxapp.StartFailedEvent.String():
-			if !strings.HasPrefix(logEvent.Err, "app start failed") {
+		case logEvent.Name == string(fxapp.StartFailedEvent):
+			if !strings.Contains(logEvent.Err, "BOOM!!!") {
 				t.Errorf("*** event message did not match: %v", logEvent.Err)
 			}
 
@@ -628,11 +628,11 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 					t.Errorf("*** failed to parse log event: %v : %v", err, line)
 					continue
 				}
-				if logEvent.Name == fxapp.StopFailedEvent.String() {
+				if logEvent.Name == string(fxapp.StopFailedEvent) {
 					break
 				}
 			}
-			if logEvent.Name == fxapp.StopFailedEvent.String() {
+			if logEvent.Name == string(fxapp.StopFailedEvent) {
 				t.Error("*** the app failed to start - thus the AppStopFailedEvent should not have been logged")
 			}
 		}

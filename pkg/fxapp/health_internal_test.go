@@ -84,7 +84,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 		Level   string `json:"l"`
 		Name    string `json:"n"`
 		Message string `json:"m"`
-		Data    Data   `json:"01DF3X60Z7XFYVVXGE9TFFQ7Z1"`
+		Data    Data   `json:"d"`
 	}
 	var logEvent LogEvent
 
@@ -191,7 +191,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 		Level   string `json:"l"`
 		Name    string `json:"n"`
 		Message string `json:"m"`
-		Data    Data   `json:"01DF3X60Z7XFYVVXGE9TFFQ7Z1"`
+		Data    Data   `json:"d"`
 	}
 	var logEvent LogEvent
 

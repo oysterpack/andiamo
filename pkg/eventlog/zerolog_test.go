@@ -24,15 +24,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"testing"
+	"time"
 )
 
 func TestZerologFieldNames(t *testing.T) {
 	t.Parallel()
-	type StackFrame struct {
-		Func   string
-		Line   string
-		Source string
-	}
 
 	type LogEvent struct {
 		Timestamp uint   `json:"t"`
@@ -41,7 +37,6 @@ func TestZerologFieldNames(t *testing.T) {
 		Name      string `json:"n"`
 		Component string `json:"c"`
 		Error     string `json:"e"`
-		Stack     []StackFrame
 	}
 
 	buf := new(bytes.Buffer)
@@ -50,7 +45,6 @@ func TestZerologFieldNames(t *testing.T) {
 	eventLogger := eventlog.ForEvent(compLogger, "bar")
 
 	eventLogger.Error().
-		Stack().
 		Err(errors.New("BOOM!!!")).
 		Msg("foobar")
 
@@ -80,9 +74,6 @@ func TestZerologFieldNames(t *testing.T) {
 		}
 		if logEvent.Error != "BOOM!!!" {
 			t.Errorf("*** error field did not match: %#v", logEvent)
-		}
-		if len(logEvent.Stack) == 0 {
-			t.Error("*** error stack was not pasrsed")
 		}
 	}
 }
@@ -154,4 +145,37 @@ func TestWithEventULID(t *testing.T) {
 		t.Log(logEvent)
 		ulid.MustParse(logEvent.ULID)
 	}
+}
+
+func TestNewZeroLogger(t *testing.T) {
+	t.Parallel()
+	buf := new(bytes.Buffer)
+	logger := eventlog.NewZeroLogger(buf)
+
+	ts := time.Now()
+	logger.Log().Msg("Hello World")
+	t.Log(buf.String())
+
+	type LogEvent struct {
+		ULID      string `json:"z"`
+		Timestamp int64  `json:"t"`
+	}
+
+	var logEvent LogEvent
+	err := json.Unmarshal(buf.Bytes(), &logEvent)
+	switch {
+	case err != nil:
+		t.Errorf("*** failed to parse log event as JSON: %v : %v", err, buf.String())
+	default:
+		t.Log(logEvent)
+		ulid.MustParse(logEvent.ULID)
+
+		if logEvent.Timestamp == 0 {
+			t.Error("*** timestamp was not set")
+		}
+		if logEvent.Timestamp < ts.Unix() {
+			t.Errorf("*** timestamp is not correct: %v < %v", logEvent.Timestamp, ts.Unix())
+		}
+	}
+
 }

@@ -17,19 +17,32 @@
 package eventlog_test
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/eventlog"
-	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/rs/zerolog"
-	"go.uber.org/fx"
 	"strings"
-	"sync"
 	"testing"
 )
 
-type LogFoo func(id FooID, tags ...string)
+type FooLogger func(id FooID, tags ...string)
+
+func NewFooLogger(logger *zerolog.Logger) FooLogger {
+	logEvent := Foo.NewLogger(logger, zerolog.InfoLevel)
+	return func(event FooID, tags ...string) {
+		logEvent(event, "foo", tags...)
+	}
+}
+
+type LogFooFailure func(id FooID, err error, tags ...string)
+
+func NewFooErrorLogger(logger *zerolog.Logger) LogFooFailure {
+	log := Foo.NewErrorLogger(logger)
+	return func(id FooID, err error, tags ...string) {
+		log(id, err, "foo", tags...)
+	}
+}
 
 const Foo eventlog.Event = "01DE2Z4E07E4T0GJJXCG8NN6A0"
 
@@ -39,210 +52,121 @@ func (id FooID) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("id", string(id))
 }
 
-func TestEvent_NewLogger(t *testing.T) {
+func TestEvent_Logger(t *testing.T) {
 	t.Parallel()
 
-	buf := fxapptest.NewSyncLog()
+	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
+	logFooEvent := NewFooLogger(&logger)
+	logFooEvent(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), "tag-a", "tag-b")
 
-	var shutdowner fx.Shutdowner
-	app := fx.New(
-		fx.Logger(&logger),
-		fx.Provide(
-			func() *zerolog.Logger { return &logger },
-			func(logger *zerolog.Logger) LogFoo {
-				logEvent := Foo.NewLogger(logger, zerolog.InfoLevel)
-				return func(event FooID, tags ...string) {
-					logEvent(event, "foo", tags...)
-				}
-			},
-		),
-		fx.Invoke(func(lc fx.Lifecycle, log LogFoo) {
-			lc.Append(fx.Hook{
-				OnStart: func(_ context.Context) error {
-					log(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), "tag-a", "tag-b")
-					return nil
-				},
-			})
-		}),
-		fx.Populate(&shutdowner),
-	)
+	type Data struct {
+		ID string
+	}
 
-	switch {
-	case app.Err() != nil:
-		t.Errorf("*** app build failure: %v", app.Err())
-	default:
-		done := make(chan struct{})
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer close(done)
-			wg.Done()
-			app.Run()
-		}()
-		wg.Wait()
-		shutdowner.Shutdown()
-	Shutdown:
-		for {
-			select {
-			case <-done:
-				break Shutdown
-			default:
-				shutdowner.Shutdown()
-			}
+	type LogEvent struct {
+		Level   string   `json:"l"`
+		Name    string   `json:"n"`
+		Message string   `json:"m"`
+		Tags    []string `json:"g"`
+		Data    Data     `json:"d"`
+	}
+	var logEvent LogEvent
+	for _, line := range strings.Split(buf.String(), "\n") {
+		if line == "" {
+			break
 		}
-
-		type Data struct {
-			ID string
+		err := json.Unmarshal([]byte(line), &logEvent)
+		if err != nil {
+			t.Errorf("*** failed to parse log event: %v", err)
+			break
 		}
-
-		type LogEvent struct {
-			Level   string   `json:"l"`
-			Name    string   `json:"n"`
-			Message string   `json:"m"`
-			Tags    []string `json:"g"`
-			Data    Data     `json:"01DE2Z4E07E4T0GJJXCG8NN6A0"`
-		}
-		var logEvent LogEvent
-		for _, line := range strings.Split(buf.String(), "\n") {
-			if line == "" {
-				break
-			}
-			err := json.Unmarshal([]byte(line), &logEvent)
-			if err != nil {
-				t.Errorf("*** failed to parse log event: %v", err)
-				break
-			}
-			if logEvent.Name == Foo.String() {
-				t.Log(line)
-				break
-			}
-		}
-		switch {
-		case logEvent.Name == Foo.String():
-			if logEvent.Level != "info" {
-				t.Errorf("*** level did not match: %v", logEvent.Level)
-			}
-			if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
-				t.Error("*** event data was not logged")
-			}
-			if len(logEvent.Tags) != 2 {
-				t.Errorf("*** tags were not logged: %v", logEvent.Tags)
-			} else {
-				if logEvent.Tags[0] != "tag-a" && logEvent.Tags[1] != "tag-b" {
-					t.Errorf("*** tags don't match: %v", logEvent.Tags)
-				}
-			}
-
-		default:
-			t.Error("*** event was not logged")
+		if logEvent.Name == string(Foo) {
+			t.Log(line)
+			break
 		}
 	}
+	switch {
+	case logEvent.Name == string(Foo):
+		if logEvent.Level != "info" {
+			t.Errorf("*** level did not match: %v", logEvent.Level)
+		}
+		if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
+			t.Error("*** event data was not logged")
+		}
+		if len(logEvent.Tags) != 2 {
+			t.Errorf("*** tags were not logged: %v", logEvent.Tags)
+		} else {
+			if logEvent.Tags[0] != "tag-a" && logEvent.Tags[1] != "tag-b" {
+				t.Errorf("*** tags don't match: %v", logEvent.Tags)
+			}
+		}
+
+	default:
+		t.Error("*** event was not logged")
+	}
+
 }
 
 func TestEvent_NewErrorLogger(t *testing.T) {
 	t.Parallel()
-	type LogFooFailure func(id FooID, err error, tags ...string)
 
-	buf := fxapptest.NewSyncLog()
+	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
+	logFooFailure := NewFooErrorLogger(&logger)
+	logFooFailure(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), errors.New("failure to connect"), "tag-a", "tag-b")
 
-	var shutdowner fx.Shutdowner
-	app := fx.New(
-		fx.Logger(&logger),
-		fx.Provide(
-			func() *zerolog.Logger { return &logger },
-			func(logger *zerolog.Logger) LogFooFailure {
-				log := Foo.NewErrorLogger(logger)
-				return func(id FooID, err error, tags ...string) {
-					log(id, err, tags...)
-				}
-			},
-		),
-		fx.Invoke(func(lc fx.Lifecycle, log LogFooFailure) {
-			lc.Append(fx.Hook{
-				OnStart: func(_ context.Context) error {
-					log(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), errors.New("failure to connect"), "tag-a", "tag-b")
-					return nil
-				},
-			})
-		}),
-		fx.Populate(&shutdowner),
-	)
+	type Data struct {
+		ID string
+	}
 
+	type LogEvent struct {
+		Level   string   `json:"l"`
+		Name    string   `json:"n"`
+		Message string   `json:"m"`
+		Tags    []string `json:"g"`
+		Err     string   `json:"e"`
+		Data    Data     `json:"d"`
+	}
+	var logEvent LogEvent
+	for _, line := range strings.Split(buf.String(), "\n") {
+		if line == "" {
+			break
+		}
+		err := json.Unmarshal([]byte(line), &logEvent)
+		if err != nil {
+			t.Errorf("*** failed to parse log event: %v", err)
+			break
+		}
+		if logEvent.Name == string(Foo) {
+			t.Log(line)
+			break
+		}
+	}
 	switch {
-	case app.Err() != nil:
-		t.Errorf("*** app build failure: %v", app.Err())
+	case logEvent.Name == string(Foo):
+		if logEvent.Level != "error" {
+			t.Errorf("*** level did not match: %v", logEvent.Level)
+		}
+		if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
+			t.Error("*** event data was not logged")
+		}
+		if len(logEvent.Tags) != 2 {
+			t.Errorf("*** tags were not logged: %v", logEvent.Tags)
+		} else {
+			if logEvent.Tags[0] != "tag-a" && logEvent.Tags[1] != "tag-b" {
+				t.Errorf("*** tags don't match: %v", logEvent.Tags)
+			}
+		}
+		if logEvent.Err != "failure to connect" {
+			t.Errorf("*** error did not match: %v", logEvent.Err)
+		}
+		if logEvent.Message != "foo" {
+			t.Errorf("*** message did not match: %v", logEvent.Message)
+		}
+
 	default:
-		done := make(chan struct{})
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer close(done)
-			wg.Done()
-			app.Run()
-		}()
-		wg.Wait()
-		shutdowner.Shutdown()
-	Shutdown:
-		for {
-			select {
-			case <-done:
-				break Shutdown
-			default:
-				shutdowner.Shutdown()
-			}
-		}
-
-		type Data struct {
-			ID string
-		}
-
-		type LogEvent struct {
-			Level   string   `json:"l"`
-			Name    string   `json:"n"`
-			Message string   `json:"m"`
-			Tags    []string `json:"g"`
-			Err     string   `json:"e"`
-			Data    Data     `json:"01DE2Z4E07E4T0GJJXCG8NN6A0"`
-		}
-		var logEvent LogEvent
-		for _, line := range strings.Split(buf.String(), "\n") {
-			if line == "" {
-				break
-			}
-			err := json.Unmarshal([]byte(line), &logEvent)
-			if err != nil {
-				t.Errorf("*** failed to parse log event: %v", err)
-				break
-			}
-			if logEvent.Name == Foo.String() {
-				t.Log(line)
-				break
-			}
-		}
-		switch {
-		case logEvent.Name == Foo.String():
-			if logEvent.Level != "error" {
-				t.Errorf("*** level did not match: %v", logEvent.Level)
-			}
-			if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
-				t.Error("*** event data was not logged")
-			}
-			if len(logEvent.Tags) != 2 {
-				t.Errorf("*** tags were not logged: %v", logEvent.Tags)
-			} else {
-				if logEvent.Tags[0] != "tag-a" && logEvent.Tags[1] != "tag-b" {
-					t.Errorf("*** tags don't match: %v", logEvent.Tags)
-				}
-			}
-			if logEvent.Err != "failure to connect" {
-				t.Errorf("*** error did not match: %v", logEvent.Err)
-			}
-
-		default:
-			t.Error("*** event was not logged")
-		}
+		t.Error("*** event was not logged")
 	}
 
 }

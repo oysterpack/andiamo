@@ -97,12 +97,12 @@ func TestReadinessProbe(t *testing.T) {
 				break
 			}
 
-			if logEvent.Name == fxapp.ReadyEvent.String() {
+			if logEvent.Name == string(fxapp.ReadyEvent) {
 				break
 			}
 		}
 
-		if logEvent.Name != fxapp.ReadyEvent.String() {
+		if logEvent.Name != string(fxapp.ReadyEvent) {
 			t.Error("*** app readiness log event was not logged")
 		}
 	}

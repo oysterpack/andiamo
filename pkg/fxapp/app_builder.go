@@ -175,11 +175,11 @@ func (b *builder) Build() (App, error) {
 	}
 	app.startErrorHandlers = append(app.startErrorHandlers, func(e error) {
 		logEvent := StartFailedEvent.NewErrorLogger(logger)
-		logEvent(nil, multierr.Combine(errors.New("app start failed"), e))
+		logEvent(nil, e, "app start failed")
 	})
 	app.stopErrorHandlers = append(app.stopErrorHandlers, func(e error) {
 		logEvent := StopFailedEvent.NewErrorLogger(logger)
-		logEvent(nil, multierr.Combine(errors.New("app stop failed"), e))
+		logEvent(nil, e, "app stop failed")
 	})
 
 	if err := app.Err(); err != nil {
@@ -248,7 +248,7 @@ func (b *builder) buildOptions() []fx.Option {
 		}
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
 			logEvent := InitFailedEvent.NewErrorLogger(logger)
-			logEvent(nil, multierr.Combine(errors.New("app init failed"), err))
+			logEvent(nil, err, "app init failed")
 		})))
 	}
 
@@ -316,7 +316,7 @@ func handleHealthCheckRegistrations(registry health.Registry, scheduler health.S
 				logHealthCheckRegistered(healthCheck, "health check registered")
 				if err := registerHealthCheckGauge(healthCheck, scheduler, metricRegisterer); err != nil {
 					// this should never happen
-					logHealthCheckGaugeRegistrationError(healthCheck, err)
+					logHealthCheckGaugeRegistrationError(healthCheck, err, "health check failed to register")
 				}
 			}
 		}
@@ -382,9 +382,9 @@ func (l fxlogger) Printf(msg string, params ...interface{}) {
 
 func (b *builder) initZerolog() *zerolog.Logger {
 	zerolog.SetGlobalLevel(b.globalLogLevel)
-	logger := eventlog.WithEventULID(zerolog.New(b.logWriter)).
+
+	logger := eventlog.NewZeroLogger(b.logWriter).
 		With().
-		Timestamp().
 		Str(AppIDLabel, b.desc.ID().String()).
 		Str(AppReleaseIDLabel, b.desc.ReleaseID().String()).
 		Str(AppInstanceIDLabel, b.instanceID.String()).

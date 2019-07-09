@@ -231,7 +231,7 @@ func checkHTTPServerStartingEventLogged(t *testing.T, log io.Reader, addr string
 
 	type LogEvent struct {
 		Name string `json:"n"`
-		Data Data   `json:"01DEFM9FFSH58ZGNPSR7Z4C3G2"`
+		Data Data   `json:"d"`
 	}
 
 	var logEvent LogEvent
@@ -246,13 +246,13 @@ func checkHTTPServerStartingEventLogged(t *testing.T, log io.Reader, addr string
 			t.Errorf("*** failed to parse log event: %v : %v", err, line)
 			continue
 		}
-		if logEvent.Name == fxapp.HTTPServerStarting.String() {
+		if logEvent.Name == string(fxapp.HTTPServerStarting) {
 			t.Log(line)
 			break
 		}
 	}
 	switch {
-	case logEvent.Name != fxapp.HTTPServerStarting.String():
+	case logEvent.Name != string(fxapp.HTTPServerStarting):
 		t.Error("*** HTTP server started event was not logged")
 	default:
 		if logEvent.Data.Addr != addr {

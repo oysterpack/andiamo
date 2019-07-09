@@ -146,7 +146,7 @@ func livenessProbeHTTPHandler(probe LivenessProbe, logger *zerolog.Logger) HTTPH
 		probeDuration := duration(time.Since(start))
 		if err != nil {
 			writer.WriteHeader(http.StatusServiceUnavailable)
-			logProbeFailure(probeDuration, err)
+			logProbeFailure(probeDuration, err, "liveness probe failed")
 			return
 		}
 		writer.WriteHeader(http.StatusOK)

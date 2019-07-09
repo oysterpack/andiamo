@@ -139,7 +139,7 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	type LogEvent struct {
 		Name    string `json:"n"`
 		Message string `json:"m"`
-		Data    Data   `json:"01DF3FV60A2J1WKX5NQHP47H61"`
+		Data    Data   `json:"d"`
 	}
 	var logEvent LogEvent
 
@@ -246,7 +246,7 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 	type LogEvent struct {
 		Name    string `json:"n"`
 		Message string `json:"m"`
-		Data    Data   `json:"01DF3X60Z7XFYVVXGE9TFFQ7Z1"`
+		Data    Data   `json:"d"`
 	}
 	var logEvent LogEvent
 
