@@ -141,6 +141,7 @@ func TestEvent_NewLogger(t *testing.T) {
 }
 
 func TestEvent_NewErrorLogger(t *testing.T) {
+	t.Parallel()
 	type LogFooFailure func(id FooID, err error, tags ...string)
 
 	buf := fxapptest.NewSyncLog()

@@ -27,6 +27,7 @@ import (
 )
 
 func TestZerologFieldNames(t *testing.T) {
+	t.Parallel()
 	type StackFrame struct {
 		Func   string
 		Line   string
@@ -87,6 +88,7 @@ func TestZerologFieldNames(t *testing.T) {
 }
 
 func TestForComponent(t *testing.T) {
+	t.Parallel()
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
 	componentLogger := eventlog.ForComponent(&logger, "foo")
@@ -110,6 +112,7 @@ func TestForComponent(t *testing.T) {
 }
 
 func TestForEvent(t *testing.T) {
+	t.Parallel()
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
 	eventLogger := eventlog.ForEvent(&logger, "foo")
@@ -133,6 +136,7 @@ func TestForEvent(t *testing.T) {
 }
 
 func TestWithEventULID(t *testing.T) {
+	t.Parallel()
 	buf := new(bytes.Buffer)
 	eventLogger := eventlog.WithEventULID(zerolog.New(buf))
 	eventLogger.Log().Msg("")
