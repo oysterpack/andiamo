@@ -164,6 +164,7 @@ type prometheusHTTPHandlerParams struct {
 	Logger     *zerolog.Logger
 }
 
+// MetricsEndpoint is used to construct the default metrics HTTP endpoint
 const MetricsEndpoint = "01DF9JKZ73Y3V1AJN89B58D9HY"
 
 // NewHTTPHandler constructs a new HTTPHandler from the PrometheusHTTPHandlerOpts

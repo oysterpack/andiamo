@@ -18,7 +18,7 @@ package fxapp
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
+	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"

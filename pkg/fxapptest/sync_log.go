@@ -29,6 +29,7 @@ type SyncLog struct {
 	buf *bytes.Buffer
 }
 
+// NewSyncLog is the SyncLog constructor
 func NewSyncLog() *SyncLog {
 	return &SyncLog{
 		buf: new(bytes.Buffer),
@@ -53,6 +54,7 @@ func (l *SyncLog) String() string {
 	return l.buf.String()
 }
 
+// Bytes returns the buffer's current content in a concurrency safe manner
 func (l *SyncLog) Bytes() []byte {
 	l.Lock()
 	defer l.Unlock()

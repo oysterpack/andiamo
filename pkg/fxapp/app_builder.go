@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/eventlog"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp/health"
+	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
