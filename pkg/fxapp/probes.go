@@ -63,8 +63,8 @@ type readinessWaitGroup struct {
 func (r *readinessWaitGroup) Add(delta uint) {
 	r.WaitGroup.Add(int(delta))
 	r.Lock()
-	defer r.Unlock()
 	r.count += delta
+	r.Unlock()
 }
 
 func (r *readinessWaitGroup) Inc() {
