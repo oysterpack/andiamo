@@ -19,11 +19,9 @@ Package fxapp builds upon https://godoc.org/go.uber.org/fx to provide a standard
 
 DevOps Application Aspects
 
-  - all app deployments must have an identity defined by a descriptor
+  - all app deployments must have an identity
     - each app is assigned a unique ID
-      - the app ID is used to catalog the application
-    - each app has a unique name within the given namespace
-    - each app is assigned Version
+      - application names may change, but the app ID is immutable
     - each app deployment is assigned a release ID, which maps to related app information, e.g.,
 	  - release notes
       - who were the persons involved - developers, testers, product managers, etc
@@ -39,5 +37,7 @@ DevOps Application Aspects
   - application logging is structured
     - zerolog is used to provided structured JSON logging
     - log events are strongly typed, i.e., domain specific
+  - metrics
+  - health checks
 */
 package fxapp

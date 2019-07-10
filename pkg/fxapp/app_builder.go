@@ -175,7 +175,7 @@ func (b *builder) Build() (App, error) {
 		App: fx.New(
 			fx.StartTimeout(b.startTimeout),
 			fx.StopTimeout(b.stopTimeout),
-			fx.Options(b.buildOptions()...),
+			fx.Options(b.options()...),
 		),
 
 		Shutdowner: shutdowner,
@@ -205,12 +205,11 @@ func (b *builder) validate() error {
 	return nil
 }
 
-// This is the key method used to build the app options
-func (b *builder) buildOptions() []fx.Option {
-	compOptions := make([]fx.Option, 0, len(b.invokeErrorHandlers)+8)
-
+// This is the key method used to compose the application options
+func (b *builder) options() []fx.Option {
 	logger := b.initZerolog()
 
+	compOptions := make([]fx.Option, 0, len(b.invokeErrorHandlers)+8)
 	compOptions = append(compOptions, fx.Provide(
 		func() (ID, ReleaseID, InstanceID, *zerolog.Logger) { return b.id, b.releaseID, b.instanceID, logger },
 
@@ -232,7 +231,10 @@ func (b *builder) buildOptions() []fx.Option {
 		logHealthCheckResults,
 	))
 	compOptions = append(compOptions, fx.Invoke(b.funcs...))
-	compOptions = append(compOptions, fx.Invoke(healthCheckReadiness))
+	compOptions = append(compOptions, fx.Invoke(
+		healthCheckReadiness,
+		stopHealthCheckSchedulerOnAppShutdown,
+	))
 
 	if !b.disableHTTPServer {
 		compOptions = append(compOptions, fx.Invoke(runHTTPServer))
@@ -279,8 +281,7 @@ func providePrometheusMetricsSupport(id ID, releaseID ReleaseID, instanceID Inst
 // - registers a lifecycle hook that waits until all health checks are run on app start up
 //   - the app is not ready to service requests until all health checks have been run and passed with a Green status
 //   - if any health checks fail to run on start up then the app will fail to start up
-// - when the app is triggered to shutdown, trigger the health check scheduler to shutdown
-func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, wg ReadinessWaitGroup, lc fx.Lifecycle) {
+func healthCheckReadiness(registry health.Registry, wg ReadinessWaitGroup, lc fx.Lifecycle) {
 	wg.Add(1)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -298,6 +299,11 @@ func healthCheckReadiness(registry health.Registry, scheduler health.Scheduler, 
 
 			return nil
 		},
+	})
+}
+
+func stopHealthCheckSchedulerOnAppShutdown(scheduler health.Scheduler, lc fx.Lifecycle) {
+	lc.Append(fx.Hook{
 		// trigger health check scheduler shutdown
 		OnStop: func(context.Context) error {
 			scheduler.StopAsync()
