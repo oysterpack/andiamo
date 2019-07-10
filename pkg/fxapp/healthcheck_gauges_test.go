@@ -60,7 +60,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	var gatherer prometheus.Gatherer
 	var scheduler health.Scheduler
-	app, err := fxapp.NewBuilder(newDesc("foo", "2019.0706.160500")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func(registry health.Registry) error {
 			if err := registry.Register(Foo1); err != nil {
 				return err

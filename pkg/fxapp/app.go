@@ -22,38 +22,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"os"
 	"reflect"
 	"time"
 )
-
-// InstanceID is used to assign an app instance a unique ULID.
-// The instance ID can be used to identify the app instance in logs, metrics, events, etc.
-type InstanceID ulid.ULID
-
-// NewInstanceID returns a new unique InstanceID
-func NewInstanceID() InstanceID {
-	return InstanceID(ulidgen.MustNew())
-}
-
-// ULID returns the InstanceID's underlying ULID
-func (id InstanceID) ULID() ulid.ULID {
-	return ulid.ULID(id)
-}
-
-func (id InstanceID) String() string {
-	return id.ULID().String()
-}
-
-// used to implement the fx.ErrorHandler interface
-type errorHandler func(err error)
-
-func (f errorHandler) HandleError(err error) {
-	f(err)
-}
 
 // App represents a functional application container, leveraging fx (https://godoc.org/go.uber.org/fx) as the underlying
 // framework. Functional means, the application behavior is defined via functions.
@@ -78,8 +52,6 @@ func (f errorHandler) HandleError(err error) {
 // The application descriptor is another way to say application metadata (see `Desc`). Every application has the following
 // metadata:
 // 	- ID - represented as a ULID
-//  - name
-//	- version
 //	- release ID - an application has many versions, but not all versions are released.
 //    - can be used to look up additional release artifacts, e.g., release notes, test reports, etc
 //
@@ -198,6 +170,10 @@ func (f errorHandler) HandleError(err error) {
 //    - /01DEJ5RA8XRZVECJDJFAA2PWJF - readiness probe
 //    - /01DF91XTSXWVDJQ4XJ432KQFXY - liveness probe
 type App interface {
+	ID() ID
+	ReleaseID() ReleaseID
+	InstanceID() InstanceID
+
 	Options
 	LifeCycle
 
@@ -231,12 +207,6 @@ type LifeCycle interface {
 
 // Options represent application options that were used to configure and build app.
 type Options interface {
-	// Desc returns the app descriptor
-	Desc() Desc
-
-	// InstanceID returns the app unique instance ID
-	InstanceID() InstanceID
-
 	// StartTimeout returns the app start timeout. If the app takes longer than the specified timeout, then the app will
 	// fail to run.
 	StartTimeout() time.Duration
@@ -251,7 +221,8 @@ type Options interface {
 }
 
 type app struct {
-	desc       Desc
+	id         ID
+	releaseID  ReleaseID
 	instanceID InstanceID
 
 	constructors []interface{}
@@ -287,8 +258,9 @@ func (a *app) String() string {
 
 	switch {
 	case a.App != nil:
-		return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
-			a.desc,
+		return fmt.Sprintf("App{ID: %v, ReleaseID: %v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
+			ulid.ULID(a.id),
+			ulid.ULID(a.releaseID),
 			a.StartTimeout(),
 			a.StopTimeout(),
 			funcTypes(a.constructors),
@@ -296,8 +268,9 @@ func (a *app) String() string {
 			a.Err(),
 		)
 	default:
-		return fmt.Sprintf("App{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
-			a.desc,
+		return fmt.Sprintf("App{ID: %v, ReleaseID: %v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Err: %v}",
+			ulid.ULID(a.id),
+			ulid.ULID(a.releaseID),
 			fx.DefaultTimeout,
 			fx.DefaultTimeout,
 			funcTypes(a.constructors),
@@ -307,8 +280,12 @@ func (a *app) String() string {
 	}
 }
 
-func (a *app) Desc() Desc {
-	return a.desc
+func (a *app) ID() ID {
+	return a.id
+}
+
+func (a *app) ReleaseID() ReleaseID {
+	return a.releaseID
 }
 
 func (a *app) InstanceID() InstanceID {

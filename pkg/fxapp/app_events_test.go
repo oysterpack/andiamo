@@ -22,6 +22,7 @@ import (
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"strings"
@@ -33,7 +34,7 @@ func TestAppInitializedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -107,7 +108,7 @@ func TestAppStartingEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -163,7 +164,7 @@ func TestAppStartedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -235,7 +236,7 @@ func TestAppStoppingEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -291,7 +292,7 @@ func TestAppStoppedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -367,7 +368,7 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -431,7 +432,7 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).
@@ -532,7 +533,7 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 	type Foo struct{}
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		SetStopTimeout(time.Minute).
 		Provide(func() Foo { return Foo{} }).

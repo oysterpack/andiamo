@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"log"
 	"net/http"
 	"time"
 )
 
 func ExamplePrometheusHTTPHandlerOpts() {
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		// Provide custom PrometheusHTTPHandlerOpts, which will be used to configure the Prometheus HTTP handler
 		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
 			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()

@@ -19,7 +19,9 @@ package ulidgen
 
 import (
 	"crypto/rand"
+	"errors"
 	"github.com/oklog/ulid"
+	"strings"
 	"sync"
 )
 
@@ -51,4 +53,23 @@ func RandomULIDGenerator() func() ulid.ULID {
 //   - panics if a ULID fails to be generated
 func MustNew() ulid.ULID {
 	return ulid.MustNew(ulid.Now(), rand.Reader)
+}
+
+// Parse tries to parse the id into a ULID.
+// The id will be trimmed, and zero values are considered invalid.
+func Parse(id string) (ulid.ULID, error) {
+	ulidID, err := ulid.Parse(strings.TrimSpace(id))
+	if err != nil {
+		return ulidID, err
+	}
+	if IsZero(ulidID) {
+		return ulidID, errors.New("ID must not be zero")
+	}
+
+	return ulidID, nil
+}
+
+// IsZero returns true if the id is a zero value
+func IsZero(id ulid.ULID) bool {
+	return ulid.ULID{} == id
 }

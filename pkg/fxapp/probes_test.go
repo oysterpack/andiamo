@@ -42,7 +42,7 @@ import (
 func TestReadinessProbe(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
 	var readinessProbe fxapp.ReadinessWaitGroup
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func(lc fx.Lifecycle, readinessProbe fxapp.ReadinessWaitGroup) {
 			readinessProbe.Add(1)
 			lc.Append(fx.Hook{
@@ -113,7 +113,7 @@ func TestReadinessProbeNotReady(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	var readinessProbe fxapp.ReadinessWaitGroup
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func(lc fx.Lifecycle, readinessProbe fxapp.ReadinessWaitGroup) {
 			readinessProbe.Add(1)
 			lc.Append(fx.Hook{
@@ -225,7 +225,7 @@ func TestLivenessProbe(t *testing.T) {
 		var healthCheckRegistry health.Registry
 		var healthCheckScheduler health.Scheduler
 		var gatherer prometheus.Gatherer
-		app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
 			Build()
@@ -286,7 +286,7 @@ func TestLivenessProbe(t *testing.T) {
 	t.Run("no health checks registered", func(t *testing.T) {
 		t.Parallel()
 		var probe fxapp.LivenessProbe
-		_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe).
 			DisableHTTPServer().
@@ -365,7 +365,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 		var healthCheckRegistry health.Registry
 		var healthCheckScheduler health.Scheduler
 		var gatherer prometheus.Gatherer
-		app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
 			Build()
@@ -442,7 +442,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	t.Run("no health checks registered", func(t *testing.T) {
 		t.Parallel()
 		var probe fxapp.LivenessProbe
-		_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+		_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe).
 			Build()

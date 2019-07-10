@@ -43,7 +43,7 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 
 	var healthCheckRegistry health.Registry
 	var healthCheckScheduler health.Scheduler
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
 			FooHealth := health.CheckOpts{
 				Desc:        FooHealthDesc,
@@ -105,7 +105,7 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	var healthCheckRegistry health.Registry
 	var healthCheckRegistered <-chan health.Check
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry) {
 			healthCheckRegistered = registry.Subscribe()
@@ -211,7 +211,7 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 	var healthCheckRegistry health.Registry
 	var healthCheckResults <-chan health.Result
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			healthCheckResults = scheduler.Subscribe(nil)
@@ -314,7 +314,7 @@ func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	healthCheckID := ulidgen.MustNew()
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			FooHealth := health.CheckOpts{

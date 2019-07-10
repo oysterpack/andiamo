@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -41,7 +43,7 @@ func TestMetricsRegistryProvided(t *testing.T) {
 
 	var metricRegisterer prometheus.Registerer
 	var metricGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Provide(func(registerer prometheus.Registerer) (FooCounter, error) {
 			counter := prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "foo",
@@ -92,8 +94,9 @@ func TestMetricsContainAppLabels(t *testing.T) {
 	type FooCounter prometheus.Counter
 	var metricsGatherer prometheus.Gatherer
 	var appInstanceID fxapp.InstanceID
-	var appDesc fxapp.Desc
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	var appID fxapp.ID
+	var appReleaseID fxapp.ReleaseID
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(
 			// Given a custom metric is registered
 			func(metricRegisterer prometheus.Registerer) (FooCounter, error) {
@@ -109,7 +112,7 @@ func TestMetricsContainAppLabels(t *testing.T) {
 				return counter, nil
 			},
 		).
-		Populate(&metricsGatherer, &appInstanceID, &appDesc).
+		Populate(&metricsGatherer, &appInstanceID, &appID, &appReleaseID).
 		Build()
 
 	switch {
@@ -141,13 +144,13 @@ func TestMetricsContainAppLabels(t *testing.T) {
 					return false
 				}
 				// And the metric has the app labels
-				if !hasLabel(fxapp.AppIDLabel, appDesc.ID().String()) {
+				if !hasLabel(fxapp.AppIDLabel, ulid.ULID(appID).String()) {
 					t.Errorf("*** app ID label is missing: %s", mf)
 				}
-				if !hasLabel(fxapp.AppReleaseIDLabel, appDesc.ReleaseID().String()) {
+				if !hasLabel(fxapp.AppReleaseIDLabel, ulid.ULID(appReleaseID).String()) {
 					t.Errorf("*** app ReleaseID label is missing: %s", mf)
 				}
-				if !hasLabel(fxapp.AppInstanceIDLabel, appInstanceID.String()) {
+				if !hasLabel(fxapp.AppInstanceIDLabel, ulid.ULID(appInstanceID).String()) {
 					t.Errorf("*** app instance ID label is missing: %s", mf)
 				}
 			}
@@ -157,7 +160,7 @@ func TestMetricsContainAppLabels(t *testing.T) {
 
 func TestMetricGoCollectorRegistered(t *testing.T) {
 	var metricsGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func() {}).
 		Populate(&metricsGatherer).
 		Build()
@@ -183,7 +186,7 @@ func TestMetricGoCollectorRegistered(t *testing.T) {
 
 func TestRegisterProcessMetricsCollector(t *testing.T) {
 	var metricsGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(fxapp.RegisterProcessMetricsCollector).
 		Populate(&metricsGatherer).
 		Build()
@@ -406,7 +409,7 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(func() {}).
 		Build()
 
@@ -441,7 +444,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 }
 
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Invoke(
 			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
@@ -486,7 +489,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 }
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
-	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
 		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
 			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
 			opts.ErrorHandling = promhttp.ContinueOnError

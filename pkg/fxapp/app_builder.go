@@ -21,8 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/oysterpack/partire-k8s/pkg/health"
+	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -79,10 +81,12 @@ type Builder interface {
 }
 
 // NewBuilder constructs a new Builder
-func NewBuilder(desc Desc) Builder {
+func NewBuilder(id ID, releaseID ReleaseID) Builder {
 	return &builder{
-		instanceID:   NewInstanceID(),
-		desc:         desc,
+		instanceID: InstanceID(ulidgen.MustNew()),
+		id:         id,
+		releaseID:  releaseID,
+
 		startTimeout: fx.DefaultTimeout,
 		stopTimeout:  fx.DefaultTimeout,
 
@@ -93,7 +97,8 @@ func NewBuilder(desc Desc) Builder {
 
 type builder struct {
 	instanceID InstanceID
-	desc       Desc
+	id         ID
+	releaseID  ReleaseID
 
 	startTimeout time.Duration
 	stopTimeout  time.Duration
@@ -127,8 +132,9 @@ func (b *builder) String() string {
 		return s.String()
 	}
 
-	return fmt.Sprintf("Builder{%v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Populate: %s, InvokeErrHandlerCount: %d, StartErrHandlerCount: %d}",
-		b.desc,
+	return fmt.Sprintf("Builder{ID: %v, ReleaseID: %v, StartTimeout: %s, StopTimeout: %s, Provide: %s, Invoke: %s, Populate: %s, InvokeErrHandlerCount: %d, StartErrHandlerCount: %d}",
+		ulid.ULID(b.id),
+		ulid.ULID(b.releaseID),
 		b.startTimeout,
 		b.startTimeout,
 		types(b.constructors),
@@ -153,7 +159,8 @@ func (b *builder) Build() (App, error) {
 	b.populateTargets = append(b.populateTargets, &shutdowner, &logger, &readinessWaitGroup, &dotGraph)
 	app := &app{
 		instanceID:   b.instanceID,
-		desc:         b.desc,
+		id:           b.id,
+		releaseID:    b.releaseID,
 		constructors: b.constructors,
 		funcs:        b.funcs,
 
@@ -192,28 +199,20 @@ func (b *builder) Build() (App, error) {
 }
 
 func (b *builder) validate() error {
-	var err error
-	if b.desc == nil {
-		err = multierr.Append(err, errors.New("app descriptor is required"))
-	} else {
-		err = multierr.Append(err, b.desc.Validate())
+	if len(b.funcs) == 0 {
+		return errors.New("at least 1 functional option is required")
 	}
-	if len(b.constructors) == 0 && len(b.funcs) == 0 {
-		err = multierr.Append(err, errors.New("at least 1 functional option is required"))
-	}
-	return err
+	return nil
 }
 
 // This is the key method used to build the app options
 func (b *builder) buildOptions() []fx.Option {
 	compOptions := make([]fx.Option, 0, len(b.invokeErrorHandlers)+8)
 
-	instanceID := b.instanceID
-	desc := b.desc
 	logger := b.initZerolog()
 
 	compOptions = append(compOptions, fx.Provide(
-		func() (Desc, InstanceID, *zerolog.Logger) { return desc, instanceID, logger },
+		func() (ID, ReleaseID, InstanceID, *zerolog.Logger) { return b.id, b.releaseID, b.instanceID, logger },
 
 		providePrometheusMetricsSupport,
 		newPrometheusHTTPHandler,
@@ -255,13 +254,20 @@ func (b *builder) buildOptions() []fx.Option {
 	return compOptions
 }
 
-func providePrometheusMetricsSupport(appDesc Desc, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
+// used to implement the fx.ErrorHandler interface
+type errorHandler func(err error)
+
+func (f errorHandler) HandleError(err error) {
+	f(err)
+}
+
+func providePrometheusMetricsSupport(id ID, releaseID ReleaseID, instanceID InstanceID) (prometheus.Gatherer, prometheus.Registerer) {
 	registry := prometheus.NewRegistry()
 	regsisterer := prometheus.WrapRegistererWith(
 		prometheus.Labels{
-			AppIDLabel:         appDesc.ID().String(),
-			AppReleaseIDLabel:  appDesc.ReleaseID().String(),
-			AppInstanceIDLabel: instanceID.String(),
+			AppIDLabel:         ulid.ULID(id).String(),
+			AppReleaseIDLabel:  ulid.ULID(releaseID).String(),
+			AppInstanceIDLabel: ulid.ULID(instanceID).String(),
 		},
 		registry,
 	)
@@ -385,9 +391,9 @@ func (b *builder) initZerolog() *zerolog.Logger {
 
 	logger := eventlog.NewZeroLogger(b.logWriter).
 		With().
-		Str(AppIDLabel, b.desc.ID().String()).
-		Str(AppReleaseIDLabel, b.desc.ReleaseID().String()).
-		Str(AppInstanceIDLabel, b.instanceID.String()).
+		Str(AppIDLabel, ulid.ULID(b.id).String()).
+		Str(AppReleaseIDLabel, ulid.ULID(b.releaseID).String()).
+		Str(AppInstanceIDLabel, ulid.ULID(b.instanceID).String()).
 		Logger()
 
 	// use the logger as the go standard log output
