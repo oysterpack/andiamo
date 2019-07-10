@@ -46,7 +46,7 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
 			FooHealth := health.CheckOpts{
 				Desc:        FooHealthDesc,
-				ID:          ulidgen.MustNew(),
+				ID:          ulidgen.MustNew().String(),
 				Description: "Foo",
 				RedImpact:   "fatal",
 				Checker: func(ctx context.Context) health.Failure {
@@ -109,7 +109,7 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 			healthCheckRegistered = registry.Subscribe()
 			FooHealth := health.CheckOpts{
 				Desc:         FooHealthDesc,
-				ID:           healthCheckID,
+				ID:           healthCheckID.String(),
 				Description:  "Foo",
 				RedImpact:    "fatal",
 				YellowImpact: "yellow",
@@ -214,7 +214,7 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 			healthCheckResults = scheduler.Subscribe(nil)
 			FooHealth := health.CheckOpts{
 				Desc:         FooHealthDesc,
-				ID:           healthCheckID,
+				ID:           healthCheckID.String(),
 				Description:  "Foo",
 				RedImpact:    "fatal",
 				YellowImpact: "yellow",
@@ -315,7 +315,7 @@ func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			FooHealth := health.CheckOpts{
 				Desc:         FooHealthDesc,
-				ID:           healthCheckID,
+				ID:           healthCheckID.String(),
 				Description:  "Foo",
 				RedImpact:    "fatal",
 				YellowImpact: "yellow",

@@ -40,7 +40,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 		MustBuild()
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Foo",
 		RedImpact:   "fatal",
 		Checker: func(ctx context.Context) health.Failure {
@@ -149,7 +149,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 		MustBuild()
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Foo",
 		RedImpact:   "fatal",
 		Checker: func(ctx context.Context) health.Failure {

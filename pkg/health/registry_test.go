@@ -37,7 +37,7 @@ func TestNewRegistry(t *testing.T) {
 	UserDBHealthCheckID := ulidgen.MustNew()
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          UserDBHealthCheckID,
+		ID:          UserDBHealthCheckID.String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {
@@ -61,7 +61,7 @@ func TestNewRegistry(t *testing.T) {
 
 	err = registry.Register(health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {
@@ -111,7 +111,7 @@ func TestRegistry_Subscribe(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {

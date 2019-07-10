@@ -203,7 +203,7 @@ func TestLivenessProbe(t *testing.T) {
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
 		FooCheck := health.CheckOpts{
 			Desc:         FooHealthDesc,
-			ID:           ulidgen.MustNew(),
+			ID:           ulidgen.MustNew().String(),
 			Description:  "check",
 			RedImpact:    "RED",
 			YellowImpact: "yellow",
@@ -342,7 +342,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	checkProbe := func(t *testing.T, status health.Status) {
 		FooCheck := health.CheckOpts{
 			Desc:         FooHealthDesc,
-			ID:           ulidgen.MustNew(),
+			ID:           ulidgen.MustNew().String(),
 			Description:  "check",
 			RedImpact:    "RED",
 			YellowImpact: "yellow",

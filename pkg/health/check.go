@@ -63,7 +63,7 @@ type Check interface {
 // CheckOpts is used to construct a new health Check instance.
 type CheckOpts struct {
 	Desc
-	ID           ulid.ULID
+	ID           string // ULID
 	Description  string
 	RedImpact    string
 	YellowImpact string // optional
@@ -108,9 +108,13 @@ const (
 )
 
 func (opts CheckOpts) new(constraints checkConstraints) (Check, error) {
+	id, err := ulid.Parse(opts.ID)
+	if err != nil {
+		return nil, err
+	}
 	check := &check{
 		desc:         opts.Desc,
-		id:           opts.ID,
+		id:           id,
 		description:  opts.Description,
 		yellowImpact: opts.YellowImpact,
 		redImpact:    opts.RedImpact,
@@ -131,43 +135,46 @@ func (opts CheckOpts) new(constraints checkConstraints) (Check, error) {
 		check.interval = DefaultRunInterval
 	}
 
-	var err error
+	{
+		var err error
 
-	if check.desc == nil {
-		err = errors.New("desc is required")
+		if check.desc == nil {
+			err = errors.New("desc is required")
+		}
+
+		var zeroULID ulid.ULID
+		if check.id == zeroULID {
+			err = multierr.Append(err, errors.New("ID is required"))
+		}
+		if check.description == "" {
+			err = multierr.Append(err, errors.New("description is required and must not be blank"))
+		}
+		if check.redImpact == "" {
+			err = multierr.Append(err, errors.New("red impact is required and must not be blank"))
+		}
+		if check.run == nil {
+			err = multierr.Append(err, errors.New("check function is required"))
+		}
+		// all health checks must be constrained in how long they run
+		if check.timeout <= time.Duration(0) {
+			err = multierr.Append(err, errors.New("timeout cannot be 0"))
+		}
+		// application health checks should be designed to be fast
+		if check.timeout > constraints.maxRunTimeout {
+			err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", constraints.maxRunTimeout))
+		}
+		// this is to protect ourselves from accidentally scheduling a health check to run too often
+		if check.interval < constraints.minRunInterval {
+			err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", constraints.minRunInterval))
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		return check, nil
 	}
 
-	var zeroULID ulid.ULID
-	if check.id == zeroULID {
-		err = multierr.Append(err, errors.New("ID is required"))
-	}
-	if check.description == "" {
-		err = multierr.Append(err, errors.New("description is required and must not be blank"))
-	}
-	if check.redImpact == "" {
-		err = multierr.Append(err, errors.New("red impact is required and must not be blank"))
-	}
-	if check.run == nil {
-		err = multierr.Append(err, errors.New("check function is required"))
-	}
-	// all health checks must be constrained in how long they run
-	if check.timeout <= time.Duration(0) {
-		err = multierr.Append(err, errors.New("timeout cannot be 0"))
-	}
-	// application health checks should be designed to be fast
-	if check.timeout > constraints.maxRunTimeout {
-		err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", constraints.maxRunTimeout))
-	}
-	// this is to protect ourselves from accidentally scheduling a health check to run too often
-	if check.interval < constraints.minRunInterval {
-		err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", constraints.minRunInterval))
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return check, nil
 }
 
 type check struct {

@@ -37,7 +37,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	Foo1 := health.CheckOpts{
 		Desc:         FooHealthDesc,
-		ID:           ulidgen.MustNew(),
+		ID:           ulidgen.MustNew().String(),
 		Description:  "Foo1",
 		RedImpact:    "fatal",
 		YellowImpact: "yellow",
@@ -48,7 +48,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	Foo2 := health.CheckOpts{
 		Desc:         FooHealthDesc,
-		ID:           ulidgen.MustNew(),
+		ID:           ulidgen.MustNew().String(),
 		Description:  "Foo2",
 		RedImpact:    "fatal",
 		YellowImpact: "yellow",

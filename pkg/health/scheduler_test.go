@@ -38,7 +38,7 @@ func TestScheduler_Start(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker:     func(ctx context.Context) health.Failure { return nil },
@@ -106,7 +106,7 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker:     func(ctx context.Context) health.Failure { return nil },
@@ -114,7 +114,7 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 
 	SessionsDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew(),
+		ID:          ulidgen.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {

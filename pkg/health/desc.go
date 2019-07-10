@@ -45,6 +45,13 @@ type Desc interface {
 	json.Marshaler
 }
 
+type DescOpts struct {
+	ID           ulid.ULID
+	Description  string
+	RedImpact    string
+	YellowImpact string // optional
+}
+
 // DescBuilder is used to construct a new health check Desc
 type DescBuilder interface {
 	Description(desription string) DescBuilder
