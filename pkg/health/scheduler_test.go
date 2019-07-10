@@ -36,14 +36,13 @@ func TestScheduler_Start(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
-			return nil
-		}).
-		RunInterval(time.Second).
-		MustBuild()
+	UserDBHealthCheck := health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker:     func(ctx context.Context) health.Failure { return nil },
+	}.MustNew()
 
 	err := registry.Register(UserDBHealthCheck)
 	if err != nil {
@@ -105,23 +104,23 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
-			return nil
-		}).
-		RunInterval(time.Second).
-		MustBuild()
+	UserDBHealthCheck := health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker:     func(ctx context.Context) health.Failure { return nil },
+	}.MustNew()
 
-	SessionsDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the SESSIONS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
+	SessionsDBHealthCheck := health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) health.Failure {
 			return health.YellowFailure(errors.New("query took 1.1 sec"))
-		}).
-		RunInterval(time.Second).
-		MustBuild()
+		},
+	}.MustNew()
 
 	err := registry.Register(UserDBHealthCheck)
 	if err != nil {

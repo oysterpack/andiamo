@@ -201,10 +201,13 @@ func TestLivenessProbe(t *testing.T) {
 		MustBuild()
 
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
-		FooCheck := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-			Description("check").
-			RedImpact("RED").
-			Checker(func(ctx context.Context) health.Failure {
+		FooCheck := health.CheckOpts{
+			Desc:         FooHealthDesc,
+			ID:           ulidgen.MustNew(),
+			Description:  "check",
+			RedImpact:    "RED",
+			YellowImpact: "yellow",
+			Checker: func(ctx context.Context) health.Failure {
 				switch status {
 				case health.Green:
 					return nil
@@ -213,8 +216,8 @@ func TestLivenessProbe(t *testing.T) {
 				default:
 					return health.RedFailure(errors.New("RED"))
 				}
-			}).
-			MustBuild()
+			},
+		}.MustNew()
 
 		var probe fxapp.LivenessProbe
 		var healthCheckRegistry health.Registry
@@ -337,10 +340,13 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	livenessProbeEndpoint := fmt.Sprintf("http://:8008/%s", fxapp.LivenessProbeEvent)
 
 	checkProbe := func(t *testing.T, status health.Status) {
-		FooCheck := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-			Description("check").
-			RedImpact("RED").
-			Checker(func(ctx context.Context) health.Failure {
+		FooCheck := health.CheckOpts{
+			Desc:         FooHealthDesc,
+			ID:           ulidgen.MustNew(),
+			Description:  "check",
+			RedImpact:    "RED",
+			YellowImpact: "yellow",
+			Checker: func(ctx context.Context) health.Failure {
 				switch status {
 				case health.Green:
 					return nil
@@ -349,8 +355,8 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 				default:
 					return health.RedFailure(errors.New("RED"))
 				}
-			}).
-			MustBuild()
+			},
+		}.MustNew()
 
 		var probe fxapp.LivenessProbe
 		var healthCheckRegistry health.Registry

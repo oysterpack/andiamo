@@ -38,14 +38,16 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 		YellowImpact("app response times are slow").
 		RedImpact("app is unavailable").
 		MustBuild()
-	FooHealth := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-		Description("Foo").
-		RedImpact("fatal").
-		Checker(func(ctx context.Context) health.Failure {
+	FooHealth := health.CheckOpts{
+		Desc:        FooHealthDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Foo",
+		RedImpact:   "fatal",
+		Checker: func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.YellowFailure(errors.New("warning"))
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	registry := health.NewRegistry()
 	scheduler := health.StartScheduler(registry)
@@ -145,14 +147,16 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 		YellowImpact("app response times are slow").
 		RedImpact("app is unavailable").
 		MustBuild()
-	FooHealth := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-		Description("Foo").
-		RedImpact("fatal").
-		Checker(func(ctx context.Context) health.Failure {
+	FooHealth := health.CheckOpts{
+		Desc:        FooHealthDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Foo",
+		RedImpact:   "fatal",
+		Checker: func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.RedFailure(errors.New("error"))
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	registry := health.NewRegistry()
 	scheduler := health.StartScheduler(registry)

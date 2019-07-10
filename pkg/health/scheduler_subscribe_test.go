@@ -24,13 +24,6 @@ import (
 )
 
 func TestScheduler_Subscribe(t *testing.T) {
-	// shorten the run interval to run the test fast
-	minRunIntervalPrevious := minRunInterval
-	minRunInterval = time.Nanosecond
-	defer func() {
-		minRunInterval = minRunIntervalPrevious
-	}()
-
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
@@ -39,25 +32,37 @@ func TestScheduler_Subscribe(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) Failure {
+	UserDBHealthCheck, err := CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Desc",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) Failure {
 			return nil
-		}).
-		RunInterval(1 * time.Microsecond).
-		MustBuild()
+		},
+	}.new(checkConstraints{minRunInterval: time.Nanosecond, maxRunTimeout: 10 * time.Second})
 
-	SessionDBHealthCheck := NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the SESSIONS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) Failure {
+	if err != nil {
+		t.Errorf("*** UserDBHealthCheck is not valid: %v", err)
+		return
+	}
+
+	SessionDBHealthCheck, err := CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the SESSIONS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) Failure {
 			return nil
-		}).
-		RunInterval(1 * time.Microsecond).
-		MustBuild()
+		},
+	}.new(checkConstraints{minRunInterval: time.Nanosecond, maxRunTimeout: 10 * time.Second})
 
-	err := registry.Register(UserDBHealthCheck)
+	if err != nil {
+		t.Errorf("*** SessionDBHealthCheck is not valid: %v", err)
+		return
+	}
+
+	err = registry.Register(UserDBHealthCheck)
 	if err != nil {
 		t.Errorf("*** failed to register health check: %v", err)
 		return
@@ -74,7 +79,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 		if !scheduler.Stopping() {
 			t.Error("*** scheduler is reporting that it is not yet stopping")
 		}
-		timeout := time.After(1 * time.Second)
+		timeout := time.After(1 * 10 * time.Second)
 		select {
 		case <-scheduler.Done():
 		case <-timeout:
@@ -94,13 +99,6 @@ func TestScheduler_Subscribe(t *testing.T) {
 }
 
 func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
-	// shorten the run interval to run the test fast
-	minRunIntervalPrevious := minRunInterval
-	minRunInterval = time.Nanosecond
-	defer func() {
-		minRunInterval = minRunIntervalPrevious
-	}()
-
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
@@ -109,23 +107,27 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) Failure {
+	UserDBHealthCheck := CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) Failure {
 			return nil
-		}).
-		RunInterval(1 * time.Microsecond).
-		MustBuild()
+		},
+		Timeout: time.Microsecond,
+	}.mustNew(checkConstraints{minRunInterval: time.Nanosecond, maxRunTimeout: 10 * time.Second})
 
-	SessionDBHealthCheck := NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the SESSIONS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) Failure {
+	SessionDBHealthCheck := CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the SESSIONS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) Failure {
 			return nil
-		}).
-		RunInterval(1 * time.Microsecond).
-		MustBuild()
+		},
+		Timeout: time.Microsecond,
+	}.mustNew(checkConstraints{minRunInterval: time.Nanosecond, maxRunTimeout: 10 * time.Second})
 
 	err := registry.Register(UserDBHealthCheck)
 	if err != nil {
@@ -157,13 +159,6 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 }
 
 func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
-	// shorten the run interval to run the test fast
-	minRunIntervalPrevious := minRunInterval
-	minRunInterval = time.Nanosecond
-	defer func() {
-		minRunInterval = minRunIntervalPrevious
-	}()
-
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
@@ -172,14 +167,15 @@ func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) Failure {
+	UserDBHealthCheck := CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) Failure {
 			return nil
-		}).
-		RunInterval(1 * time.Microsecond).
-		MustBuild()
+		},
+	}.mustNew(checkConstraints{minRunInterval: time.Nanosecond, maxRunTimeout: 10 * time.Second})
 
 	scheduler := StartScheduler(registry)
 	defer func() {
@@ -187,7 +183,7 @@ func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 		if !scheduler.Stopping() {
 			t.Error("*** scheduler is reporting that it is not yet stopping")
 		}
-		timeout := time.After(1 * time.Second)
+		timeout := time.After(1 * 10 * time.Second)
 		select {
 		case <-scheduler.Done():
 		case <-timeout:

@@ -35,15 +35,17 @@ func TestHealthCheck(t *testing.T) {
 		MustBuild()
 
 	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
-		Description("Queries the USERS DB").
-		YellowImpact("Users will experience longer response times").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
+	UserDBHealthCheck := health.CheckOpts{
+		Desc:         DatabaseHealthCheckDesc,
+		ID:           UserDBHealthCheckID,
+		Description:  "Queries the USERS DB",
+		YellowImpact: "Users will experience longer response times",
+		RedImpact:    "Users will not be able to access the app",
+		Checker: func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.RedFailure(errors.New("failed to connect to the database"))
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	if UserDBHealthCheck.Description() != "Queries the USERS DB" {
 		t.Errorf("*** description did not match: %v", UserDBHealthCheck.Description())
@@ -80,13 +82,15 @@ func TestHealthCheck(t *testing.T) {
 	t.Run("run green health check", func(t *testing.T) {
 		t.Parallel()
 
-		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
-			Description("Queries the USERS DB").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
+		UserDBHealthCheck := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          UserDBHealthCheckID,
+			Description: "Queries the USERS DB",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
 				return nil
-			}).
-			MustBuild()
+			},
+		}.MustNew()
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
@@ -104,15 +108,17 @@ func TestHealthCheck(t *testing.T) {
 	t.Run("health check times out", func(t *testing.T) {
 		t.Parallel()
 
-		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
-			Description("Queries the USERS DB").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
+		UserDBHealthCheck := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          UserDBHealthCheckID,
+			Description: "Queries the USERS DB",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			Timeout(time.Microsecond).
-			MustBuild()
+			},
+			Timeout: time.Microsecond,
+		}.MustNew()
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
@@ -137,14 +143,16 @@ func TestCheck_Run(t *testing.T) {
 	t.Run("run green health check", func(t *testing.T) {
 		t.Parallel()
 
-		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Queries the USERS DB").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
+		UserDBHealthCheck := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Description: "Queries the USERS DB",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
 				return nil
-			}).
-			MustBuild()
+			},
+		}.MustNew()
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
@@ -156,17 +164,19 @@ func TestCheck_Run(t *testing.T) {
 		}
 	})
 
-	t.Run("run green health check", func(t *testing.T) {
+	t.Run("run yellow health check", func(t *testing.T) {
 		t.Parallel()
 
-		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Queries the USERS DB").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
+		UserDBHealthCheck := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Description: "Queries the USERS DB",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(time.Millisecond)
 				return health.YellowFailure(errors.New("YELLOW"))
-			}).
-			MustBuild()
+			},
+		}.MustNew()
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
@@ -181,15 +191,17 @@ func TestCheck_Run(t *testing.T) {
 	t.Run("health check times out", func(t *testing.T) {
 		t.Parallel()
 
-		UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Queries the USERS DB").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
+		UserDBHealthCheck := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Description: "Queries the USERS DB",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			Timeout(time.Microsecond).
-			MustBuild()
+			},
+			Timeout: time.Microsecond,
+		}.MustNew()
 
 		result := UserDBHealthCheck.Run()
 		t.Log(result)
@@ -209,29 +221,51 @@ func TestCheck_Validation(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
+	t.Run("ID is required", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := health.CheckOpts{
+			Desc:        DatabaseHealthCheckDesc,
+			Description: "Desc",
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+		}.New()
+
+		if err == nil {
+			t.Error("*** health check should have failed to build because description was not specified")
+		}
+	})
+
 	t.Run("description cannot be blank", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := (health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
-				return health.RedFailure(errors.New("failed to connect to the database"))
-			})).
-			Build()
+		_, err := health.CheckOpts{
+			Desc:      DatabaseHealthCheckDesc,
+			ID:        ulidgen.MustNew(),
+			RedImpact: "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because description was not specified")
 		}
 
-		_, err = health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("   ").
-			RedImpact("Users will not be able to access the app").
-			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
-				return health.RedFailure(errors.New("failed to connect to the database"))
-			}).
-			Build()
+		_, err = health.CheckOpts{
+			Description: "   ",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			RedImpact:   "Users will not be able to access the app",
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because description is blank")
@@ -241,26 +275,30 @@ func TestCheck_Validation(t *testing.T) {
 	t.Run("red impact cannot be blank", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
-				return health.RedFailure(errors.New("failed to connect to the database"))
-			}).
-			Build()
+		_, err := health.CheckOpts{
+			Description: "Desc",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because red impact was not specified")
 		}
 
-		_, err = health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("   ").
-			Checker(func(ctx context.Context) health.Failure {
-				time.Sleep(time.Millisecond)
-				return health.RedFailure(errors.New("failed to connect to the database"))
-			}).
-			Build()
+		_, err = health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "  ",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because red impact is blank")
@@ -270,20 +308,24 @@ func TestCheck_Validation(t *testing.T) {
 	t.Run("check function is required", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Build()
+		_, err := health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "RED",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because check func was not specified")
 		}
 
-		_, err = health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(nil).
-			Build()
+		_, err = health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "RED",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker:     nil,
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because check func was nil")
@@ -293,46 +335,57 @@ func TestCheck_Validation(t *testing.T) {
 	t.Run("timeout cannot be zero", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(func(ctx context.Context) health.Failure {
+		check, err := health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "Red",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			Timeout(time.Duration(0)).
-			Build()
+			},
+			Timeout: time.Duration(0),
+		}.New()
 
-		if err == nil {
-			t.Error("*** health check should have failed to build because the timeout was set to 0")
+		if err != nil {
+			t.Errorf("*** health check should have not failed to been created because a zero timeout defaults to 5 secs: %v", err)
 			return
 		}
-		t.Log(err)
+		if check.Timeout() != health.DefaultTimeout {
+			t.Errorf("*** a zero timeout should be set to the default: %v", check.Timeout())
+		}
 	})
 
 	t.Run("timeout cannot be greater than 10 secs", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(func(ctx context.Context) health.Failure {
+		_, err := health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "Red",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			Timeout(10 * time.Second).
-			Build()
+			},
+			Timeout: 10 * time.Second,
+		}.New()
 
 		if err != nil {
 			t.Error("*** health check should have built because 10 secs is the max timeout")
 		}
 
-		_, err = health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(func(ctx context.Context) health.Failure {
+		_, err = health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "Red",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			Timeout(time.Millisecond * 10001).
-			Build()
+			},
+			Timeout: time.Millisecond * 10001,
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because the timeout was set to > 10 secs")
@@ -341,30 +394,36 @@ func TestCheck_Validation(t *testing.T) {
 		t.Log(err)
 	})
 
-	t.Run("timeout cannot be greater than 10 secs", func(t *testing.T) {
+	t.Run("interval cannot be less than 1 sec", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(func(ctx context.Context) health.Failure {
+		_, err := health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "Red",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			RunInterval(time.Second).
-			Build()
+			},
+			Interval: time.Second,
+		}.New()
 
 		if err != nil {
 			t.Error("*** health check should have built because 1 sec is the min interval")
 		}
 
-		_, err = health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-			Description("Description").
-			RedImpact("impact").
-			Checker(func(ctx context.Context) health.Failure {
+		_, err = health.CheckOpts{
+			Description: "Desc",
+			RedImpact:   "Red",
+			Desc:        DatabaseHealthCheckDesc,
+			ID:          ulidgen.MustNew(),
+			Checker: func(ctx context.Context) health.Failure {
+				time.Sleep(10 * time.Millisecond)
 				return nil
-			}).
-			RunInterval(time.Millisecond * 999).
-			Build()
+			},
+			Interval: time.Millisecond * 999,
+		}.New()
 
 		if err == nil {
 			t.Error("*** health check should have failed to build because the min interval is 1 sec")
@@ -377,12 +436,6 @@ func TestCheck_Validation(t *testing.T) {
 func TestBuilder_MustBuild_Panics(t *testing.T) {
 	t.Parallel()
 
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
-
 	defer func() {
 		err := recover()
 		if err == nil {
@@ -390,5 +443,5 @@ func TestBuilder_MustBuild_Panics(t *testing.T) {
 		}
 	}()
 
-	health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).MustBuild()
+	health.CheckOpts{}.MustNew()
 }

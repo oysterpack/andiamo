@@ -35,21 +35,27 @@ func TestHealthCheckGauge(t *testing.T) {
 		RedImpact("app is unavailable").
 		MustBuild()
 
-	Foo1 := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-		Description("Foo1").
-		RedImpact("fatal").
-		Checker(func(ctx context.Context) health.Failure {
+	Foo1 := health.CheckOpts{
+		Desc:         FooHealthDesc,
+		ID:           ulidgen.MustNew(),
+		Description:  "Foo1",
+		RedImpact:    "fatal",
+		YellowImpact: "yellow",
+		Checker: func(ctx context.Context) health.Failure {
 			return nil
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
-	Foo2 := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-		Description("Foo2").
-		RedImpact("fatal").
-		Checker(func(ctx context.Context) health.Failure {
+	Foo2 := health.CheckOpts{
+		Desc:         FooHealthDesc,
+		ID:           ulidgen.MustNew(),
+		Description:  "Foo2",
+		RedImpact:    "fatal",
+		YellowImpact: "yellow",
+		Checker: func(ctx context.Context) health.Failure {
 			return nil
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	var gatherer prometheus.Gatherer
 	var scheduler health.Scheduler

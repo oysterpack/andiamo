@@ -35,14 +35,16 @@ func TestNewRegistry(t *testing.T) {
 		MustBuild()
 
 	UserDBHealthCheckID := ulidgen.MustNew()
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, UserDBHealthCheckID).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
+	UserDBHealthCheck := health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          UserDBHealthCheckID,
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.RedFailure(errors.New("failed to connect to the database"))
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	err := registry.Register(UserDBHealthCheck)
 	if err != nil {
@@ -57,15 +59,18 @@ func TestNewRegistry(t *testing.T) {
 	}
 	t.Logf("%s", err)
 
-	err = registry.Register(health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the SESSIONS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
-			return nil
-		}).
-		MustBuild())
+	err = registry.Register(health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) health.Failure {
+			time.Sleep(time.Millisecond)
+			return health.RedFailure(errors.New("failed to connect to the database"))
+		},
+	}.MustNew())
 	if err != nil {
-		t.Errorf("*** failed register health check: %v", err)
+		t.Errorf("*** failed to register health check: %v", err)
 		return
 	}
 
@@ -104,14 +109,16 @@ func TestRegistry_Subscribe(t *testing.T) {
 		RedImpact("Query times out or fails").
 		MustBuild()
 
-	UserDBHealthCheck := health.NewBuilder(DatabaseHealthCheckDesc, ulidgen.MustNew()).
-		Description("Queries the USERS DB").
-		RedImpact("Users will not be able to access the app").
-		Checker(func(ctx context.Context) health.Failure {
+	UserDBHealthCheck := health.CheckOpts{
+		Desc:        DatabaseHealthCheckDesc,
+		ID:          ulidgen.MustNew(),
+		Description: "Queries the USERS DB",
+		RedImpact:   "Users will not be able to access the app",
+		Checker: func(ctx context.Context) health.Failure {
 			time.Sleep(time.Millisecond)
 			return health.RedFailure(errors.New("failed to connect to the database"))
-		}).
-		MustBuild()
+		},
+	}.MustNew()
 
 	registry := health.NewRegistry()
 	checkChan := registry.Subscribe()

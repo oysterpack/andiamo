@@ -29,27 +29,6 @@ import (
 	"time"
 )
 
-// Builder is used to construct new Check instances
-type Builder interface {
-	Description(desription string) Builder
-
-	YellowImpact(impact string) Builder
-
-	RedImpact(impact string) Builder
-
-	Checker(func(ctx context.Context) Failure) Builder
-
-	// Timeout defaults to 5 secs
-	Timeout(timeout time.Duration) Builder
-
-	// RunInterval defaults to 10 secs
-	RunInterval(interval time.Duration) Builder
-
-	Build() (Check, error)
-
-	MustBuild() Check
-}
-
 // Check represents a health check
 type Check interface {
 	Desc() Desc
@@ -81,117 +60,114 @@ type Check interface {
 	zerolog.LogObjectMarshaler
 }
 
-// NewBuilder constructs a new health check Builder.
-//
-// Defaults:
-//  - timeout = 5 secs
-//  - run interval = 15 secs
-func NewBuilder(desc Desc, healthcheckID ulid.ULID) Builder {
-	return &builder{
-		check: &check{
-			desc:     desc,
-			id:       healthcheckID,
-			timeout:  5 * time.Second,
-			interval: 15 * time.Second,
-		},
+// CheckOpts is used to construct a new health Check instance.
+type CheckOpts struct {
+	Desc
+	ID           ulid.ULID
+	Description  string
+	RedImpact    string
+	YellowImpact string // optional
+	Checker      func(ctx context.Context) Failure
+	Timeout      time.Duration // optional - default = 5 secs
+	Interval     time.Duration // optional - default = 15 secs
+}
+
+type checkConstraints struct {
+	minRunInterval, maxRunTimeout time.Duration
+}
+
+// New constructs a new health Check
+func (opts CheckOpts) New() (Check, error) {
+	return opts.new(checkConstraints{
+		minRunInterval: time.Second,
+		maxRunTimeout:  10 * time.Second,
+	})
+}
+
+// MustNew constructs a new health Check and panics if the opts are invalid
+func (opts CheckOpts) MustNew() Check {
+	check, err := opts.New()
+	if err != nil {
+		log.Panic(err)
 	}
+	return check
 }
 
-type builder struct {
-	check *check
+func (opts CheckOpts) mustNew(constraints checkConstraints) Check {
+	check, err := opts.new(constraints)
+	if err != nil {
+		log.Panic(err)
+	}
+	return check
 }
 
-func (b *builder) Description(desription string) Builder {
-	b.check.description = desription
-	return b
-}
+// health check default values
+const (
+	DefaultTimeout     = 5 * time.Second
+	DefaultRunInterval = 15 * time.Second
+)
 
-func (b *builder) YellowImpact(impact string) Builder {
-	b.check.yellowImpact = impact
-	return b
-}
+func (opts CheckOpts) new(constraints checkConstraints) (Check, error) {
+	check := &check{
+		desc:         opts.Desc,
+		id:           opts.ID,
+		description:  opts.Description,
+		yellowImpact: opts.YellowImpact,
+		redImpact:    opts.RedImpact,
 
-func (b *builder) RedImpact(impact string) Builder {
-	b.check.redImpact = impact
-	return b
-}
+		run:      opts.Checker,
+		timeout:  opts.Timeout,
+		interval: opts.Interval,
+	}
 
-func (b *builder) Checker(f func(ctx context.Context) Failure) Builder {
-	b.check.run = f
-	return b
-}
+	check.description = strings.TrimSpace(check.description)
+	check.yellowImpact = strings.TrimSpace(check.yellowImpact)
+	check.redImpact = strings.TrimSpace(check.redImpact)
 
-func (b *builder) Timeout(timeout time.Duration) Builder {
-	b.check.timeout = timeout
-	return b
-}
+	if check.timeout == time.Duration(0) {
+		check.timeout = DefaultTimeout
+	}
+	if check.interval == time.Duration(0) {
+		check.interval = DefaultRunInterval
+	}
 
-func (b *builder) RunInterval(interval time.Duration) Builder {
-	b.check.interval = interval
-	return b
-}
+	var err error
 
-func (b *builder) Build() (Check, error) {
-	b.trimSpace()
-	err := b.validate()
+	if check.desc == nil {
+		err = errors.New("desc is required")
+	}
+
+	var zeroULID ulid.ULID
+	if check.id == zeroULID {
+		err = multierr.Append(err, errors.New("ID is required"))
+	}
+	if check.description == "" {
+		err = multierr.Append(err, errors.New("description is required and must not be blank"))
+	}
+	if check.redImpact == "" {
+		err = multierr.Append(err, errors.New("red impact is required and must not be blank"))
+	}
+	if check.run == nil {
+		err = multierr.Append(err, errors.New("check function is required"))
+	}
+	// all health checks must be constrained in how long they run
+	if check.timeout <= time.Duration(0) {
+		err = multierr.Append(err, errors.New("timeout cannot be 0"))
+	}
+	// application health checks should be designed to be fast
+	if check.timeout > constraints.maxRunTimeout {
+		err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", constraints.maxRunTimeout))
+	}
+	// this is to protect ourselves from accidentally scheduling a health check to run too often
+	if check.interval < constraints.minRunInterval {
+		err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", constraints.minRunInterval))
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	return b.check, nil
-}
-
-func (b *builder) trimSpace() {
-	b.check.description = strings.TrimSpace(b.check.description)
-	b.check.yellowImpact = strings.TrimSpace(b.check.yellowImpact)
-	b.check.redImpact = strings.TrimSpace(b.check.redImpact)
-}
-
-// health check run constraints
-var (
-	// Health checks can not be scheduled to run more frequently than once per second.
-	// This is used to prevent health checks from overwhelming the application by being run to frequently because
-	// of a misconfiguration.
-	minRunInterval = time.Second
-	// Health checks should be designed to run fast.
-	maxRunTimeout = 10 * time.Second
-)
-
-func (b *builder) validate() error {
-	var err error
-
-	if b.check.description == "" {
-		err = errors.New("Description is required and must not be blank")
-	}
-	if b.check.redImpact == "" {
-		err = multierr.Append(err, errors.New("RedImpact is required and must not be blank"))
-	}
-	if b.check.run == nil {
-		err = multierr.Append(err, errors.New("check function is required"))
-	}
-	// all health checks must be constrained in how long they run
-	if b.check.timeout <= time.Duration(0) {
-		err = multierr.Append(err, errors.New("timeout cannot be 0"))
-	}
-	// application health checks should be designed to be fast
-	if b.check.timeout > maxRunTimeout {
-		err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", maxRunTimeout))
-	}
-	// this is to protect ourselves from accidentally scheduling a health check to run too often
-	if b.check.interval < minRunInterval {
-		err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", minRunInterval))
-	}
-
-	return err
-}
-
-func (b *builder) MustBuild() Check {
-	c, err := b.Build()
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return c
+	return check, nil
 }
 
 type check struct {
@@ -292,7 +268,7 @@ func (c *check) Run() Result {
 
 	select {
 	case <-ctx.Done():
-		return result.Red(TimeoutError{})
+		return result.Red(ErrTimeout)
 	case failure := <-ch:
 		if failure == nil {
 			return result.Green()
@@ -337,10 +313,6 @@ func RedFailure(err error) Failure {
 	return failure{err, Red}
 }
 
-// TimeoutError is used for timeout errors.
+// ErrTimeout indicates a health check timed out.
 // Healthcheck timeout errors are flagged as Red.
-type TimeoutError struct{}
-
-func (e TimeoutError) Error() string {
-	return "health check timed out"
-}
+var ErrTimeout = errors.New("health check timed out")

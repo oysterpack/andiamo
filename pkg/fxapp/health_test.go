@@ -44,13 +44,15 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	var healthCheckScheduler health.Scheduler
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
-			FooHealth := health.NewBuilder(FooHealthDesc, ulidgen.MustNew()).
-				Description("Foo").
-				RedImpact("fatal").
-				Checker(func(ctx context.Context) health.Failure {
+			FooHealth := health.CheckOpts{
+				Desc:        FooHealthDesc,
+				ID:          ulidgen.MustNew(),
+				Description: "Foo",
+				RedImpact:   "fatal",
+				Checker: func(ctx context.Context) health.Failure {
 					return nil
-				}).
-				MustBuild()
+				},
+			}.MustNew()
 
 			logger.Info().Msg(FooHealth.String())
 
@@ -105,14 +107,16 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 		LogWriter(buf).
 		Invoke(func(registry health.Registry) {
 			healthCheckRegistered = registry.Subscribe()
-			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
-				Description("Foo").
-				YellowImpact("yellow").
-				RedImpact("fatal").
-				Checker(func(ctx context.Context) health.Failure {
+			FooHealth := health.CheckOpts{
+				Desc:         FooHealthDesc,
+				ID:           healthCheckID,
+				Description:  "Foo",
+				RedImpact:    "fatal",
+				YellowImpact: "yellow",
+				Checker: func(ctx context.Context) health.Failure {
 					return nil
-				}).
-				MustBuild()
+				},
+			}.MustNew()
 
 			registry.Register(FooHealth)
 		}).
@@ -208,14 +212,17 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			healthCheckResults = scheduler.Subscribe(nil)
-			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
-				Description("Foo").
-				RedImpact("fatal").
-				Checker(func(ctx context.Context) health.Failure {
+			FooHealth := health.CheckOpts{
+				Desc:         FooHealthDesc,
+				ID:           healthCheckID,
+				Description:  "Foo",
+				RedImpact:    "fatal",
+				YellowImpact: "yellow",
+				Checker: func(ctx context.Context) health.Failure {
 					time.Sleep(time.Millisecond)
 					return nil
-				}).
-				MustBuild()
+				},
+			}.MustNew()
 
 			registry.Register(FooHealth)
 		}).
@@ -306,13 +313,16 @@ func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	app, err := fxapp.NewBuilder(newDesc("foo", "0.1.0")).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
-			FooHealth := health.NewBuilder(FooHealthDesc, healthCheckID).
-				Description("Foo").
-				RedImpact("fatal").
-				Checker(func(ctx context.Context) health.Failure {
+			FooHealth := health.CheckOpts{
+				Desc:         FooHealthDesc,
+				ID:           healthCheckID,
+				Description:  "Foo",
+				RedImpact:    "fatal",
+				YellowImpact: "yellow",
+				Checker: func(ctx context.Context) health.Failure {
 					return health.YellowFailure(errors.New("yellow"))
-				}).
-				MustBuild()
+				},
+			}.MustNew()
 
 			registry.Register(FooHealth)
 		}).
