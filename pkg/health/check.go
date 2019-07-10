@@ -108,10 +108,20 @@ const (
 )
 
 func (opts CheckOpts) new(constraints checkConstraints) (Check, error) {
+	opts = opts.normalize()
 	id, err := ulid.Parse(opts.ID)
 	if err != nil {
 		return nil, err
 	}
+	var zeroULID ulid.ULID
+	if id == zeroULID {
+		err = errors.New("ID cannot be zero")
+	}
+	err = multierr.Append(err, opts.validate(constraints))
+	if err != nil {
+		return nil, err
+	}
+
 	check := &check{
 		desc:         opts.Desc,
 		id:           id,
@@ -124,57 +134,53 @@ func (opts CheckOpts) new(constraints checkConstraints) (Check, error) {
 		interval: opts.Interval,
 	}
 
-	check.description = strings.TrimSpace(check.description)
-	check.yellowImpact = strings.TrimSpace(check.yellowImpact)
-	check.redImpact = strings.TrimSpace(check.redImpact)
+	return check, nil
+}
 
-	if check.timeout == time.Duration(0) {
-		check.timeout = DefaultTimeout
+func (opts CheckOpts) normalize() CheckOpts {
+	opts.ID = strings.TrimSpace(opts.ID)
+	opts.Description = strings.TrimSpace(opts.Description)
+	opts.RedImpact = strings.TrimSpace(opts.RedImpact)
+	opts.YellowImpact = strings.TrimSpace(opts.YellowImpact)
+	if opts.Timeout == time.Duration(0) {
+		opts.Timeout = DefaultTimeout
 	}
-	if check.interval == time.Duration(0) {
-		check.interval = DefaultRunInterval
+	if opts.Interval == time.Duration(0) {
+		opts.Interval = DefaultRunInterval
 	}
+	return opts
+}
 
-	{
-		var err error
+func (opts CheckOpts) validate(constraints checkConstraints) error {
+	var err error
 
-		if check.desc == nil {
-			err = errors.New("desc is required")
-		}
-
-		var zeroULID ulid.ULID
-		if check.id == zeroULID {
-			err = multierr.Append(err, errors.New("ID is required"))
-		}
-		if check.description == "" {
-			err = multierr.Append(err, errors.New("description is required and must not be blank"))
-		}
-		if check.redImpact == "" {
-			err = multierr.Append(err, errors.New("red impact is required and must not be blank"))
-		}
-		if check.run == nil {
-			err = multierr.Append(err, errors.New("check function is required"))
-		}
-		// all health checks must be constrained in how long they run
-		if check.timeout <= time.Duration(0) {
-			err = multierr.Append(err, errors.New("timeout cannot be 0"))
-		}
-		// application health checks should be designed to be fast
-		if check.timeout > constraints.maxRunTimeout {
-			err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", constraints.maxRunTimeout))
-		}
-		// this is to protect ourselves from accidentally scheduling a health check to run too often
-		if check.interval < constraints.minRunInterval {
-			err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", constraints.minRunInterval))
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		return check, nil
+	if opts.Desc == nil {
+		err = errors.New("desc is required")
 	}
 
+	if opts.Description == "" {
+		err = multierr.Append(err, errors.New("description is required and must not be blank"))
+	}
+	if opts.RedImpact == "" {
+		err = multierr.Append(err, errors.New("red impact is required and must not be blank"))
+	}
+	if opts.Checker == nil {
+		err = multierr.Append(err, errors.New("check function is required"))
+	}
+	// all health checks must be constrained in how long they run
+	if opts.Timeout <= time.Duration(0) {
+		err = multierr.Append(err, errors.New("timeout cannot be 0"))
+	}
+	// application health checks should be designed to be fast
+	if opts.Timeout > constraints.maxRunTimeout {
+		err = multierr.Append(err, fmt.Errorf("timeout cannot be more than %s", constraints.maxRunTimeout))
+	}
+	// this is to protect ourselves from accidentally scheduling a health check to run too often
+	if opts.Interval < constraints.minRunInterval {
+		err = multierr.Append(err, fmt.Errorf("run interval cannot be less than %s", constraints.minRunInterval))
+	}
+
+	return err
 }
 
 type check struct {

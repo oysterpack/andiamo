@@ -139,7 +139,7 @@ func (b *builder) String() string {
 	)
 }
 
-// Build tries to construct and initialize a new App instance.
+// New tries to construct and initialize a new App instance.
 // All of the app's functions are run as part of the app initialization phase.
 func (b *builder) Build() (App, error) {
 	if err := b.validate(); err != nil {

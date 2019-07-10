@@ -30,11 +30,12 @@ func TestScheduler_Start(t *testing.T) {
 
 	registry := health.NewRegistry()
 
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		YellowImpact: "Slow query",
+		RedImpact:    "Query times out or fails",
+	}.MustNew()
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
@@ -98,11 +99,12 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 
 	registry := health.NewRegistry()
 
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		YellowImpact: "Slow query",
+		RedImpact:    "Query times out or fails",
+	}.MustNew()
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,

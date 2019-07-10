@@ -195,10 +195,12 @@ func TestNewReadinessWaitgroup_Async(t *testing.T) {
 
 func TestLivenessProbe(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		RedImpact("RED").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
 		FooCheck := health.CheckOpts{
@@ -332,10 +334,11 @@ func TestLivenessProbe(t *testing.T) {
 }
 
 func TestLivenessProbHTTPEndpoint(t *testing.T) {
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		RedImpact("RED").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:          ulidgen.MustNew().String(),
+		Description: "Foo",
+		RedImpact:   "app is unavailable",
+	}.MustNew()
 
 	livenessProbeEndpoint := fmt.Sprintf("http://:8008/%s", fxapp.LivenessProbeEvent)
 

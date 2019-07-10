@@ -28,11 +28,12 @@ import (
 func TestHealthCheck(t *testing.T) {
 	t.Parallel()
 
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	UserDBHealthCheckID := ulidgen.MustNew()
 	UserDBHealthCheck := health.CheckOpts{
@@ -134,11 +135,12 @@ func TestHealthCheck(t *testing.T) {
 func TestCheck_Run(t *testing.T) {
 	t.Parallel()
 
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	t.Run("run green health check", func(t *testing.T) {
 		t.Parallel()
@@ -215,11 +217,12 @@ func TestCheck_Run(t *testing.T) {
 }
 
 func TestCheck_Validation(t *testing.T) {
-	DatabaseHealthCheckDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	t.Run("ID is required", func(t *testing.T) {
 		t.Parallel()
@@ -439,7 +442,7 @@ func TestBuilder_MustBuild_Panics(t *testing.T) {
 	defer func() {
 		err := recover()
 		if err == nil {
-			t.Error("*** Builder.MustBuild() should have panicked because the health check is not valid")
+			t.Error("*** Builder.MustNew() should have panicked because the health check is not valid")
 		}
 	}()
 

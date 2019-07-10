@@ -26,11 +26,12 @@ import (
 func TestScheduler_Subscribe(t *testing.T) {
 	registry := NewRegistry()
 
-	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	UserDBHealthCheck, err := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
@@ -101,11 +102,12 @@ func TestScheduler_Subscribe(t *testing.T) {
 func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 	registry := NewRegistry()
 
-	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	UserDBHealthCheck := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
@@ -161,11 +163,12 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 	registry := NewRegistry()
 
-	DatabaseHealthCheckDesc := NewDescBuilder(ulidgen.MustNew()).
-		Description("Executes database query").
-		YellowImpact("Slow query").
-		RedImpact("Query times out or fails").
-		MustBuild()
+	DatabaseHealthCheckDesc := DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Executes database query",
+		RedImpact:    "Query times out or fails",
+		YellowImpact: "Slow query",
+	}.MustNew()
 
 	UserDBHealthCheck := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,

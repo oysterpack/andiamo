@@ -33,11 +33,13 @@ import (
 func TestLogYellowHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
+
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
 		ID:          ulidgen.MustNew().String(),
@@ -142,11 +144,12 @@ FoundEvent:
 func TestLogRedHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
 		ID:          ulidgen.MustNew().String(),

@@ -45,82 +45,54 @@ type Desc interface {
 	json.Marshaler
 }
 
+// DescOpts is used to define a health check descriptor
 type DescOpts struct {
-	ID           ulid.ULID
+	ID           string // ULID
 	Description  string
 	RedImpact    string
 	YellowImpact string // optional
 }
 
-// DescBuilder is used to construct a new health check Desc
-type DescBuilder interface {
-	Description(desription string) DescBuilder
-
-	YellowImpact(impact string) DescBuilder
-
-	RedImpact(impact string) DescBuilder
-
-	Build() (Desc, error)
-
-	MustBuild() Desc
-}
-
-type descBuilder struct {
-	desc
-}
-
-// NewDescBuilder constructs a new DescBuilder instance.
-func NewDescBuilder(id ulid.ULID) DescBuilder {
-	b := &descBuilder{}
-	b.desc.id = id
-	return b
-}
-
-func (b *descBuilder) Description(description string) DescBuilder {
-	b.description = description
-	return b
-}
-
-func (b *descBuilder) YellowImpact(impact string) DescBuilder {
-	b.yellowImpact = impact
-	return b
-}
-
-func (b *descBuilder) RedImpact(impact string) DescBuilder {
-	b.redImpact = impact
-	return b
-}
-
-func (b *descBuilder) Build() (Desc, error) {
-	b.trimSpace()
-	err := b.validate()
+// New is used to construct a new health check descriptor
+func (opts DescOpts) New() (Desc, error) {
+	opts = opts.normalize()
+	id, err := ulid.Parse(opts.ID)
+	err = multierr.Append(err, opts.validate())
 	if err != nil {
 		return nil, err
 	}
-	return &b.desc, nil
+	return &desc{
+		id:           id,
+		description:  opts.Description,
+		yellowImpact: opts.YellowImpact,
+		redImpact:    opts.RedImpact,
+	}, nil
 }
 
-func (b *descBuilder) trimSpace() {
-	b.description = strings.TrimSpace(b.description)
-	b.yellowImpact = strings.TrimSpace(b.yellowImpact)
-	b.redImpact = strings.TrimSpace(b.redImpact)
+func (opts DescOpts) normalize() DescOpts {
+	opts.ID = strings.TrimSpace(opts.ID)
+	opts.Description = strings.TrimSpace(opts.Description)
+	opts.YellowImpact = strings.TrimSpace(opts.YellowImpact)
+	opts.RedImpact = strings.TrimSpace(opts.RedImpact)
+	return opts
 }
 
-func (b *descBuilder) validate() error {
+func (opts DescOpts) validate() error {
 	var err error
 
-	if b.description == "" {
+	if opts.Description == "" {
 		err = errors.New("Description is required and must not be blank")
 	}
-	if b.redImpact == "" {
+	if opts.RedImpact == "" {
 		err = multierr.Append(err, errors.New("RedImpact is required and must not be blank"))
 	}
 
 	return err
 }
 
-func (b *descBuilder) MustBuild() Desc {
-	c, err := b.Build()
+// MustNew panics if the health check descriptor is not valid
+func (opts DescOpts) MustNew() Desc {
+	c, err := opts.New()
 	if err != nil {
 		log.Panic(err)
 	}

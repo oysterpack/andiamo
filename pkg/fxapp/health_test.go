@@ -34,11 +34,12 @@ import (
 // The app automatically provides health.Registry and health.Scheduler.
 func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 
 	var healthCheckRegistry health.Registry
 	var healthCheckScheduler health.Scheduler
@@ -93,11 +94,12 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 
 func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 	healthCheckID := ulidgen.MustNew()
 
 	var healthCheckRegistry health.Registry
@@ -198,11 +200,12 @@ FoundEvent:
 
 func TestHealthCheckResultsAreLogged(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 	healthCheckID := ulidgen.MustNew()
 
 	var healthCheckRegistry health.Registry
@@ -302,11 +305,12 @@ FoundEvent:
 
 func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.NewDescBuilder(ulidgen.MustNew()).
-		Description("Foo").
-		YellowImpact("app response times are slow").
-		RedImpact("app is unavailable").
-		MustBuild()
+	FooHealthDesc := health.DescOpts{
+		ID:           ulidgen.MustNew().String(),
+		Description:  "Foo",
+		YellowImpact: "app response times are slow",
+		RedImpact:    "app is unavailable",
+	}.MustNew()
 	healthCheckID := ulidgen.MustNew()
 
 	buf := fxapptest.NewSyncLog()

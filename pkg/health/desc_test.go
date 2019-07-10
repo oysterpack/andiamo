@@ -23,25 +23,24 @@ import (
 )
 
 func TestHealthDesc(t *testing.T) {
-
-	id := ulidgen.MustNew()
-
 	t.Run("description cannot be blank", func(t *testing.T) {
-		_, err := health.NewDescBuilder(id).
-			YellowImpact("Slow query").
-			RedImpact("Query times out or fails").
-			Build()
+		_, err := health.DescOpts{
+			ID:           ulidgen.MustNew().String(),
+			RedImpact:    "Query times out or fails",
+			YellowImpact: "Slow query",
+		}.New()
 
 		t.Log(err)
 		if err == nil {
 			t.Error("*** the desc should have failed to build")
 		}
 
-		_, err = health.NewDescBuilder(id).
-			Description("    ").
-			YellowImpact("Slow query").
-			RedImpact("Query times out or fails").
-			Build()
+		_, err = health.DescOpts{
+			ID:           ulidgen.MustNew().String(),
+			Description:  "   ",
+			RedImpact:    "Query times out or fails",
+			YellowImpact: "Slow query",
+		}.New()
 
 		t.Log(err)
 		if err == nil {
@@ -50,21 +49,22 @@ func TestHealthDesc(t *testing.T) {
 	})
 
 	t.Run("red impact cannot be blank", func(t *testing.T) {
-		_, err := health.NewDescBuilder(id).
-			Description("Executes database query").
-			YellowImpact("Slow query").
-			Build()
+		_, err := health.DescOpts{
+			ID:           ulidgen.MustNew().String(),
+			Description:  "Desc",
+			YellowImpact: "Slow query",
+		}.New()
 
 		t.Log(err)
 		if err == nil {
 			t.Error("*** the desc should have failed to build")
 		}
 
-		_, err = health.NewDescBuilder(id).
-			Description("Executes database query").
-			YellowImpact("Slow query").
-			RedImpact("   ").
-			Build()
+		_, err = health.DescOpts{
+			ID:          ulidgen.MustNew().String(),
+			Description: "Desc",
+			RedImpact:   " ",
+		}.New()
 
 		t.Log(err)
 		if err == nil {
@@ -73,11 +73,13 @@ func TestHealthDesc(t *testing.T) {
 	})
 
 	t.Run("all text fields are trimmed", func(t *testing.T) {
-		DatabaseHealthCheckDesc := health.NewDescBuilder(id).
-			Description("   Executes database query   ").
-			YellowImpact("   Slow query   ").
-			RedImpact("   Query times out or fails   ").
-			MustBuild()
+		id := ulidgen.MustNew()
+		DatabaseHealthCheckDesc := health.DescOpts{
+			ID:           "  " + id.String() + "  ",
+			Description:  "  Executes database query  ",
+			RedImpact:    "  Query times out or fails  ",
+			YellowImpact: "  Slow query  ",
+		}.MustNew()
 
 		t.Log(DatabaseHealthCheckDesc)
 
@@ -101,10 +103,10 @@ func TestDescBuilder_MustBuild(t *testing.T) {
 	defer func() {
 		err := recover()
 		if err == nil {
-			t.Error("*** DescBuilder.MustBuild() should have panicked because the Desc is not valid")
+			t.Error("*** DescBuilder.MustNew() should have panicked because the Desc is not valid")
 			return
 		}
 		t.Log(err)
 	}()
-	health.NewDescBuilder(ulidgen.MustNew()).MustBuild()
+	health.DescOpts{}.MustNew()
 }
