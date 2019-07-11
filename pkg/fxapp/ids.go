@@ -19,7 +19,7 @@ package fxapp
 import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 )
 
 // ID corresponds to an application
@@ -47,12 +47,12 @@ func LoadIDsFromEnv() (ID, ReleaseID, error) {
 		return ID(ulid.ULID{}), ReleaseID(ulid.ULID{}), err
 	}
 
-	id, err := ulidgen.Parse(cfg.ID)
+	id, err := ulids.Parse(cfg.ID)
 	if err != nil {
 		return ID(ulid.ULID{}), ReleaseID(ulid.ULID{}), err
 	}
 
-	releaseID, err := ulidgen.Parse(cfg.ReleaseID)
+	releaseID, err := ulids.Parse(cfg.ReleaseID)
 	if err != nil {
 		return ID(id), ReleaseID(ulid.ULID{}), err
 	}

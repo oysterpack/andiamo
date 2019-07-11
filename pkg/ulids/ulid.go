@@ -15,13 +15,12 @@
  */
 
 // Package ulidgen provides functions for ULID generators
-package ulidgen
+package ulids
 
 import (
 	"crypto/rand"
 	"errors"
 	"github.com/oklog/ulid"
-	"strings"
 	"sync"
 )
 
@@ -56,9 +55,8 @@ func MustNew() ulid.ULID {
 }
 
 // Parse tries to parse the id into a ULID.
-// The id will be trimmed, and zero values are considered invalid.
 func Parse(id string) (ulid.ULID, error) {
-	ulidID, err := ulid.Parse(strings.TrimSpace(id))
+	ulidID, err := ulid.Parse(id)
 	if err != nil {
 		return ulidID, err
 	}

@@ -19,7 +19,7 @@ package health_test
 import (
 	"context"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"testing"
 	"time"
@@ -29,13 +29,13 @@ func TestHealthCheck(t *testing.T) {
 	t.Parallel()
 
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
 	}.MustNew()
 
-	UserDBHealthCheckID := ulidgen.MustNew()
+	UserDBHealthCheckID := ulids.MustNew()
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:         DatabaseHealthCheckDesc,
 		ID:           UserDBHealthCheckID.String(),
@@ -136,7 +136,7 @@ func TestCheck_Run(t *testing.T) {
 	t.Parallel()
 
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
@@ -147,7 +147,7 @@ func TestCheck_Run(t *testing.T) {
 
 		UserDBHealthCheck := health.CheckOpts{
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Description: "Queries the USERS DB",
 			RedImpact:   "Users will not be able to access the app",
 			Checker: func(ctx context.Context) health.Failure {
@@ -171,7 +171,7 @@ func TestCheck_Run(t *testing.T) {
 
 		UserDBHealthCheck := health.CheckOpts{
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Description: "Queries the USERS DB",
 			RedImpact:   "Users will not be able to access the app",
 			Checker: func(ctx context.Context) health.Failure {
@@ -195,7 +195,7 @@ func TestCheck_Run(t *testing.T) {
 
 		UserDBHealthCheck := health.CheckOpts{
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Description: "Queries the USERS DB",
 			RedImpact:   "Users will not be able to access the app",
 			Checker: func(ctx context.Context) health.Failure {
@@ -218,7 +218,7 @@ func TestCheck_Run(t *testing.T) {
 
 func TestCheck_Validation(t *testing.T) {
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
@@ -247,7 +247,7 @@ func TestCheck_Validation(t *testing.T) {
 
 		_, err := health.CheckOpts{
 			Desc:      DatabaseHealthCheckDesc,
-			ID:        ulidgen.MustNew().String(),
+			ID:        ulids.MustNew().String(),
 			RedImpact: "Users will not be able to access the app",
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
@@ -262,7 +262,7 @@ func TestCheck_Validation(t *testing.T) {
 		_, err = health.CheckOpts{
 			Description: "   ",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			RedImpact:   "Users will not be able to access the app",
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
@@ -281,7 +281,7 @@ func TestCheck_Validation(t *testing.T) {
 		_, err := health.CheckOpts{
 			Description: "Desc",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -296,7 +296,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "  ",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -315,7 +315,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "RED",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 		}.New()
 
 		if err == nil {
@@ -326,7 +326,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "RED",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker:     nil,
 		}.New()
 
@@ -342,7 +342,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "Red",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -366,7 +366,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "Red",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -382,7 +382,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "Red",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -404,7 +404,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "Red",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -420,7 +420,7 @@ func TestCheck_Validation(t *testing.T) {
 			Description: "Desc",
 			RedImpact:   "Red",
 			Desc:        DatabaseHealthCheckDesc,
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Checker: func(ctx context.Context) health.Failure {
 				time.Sleep(10 * time.Millisecond)
 				return nil

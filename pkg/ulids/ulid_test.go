@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package ulidgen_test
+package ulids_test
 
 import (
 	crand "crypto/rand"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -29,41 +29,41 @@ import (
 
 func TestMonotonicULIDGenerator(t *testing.T) {
 	t.Parallel()
-	ulids := make(map[ulid.ULID]bool)
-	newULID := ulidgen.MonotonicULIDGenerator()
+	ulidsMap := make(map[ulid.ULID]bool)
+	newULID := ulids.MonotonicULIDGenerator()
 	for i := 0; i < 100; i++ {
 		uid := newULID()
 		t.Log(uid)
-		if ulids[uid] {
+		if ulidsMap[uid] {
 			t.Fatal("duplicate ULID found")
 		}
-		ulids[uid] = true
+		ulidsMap[uid] = true
 	}
 }
 
 func TestRandomULIDGenerator(t *testing.T) {
 	t.Parallel()
-	ulids := make(map[ulid.ULID]bool)
-	newULID := ulidgen.RandomULIDGenerator()
+	ulidsMap := make(map[ulid.ULID]bool)
+	newULID := ulids.RandomULIDGenerator()
 	for i := 0; i < 100; i++ {
 		uid := newULID()
 		t.Log(uid)
-		if ulids[uid] {
+		if ulidsMap[uid] {
 			t.Fatal("duplicate ULID found")
 		}
-		ulids[uid] = true
+		ulidsMap[uid] = true
 	}
 }
 
 func TestMustNew(t *testing.T) {
 	t.Parallel()
-	ulids := make(map[ulid.ULID]bool)
+	ulidsMap := make(map[ulid.ULID]bool)
 	for i := 0; i < 100; i++ {
-		uid := ulidgen.MustNew()
-		if ulids[uid] {
+		uid := ulids.MustNew()
+		if ulidsMap[uid] {
 			t.Fatal("duplicate ULID found")
 		}
-		ulids[uid] = true
+		ulidsMap[uid] = true
 	}
 }
 
@@ -116,7 +116,7 @@ func BenchmarkULIDGenerator(b *testing.B) {
 	})
 
 	b.Run("MonotonicULIDGenerator", func(b *testing.B) {
-		newULID := ulidgen.MonotonicULIDGenerator()
+		newULID := ulids.MonotonicULIDGenerator()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			newULID()
@@ -133,7 +133,7 @@ func BenchmarkULIDGenerator(b *testing.B) {
 	})
 
 	b.Run("RandomULIDGenerator", func(b *testing.B) {
-		newULID := ulidgen.RandomULIDGenerator()
+		newULID := ulids.RandomULIDGenerator()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			newULID()
@@ -159,7 +159,7 @@ func BenchmarkMonotonicMathRandULIDGeneratorParallel(b *testing.B) {
 }
 
 func BenchmarkMonotonicULIDGeneratorParallel(b *testing.B) {
-	newULID := ulidgen.MonotonicULIDGenerator()
+	newULID := ulids.MonotonicULIDGenerator()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -180,7 +180,7 @@ func BenchmarkMonotonicULIDGeneratorChanParallel(b *testing.B) {
 }
 
 func BenchmarkRandomULIDGeneratorParallel(b *testing.B) {
-	newULID := ulidgen.RandomULIDGenerator()
+	newULID := ulids.RandomULIDGenerator()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -208,7 +208,7 @@ func MonotonicULIDGeneratorChan() <-chan ulid.ULID {
 }
 
 func BenchmarkULIDMustParse(b *testing.B) {
-	ulidStr := ulidgen.MustNew().String()
+	ulidStr := ulids.MustNew().String()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ulid.MustParse(ulidStr)

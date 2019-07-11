@@ -24,7 +24,7 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/eventlog"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -83,7 +83,7 @@ type Builder interface {
 // NewBuilder constructs a new Builder
 func NewBuilder(id ID, releaseID ReleaseID) Builder {
 	return &builder{
-		instanceID: InstanceID(ulidgen.MustNew()),
+		instanceID: InstanceID(ulids.MustNew()),
 		id:         id,
 		releaseID:  releaseID,
 

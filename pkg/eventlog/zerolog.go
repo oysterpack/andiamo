@@ -17,7 +17,7 @@
 package eventlog
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/rs/zerolog"
 	"io"
 )
@@ -49,7 +49,7 @@ const (
 	ULID      = "z" // event instance ULID
 )
 
-var newEventID = ulidgen.MonotonicULIDGenerator()
+var newEventID = ulids.MonotonicULIDGenerator()
 
 // ForEvent returns a new logger with the event type ID field 'n' set to the specified value.
 //

@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -43,7 +43,7 @@ func TestMetricsRegistryProvided(t *testing.T) {
 
 	var metricRegisterer prometheus.Registerer
 	var metricGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(func(registerer prometheus.Registerer) (FooCounter, error) {
 			counter := prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "foo",
@@ -96,7 +96,7 @@ func TestMetricsContainAppLabels(t *testing.T) {
 	var appInstanceID fxapp.InstanceID
 	var appID fxapp.ID
 	var appReleaseID fxapp.ReleaseID
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(
 			// Given a custom metric is registered
 			func(metricRegisterer prometheus.Registerer) (FooCounter, error) {
@@ -160,7 +160,7 @@ func TestMetricsContainAppLabels(t *testing.T) {
 
 func TestMetricGoCollectorRegistered(t *testing.T) {
 	var metricsGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func() {}).
 		Populate(&metricsGatherer).
 		Build()
@@ -186,7 +186,7 @@ func TestMetricGoCollectorRegistered(t *testing.T) {
 
 func TestRegisterProcessMetricsCollector(t *testing.T) {
 	var metricsGatherer prometheus.Gatherer
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(fxapp.RegisterProcessMetricsCollector).
 		Populate(&metricsGatherer).
 		Build()
@@ -409,7 +409,7 @@ func TestDescsFromMetricFamilies(t *testing.T) {
 }
 
 func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func() {}).
 		Build()
 
@@ -444,7 +444,7 @@ func TestExposePrometheusMetricsViaHTTP(t *testing.T) {
 }
 
 func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) {
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(
 			// register a collector that fails
 			func(registerer prometheus.Registerer) error {
@@ -489,7 +489,7 @@ func TestPrometheusHTTPServerRunner_FailOnCollectErrorWithHTTP500(t *testing.T) 
 }
 
 func TestPrometheusHTTPServerRunner_ContinueOnCollectError(t *testing.T) {
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(func() fxapp.PrometheusHTTPHandlerOpts {
 			opts := fxapp.DefaultPrometheusHTTPHandlerOpts()
 			opts.ErrorHandling = promhttp.ContinueOnError

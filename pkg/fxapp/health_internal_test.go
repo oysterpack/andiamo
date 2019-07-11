@@ -23,7 +23,7 @@ import (
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/rs/zerolog"
 	"sync"
 	"testing"
@@ -34,7 +34,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
@@ -42,7 +42,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Foo",
 		RedImpact:   "fatal",
 		Checker: func(ctx context.Context) health.Failure {
@@ -145,14 +145,14 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
 	}.MustNew()
 	FooHealth := health.CheckOpts{
 		Desc:        FooHealthDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Foo",
 		RedImpact:   "fatal",
 		Checker: func(ctx context.Context) health.Failure {

@@ -23,7 +23,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"strings"
@@ -35,7 +35,7 @@ import (
 func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
@@ -43,11 +43,11 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 
 	var healthCheckRegistry health.Registry
 	var healthCheckScheduler health.Scheduler
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
 			FooHealth := health.CheckOpts{
 				Desc:        FooHealthDesc,
-				ID:          ulidgen.MustNew().String(),
+				ID:          ulids.MustNew().String(),
 				Description: "Foo",
 				RedImpact:   "fatal",
 				Checker: func(ctx context.Context) health.Failure {
@@ -95,17 +95,17 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
 	}.MustNew()
-	healthCheckID := ulidgen.MustNew()
+	healthCheckID := ulids.MustNew()
 
 	var healthCheckRegistry health.Registry
 	var healthCheckRegistered <-chan health.Check
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry) {
 			healthCheckRegistered = registry.Subscribe()
@@ -201,17 +201,17 @@ FoundEvent:
 func TestHealthCheckResultsAreLogged(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
 	}.MustNew()
-	healthCheckID := ulidgen.MustNew()
+	healthCheckID := ulids.MustNew()
 
 	var healthCheckRegistry health.Registry
 	var healthCheckResults <-chan health.Result
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			healthCheckResults = scheduler.Subscribe(nil)
@@ -306,15 +306,15 @@ FoundEvent:
 func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
 	}.MustNew()
-	healthCheckID := ulidgen.MustNew()
+	healthCheckID := ulids.MustNew()
 
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
 		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
 			FooHealth := health.CheckOpts{

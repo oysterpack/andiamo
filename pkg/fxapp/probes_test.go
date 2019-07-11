@@ -25,7 +25,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"go.uber.org/fx"
@@ -42,7 +42,7 @@ import (
 func TestReadinessProbe(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
 	var readinessProbe fxapp.ReadinessWaitGroup
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(lc fx.Lifecycle, readinessProbe fxapp.ReadinessWaitGroup) {
 			readinessProbe.Add(1)
 			lc.Append(fx.Hook{
@@ -113,7 +113,7 @@ func TestReadinessProbeNotReady(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	var readinessProbe fxapp.ReadinessWaitGroup
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(lc fx.Lifecycle, readinessProbe fxapp.ReadinessWaitGroup) {
 			readinessProbe.Add(1)
 			lc.Append(fx.Hook{
@@ -196,7 +196,7 @@ func TestNewReadinessWaitgroup_Async(t *testing.T) {
 func TestLivenessProbe(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
@@ -205,7 +205,7 @@ func TestLivenessProbe(t *testing.T) {
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
 		FooCheck := health.CheckOpts{
 			Desc:         FooHealthDesc,
-			ID:           ulidgen.MustNew().String(),
+			ID:           ulids.MustNew().String(),
 			Description:  "check",
 			RedImpact:    "RED",
 			YellowImpact: "yellow",
@@ -225,7 +225,7 @@ func TestLivenessProbe(t *testing.T) {
 		var healthCheckRegistry health.Registry
 		var healthCheckScheduler health.Scheduler
 		var gatherer prometheus.Gatherer
-		app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+		app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
 			Build()
@@ -286,7 +286,7 @@ func TestLivenessProbe(t *testing.T) {
 	t.Run("no health checks registered", func(t *testing.T) {
 		t.Parallel()
 		var probe fxapp.LivenessProbe
-		_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+		_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe).
 			DisableHTTPServer().
@@ -335,7 +335,7 @@ func TestLivenessProbe(t *testing.T) {
 
 func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	FooHealthDesc := health.DescOpts{
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Foo",
 		RedImpact:   "app is unavailable",
 	}.MustNew()
@@ -345,7 +345,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	checkProbe := func(t *testing.T, status health.Status) {
 		FooCheck := health.CheckOpts{
 			Desc:         FooHealthDesc,
-			ID:           ulidgen.MustNew().String(),
+			ID:           ulids.MustNew().String(),
 			Description:  "check",
 			RedImpact:    "RED",
 			YellowImpact: "yellow",
@@ -365,7 +365,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 		var healthCheckRegistry health.Registry
 		var healthCheckScheduler health.Scheduler
 		var gatherer prometheus.Gatherer
-		app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+		app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
 			Build()
@@ -442,7 +442,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	t.Run("no health checks registered", func(t *testing.T) {
 		t.Parallel()
 		var probe fxapp.LivenessProbe
-		_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+		_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
 			Populate(&probe).
 			Build()

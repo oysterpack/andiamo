@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"testing"
@@ -30,7 +30,7 @@ import (
 func TestHealthCheckGauge(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
@@ -38,7 +38,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	Foo1 := health.CheckOpts{
 		Desc:         FooHealthDesc,
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo1",
 		RedImpact:    "fatal",
 		YellowImpact: "yellow",
@@ -49,7 +49,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	Foo2 := health.CheckOpts{
 		Desc:         FooHealthDesc,
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Foo2",
 		RedImpact:    "fatal",
 		YellowImpact: "yellow",
@@ -60,7 +60,7 @@ func TestHealthCheckGauge(t *testing.T) {
 
 	var gatherer prometheus.Gatherer
 	var scheduler health.Scheduler
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(registry health.Registry) error {
 			if err := registry.Register(Foo1); err != nil {
 				return err

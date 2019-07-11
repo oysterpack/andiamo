@@ -18,7 +18,7 @@ package health
 
 import (
 	"context"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"testing"
 	"time"
 )
@@ -27,7 +27,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
@@ -35,7 +35,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 
 	UserDBHealthCheck, err := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Desc",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) Failure {
@@ -50,7 +50,7 @@ func TestScheduler_Subscribe(t *testing.T) {
 
 	SessionDBHealthCheck, err := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the SESSIONS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) Failure {
@@ -103,7 +103,7 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
@@ -111,7 +111,7 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 
 	UserDBHealthCheck := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) Failure {
@@ -122,7 +122,7 @@ func TestScheduler_Subscribe_GetResultsAfterSchedulerClosed(t *testing.T) {
 
 	SessionDBHealthCheck := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the SESSIONS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) Failure {
@@ -164,7 +164,7 @@ func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 	registry := NewRegistry()
 
 	DatabaseHealthCheckDesc := DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		RedImpact:    "Query times out or fails",
 		YellowImpact: "Slow query",
@@ -172,7 +172,7 @@ func TestSchedulerAutomaticallySchedulesRegisteredHealthCheck(t *testing.T) {
 
 	UserDBHealthCheck := CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) Failure {

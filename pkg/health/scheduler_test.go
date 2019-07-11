@@ -19,7 +19,7 @@ package health_test
 import (
 	"context"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"testing"
 	"time"
@@ -31,7 +31,7 @@ func TestScheduler_Start(t *testing.T) {
 	registry := health.NewRegistry()
 
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		YellowImpact: "Slow query",
 		RedImpact:    "Query times out or fails",
@@ -39,7 +39,7 @@ func TestScheduler_Start(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker:     func(ctx context.Context) health.Failure { return nil },
@@ -100,7 +100,7 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 	registry := health.NewRegistry()
 
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		YellowImpact: "Slow query",
 		RedImpact:    "Query times out or fails",
@@ -108,7 +108,7 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker:     func(ctx context.Context) health.Failure { return nil },
@@ -116,7 +116,7 @@ func TestScheduler_HealthCheckResults(t *testing.T) {
 
 	SessionsDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {

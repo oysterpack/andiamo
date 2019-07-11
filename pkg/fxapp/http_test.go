@@ -23,7 +23,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"io"
 	"net/http"
 	"testing"
@@ -38,7 +38,7 @@ import (
 // of handler endpoints that are registered.
 func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(
 			func() fxapp.HTTPHandler {
 				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
@@ -72,7 +72,7 @@ func TestHTTPServer_WithDefaultOpts(t *testing.T) {
 
 func TestHTTPServer_WithProvidedServer(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(
 			func() fxapp.HTTPHandler {
 				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
@@ -111,7 +111,7 @@ func TestHTTPServer_WithProvidedServer(t *testing.T) {
 
 func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(
 			func() fxapp.HTTPHandler {
 				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
@@ -137,7 +137,7 @@ func TestHTTPServer_WithDuplicateEndpoints(t *testing.T) {
 
 func TestHTTPServer_WithNilhandler(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
-	_, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(
 			func() fxapp.HTTPHandler {
 				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
@@ -160,7 +160,7 @@ func TestHTTPServer_WithNilhandler(t *testing.T) {
 }
 
 func TestHTTPServer_HandlerPanic(t *testing.T) {
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Provide(
 			func() fxapp.HTTPHandler {
 				return fxapp.NewHTTPHandler("/foo", func(writer http.ResponseWriter, request *http.Request) {
@@ -278,7 +278,7 @@ func checkHTTPServerStartingEventLogged(t *testing.T, log io.Reader, addr string
 //   in parallel
 // - for CLI based apps
 func TestBuilder_DisableHTTPServer(t *testing.T) {
-	app, err := fxapp.NewBuilder(fxapp.ID(ulidgen.MustNew()), fxapp.ReleaseID(ulidgen.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func() {}).
 		DisableHTTPServer().
 		Build()

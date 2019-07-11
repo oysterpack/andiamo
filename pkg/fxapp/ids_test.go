@@ -19,7 +19,7 @@ package fxapp_test
 import (
 	"fmt"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"os"
 	"strings"
 	"testing"
@@ -54,8 +54,8 @@ func TestLoadIDsFromEnv(t *testing.T) {
 		t.Log(e)
 	}
 
-	ulidID := ulidgen.MustNew()
-	ulidReleaseID := ulidgen.MustNew()
+	ulidID := ulids.MustNew()
+	ulidReleaseID := ulids.MustNew()
 	setenv("ID", ulidID.String())
 	setenv("NAME", "foo")
 	setenv("VERSION", "0.1.0")
@@ -89,7 +89,7 @@ func TestLoadIDsFromEnv(t *testing.T) {
 	_, _, e = fxapp.LoadIDsFromEnv()
 	checkLoadDescFromEnvFailed(e)
 
-	setenv("ID", ulidgen.MustNew().String())
+	setenv("ID", ulids.MustNew().String())
 	setenv("RELEASE_ID", "INVALID")
 	_, _, e = fxapp.LoadIDsFromEnv()
 	checkLoadDescFromEnvFailed(e)

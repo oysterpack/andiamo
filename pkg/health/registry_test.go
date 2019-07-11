@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"testing"
 	"time"
 )
@@ -29,13 +29,13 @@ func TestNewRegistry(t *testing.T) {
 	registry := health.NewRegistry()
 
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		YellowImpact: "Slow query",
 		RedImpact:    "Query times out or fails",
 	}.MustNew()
 
-	UserDBHealthCheckID := ulidgen.MustNew()
+	UserDBHealthCheckID := ulids.MustNew()
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
 		ID:          UserDBHealthCheckID.String(),
@@ -62,7 +62,7 @@ func TestNewRegistry(t *testing.T) {
 
 	err = registry.Register(health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {
@@ -105,7 +105,7 @@ func TestRegistry_RegisterNil(t *testing.T) {
 
 func TestRegistry_Subscribe(t *testing.T) {
 	DatabaseHealthCheckDesc := health.DescOpts{
-		ID:           ulidgen.MustNew().String(),
+		ID:           ulids.MustNew().String(),
 		Description:  "Executes database query",
 		YellowImpact: "Slow query",
 		RedImpact:    "Query times out or fails",
@@ -113,7 +113,7 @@ func TestRegistry_Subscribe(t *testing.T) {
 
 	UserDBHealthCheck := health.CheckOpts{
 		Desc:        DatabaseHealthCheckDesc,
-		ID:          ulidgen.MustNew().String(),
+		ID:          ulids.MustNew().String(),
 		Description: "Queries the USERS DB",
 		RedImpact:   "Users will not be able to access the app",
 		Checker: func(ctx context.Context) health.Failure {

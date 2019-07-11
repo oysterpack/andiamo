@@ -18,14 +18,14 @@ package health_test
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulidgen"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"testing"
 )
 
 func TestHealthDesc(t *testing.T) {
 	t.Run("description cannot be blank", func(t *testing.T) {
 		_, err := health.DescOpts{
-			ID:           ulidgen.MustNew().String(),
+			ID:           ulids.MustNew().String(),
 			RedImpact:    "Query times out or fails",
 			YellowImpact: "Slow query",
 		}.New()
@@ -36,7 +36,7 @@ func TestHealthDesc(t *testing.T) {
 		}
 
 		_, err = health.DescOpts{
-			ID:           ulidgen.MustNew().String(),
+			ID:           ulids.MustNew().String(),
 			Description:  "   ",
 			RedImpact:    "Query times out or fails",
 			YellowImpact: "Slow query",
@@ -50,7 +50,7 @@ func TestHealthDesc(t *testing.T) {
 
 	t.Run("red impact cannot be blank", func(t *testing.T) {
 		_, err := health.DescOpts{
-			ID:           ulidgen.MustNew().String(),
+			ID:           ulids.MustNew().String(),
 			Description:  "Desc",
 			YellowImpact: "Slow query",
 		}.New()
@@ -61,7 +61,7 @@ func TestHealthDesc(t *testing.T) {
 		}
 
 		_, err = health.DescOpts{
-			ID:          ulidgen.MustNew().String(),
+			ID:          ulids.MustNew().String(),
 			Description: "Desc",
 			RedImpact:   " ",
 		}.New()
@@ -73,7 +73,7 @@ func TestHealthDesc(t *testing.T) {
 	})
 
 	t.Run("all text fields are trimmed", func(t *testing.T) {
-		id := ulidgen.MustNew()
+		id := ulids.MustNew()
 		DatabaseHealthCheckDesc := health.DescOpts{
 			ID:           "  " + id.String() + "  ",
 			Description:  "  Executes database query  ",
