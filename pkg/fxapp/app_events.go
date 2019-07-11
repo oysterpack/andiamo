@@ -116,7 +116,7 @@ const (
 	//    "run_interval": 15000
 	//  }
 	//
-	// - description, red_impact, yellow_impact are combined from health.Desc and health.Check
+	// - description, red_impact, yellow_impact are combined from health.Desc and health.RegisteredCheck
 	HealthCheckRegisteredEvent eventlog.Event = "01DF3FV60A2J1WKX5NQHP47H61"
 
 	HealthCheckResultEvent eventlog.Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"

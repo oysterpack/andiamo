@@ -24,7 +24,7 @@ import (
 
 // Registry is used as a health registry
 type Registry interface {
-	// Register is used to register health checks.
+	// register is used to register health checks.
 	// An error will be returned if a health check with the same ID is already registered.
 	Register(check Check) error
 

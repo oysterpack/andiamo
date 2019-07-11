@@ -16,23 +16,8 @@
 
 package health
 
-// Status is used to define a health error status
-type Status uint8
+// Register is used to register health checks
+type Register func(check Check, opts CheckerOpts, checker Checker) error
 
-// Status enum
-const (
-	Green Status = iota
-	Yellow
-	Red
-)
-
-func (e Status) String() string {
-	switch e {
-	case Green:
-		return "Green"
-	case Yellow:
-		return "Yellow"
-	default:
-		return "Red"
-	}
-}
+// Checks returns all registered Checks
+type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck

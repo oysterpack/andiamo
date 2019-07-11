@@ -16,24 +16,24 @@
 
 package health
 
-import "errors"
+// Status is used to define a health error status
+type Status uint8
 
-// Failure represents a health check Failure
-type Failure struct {
-	error
-	status Status
+// Status enum
+const (
+	Green Status = iota
+	// Yellow indicates the health check is triggering a warning - usually to signal a degraded state.
+	Yellow
+	Red
+)
+
+func (e Status) String() string {
+	switch e {
+	case Green:
+		return "Green"
+	case Yellow:
+		return "Yellow"
+	default:
+		return "Red"
+	}
 }
-
-// YellowFailure constructs a new Failure with a Yellow status
-func YellowFailure(err error) Failure {
-	return Failure{err, Yellow}
-}
-
-// RedFailure constructs a new Failure with a Red status
-func RedFailure(err error) Failure {
-	return Failure{err, Red}
-}
-
-// ErrTimeout indicates a health check timed out.
-// Healthcheck timeout errors are flagged as Red.
-var ErrTimeout = errors.New("health check timed out")

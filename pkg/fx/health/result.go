@@ -16,4 +16,20 @@
 
 package health
 
-type Register func(check Check, checkerOpts CheckerOpts, checker Checker) error
+import (
+	"time"
+)
+
+// Result represents a health check Result
+type Result struct {
+	HealthCheckID string
+
+	Status
+	// error should be nil if the status is `Green`
+	error
+
+	// Time is when the health check was run
+	time.Time
+	// Duration is how long it took for the health check to run
+	time.Duration
+}

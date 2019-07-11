@@ -29,7 +29,7 @@ import (
 	"time"
 )
 
-// Check represents a health check
+// RegisteredCheck represents a health check
 type Check interface {
 	Desc() Desc
 
@@ -60,7 +60,7 @@ type Check interface {
 	zerolog.LogObjectMarshaler
 }
 
-// CheckOpts is used to construct a new health Check instance.
+// CheckOpts is used to construct a new health RegisteredCheck instance.
 type CheckOpts struct {
 	Desc
 	ID           string // ULID
@@ -76,7 +76,7 @@ type checkConstraints struct {
 	minRunInterval, maxRunTimeout time.Duration
 }
 
-// New constructs a new health Check
+// New constructs a new health RegisteredCheck
 func (opts CheckOpts) New() (Check, error) {
 	return opts.new(checkConstraints{
 		minRunInterval: time.Second,
@@ -84,7 +84,7 @@ func (opts CheckOpts) New() (Check, error) {
 	})
 }
 
-// MustNew constructs a new health Check and panics if the opts are invalid
+// MustNew constructs a new health RegisteredCheck and panics if the opts are invalid
 func (opts CheckOpts) MustNew() Check {
 	check, err := opts.New()
 	if err != nil {

@@ -31,7 +31,7 @@ import (
 	"time"
 )
 
-// The app automatically provides health.Registry and health.Scheduler.
+// The app automatically provides health.registry and health.Scheduler.
 func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Parallel()
 	FooHealthDesc := health.DescOpts{

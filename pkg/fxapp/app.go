@@ -154,7 +154,7 @@ import (
 //  - Prometheus metrics related
 //	  - prometheus.Gatherer
 //	  - prometheus.Registerer
-//  - Health Check related
+//  - Health RegisteredCheck related
 //    - health.Registry
 //    - health.Scheduler
 //  - Probes

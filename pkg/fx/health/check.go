@@ -17,11 +17,6 @@
 package health
 
 import (
-	"context"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"strings"
 	"time"
 )
 
@@ -40,8 +35,9 @@ type Check struct {
 	Tags []string // optional
 }
 
-// Checker performs the health check
-type Checker func(ctx context.Context) Failure
+// Checker performs the health check.
+// To indicate that the health check failed with a `Yellow`
+type Checker func() error
 
 // checker constraints
 const (
@@ -66,44 +62,14 @@ type CheckerOpts struct {
 	RunInterval time.Duration
 }
 
-func TrimSpace(check Check) Check {
-	check.ID = strings.TrimSpace(check.ID)
-	check.Description = strings.TrimSpace(check.Description)
-	check.RedImpact = strings.TrimSpace(check.RedImpact)
-	check.YellowImpact = strings.TrimSpace(check.YellowImpact)
-
-	for i := 0; i < len(check.Tags); i++ {
-		check.Tags[i] = strings.TrimSpace(check.Tags[i])
-	}
-
-	return check
-}
-
-// Check validation errors
-var (
-	ErrIDNotULID        = errors.New("ID must be a ULID")
-	ErrBlankDescription = errors.New("description must not be blank")
-	ErrBlankRedImpact   = errors.New("red impact must not be blank")
-	ErrTagNotULID       = errors.New("tags must be ULIDs")
-)
-
-func Validate(check Check) error {
-	_, err := ulids.Parse(check.ID)
-	if err != nil {
-		err = multierr.Append(ErrIDNotULID, err)
-	}
-	if check.Description == "" {
-		err = multierr.Append(err, ErrBlankDescription)
-	}
-	if check.RedImpact == "" {
-		err = multierr.Append(err, ErrBlankDescription)
-	}
-	for _, tag := range check.Tags {
-		if _, err = ulids.Parse(tag); err != nil {
-			err = multierr.Append(ErrTagNotULID, err)
-			break
-		}
-	}
-
-	return err
+// RegisteredCheck represents a registered health check.
+//
+// NOTE: when a health check is registered the following augmentations are applied:
+//  - Check fields are trimmed during registration
+//  - Checker function is wrapped when registered to enforce the run timeout policy.
+//	- defaults are applied to CheckerOpts zero value fields
+type RegisteredCheck struct {
+	Check
+	CheckerOpts
+	Checker
 }

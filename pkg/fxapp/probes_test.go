@@ -245,7 +245,7 @@ func TestLivenessProbe(t *testing.T) {
 			t.Errorf("*** probe should succeed, but instead failed: %v", err)
 		}
 
-		// Register a failing health check
+		// register a failing health check
 		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
 			return check.ID() == FooCheck.ID()
 		})
@@ -385,7 +385,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 			t.Errorf("*** probe should succeed, but instead failed: %v", err)
 		}
 
-		// Register a failing health check
+		// register a failing health check
 		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
 			return check.ID() == FooCheck.ID()
 		})
