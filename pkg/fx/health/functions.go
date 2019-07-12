@@ -21,3 +21,9 @@ type Register func(check Check, opts CheckerOpts, checker Checker) error
 
 // RegisteredChecks returns all registered Checks
 type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck
+
+// SubscribeForRegisteredChecks is used to subscribe for health check registrations
+//
+// Use Cases:
+//  - logging - log the registered health checks
+type SubscribeForRegisteredChecks func() <-chan RegisteredCheck

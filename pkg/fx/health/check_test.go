@@ -17,8 +17,10 @@
 package health_test
 
 import (
+	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/partire-k8s/pkg/fx/health"
+	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/fx"
 	"runtime"
@@ -151,6 +153,53 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 							return errors.New("*** RunInterval did not match default")
 						}
 
+						return nil
+					default:
+						return errors.New("*** no registered health checks were returned")
+					}
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		if app.Err() != nil {
+			t.Errorf("*** app initialization failed : %v", app.Err())
+			return
+		}
+
+		runApp(app, shutdowner)
+	})
+
+	t.Run("register 10 health checks", func(t *testing.T) {
+		var shutdowner fx.Shutdowner
+		app := fx.New(
+			health.Options(),
+			fx.Invoke(
+				func(register health.Register) error {
+					for i := 0; i < 10; i++ {
+						check := health.Check{
+							ID:           ulids.MustNew().String(),
+							Description:  fmt.Sprintf("Desc %d", i),
+							RedImpact:    fmt.Sprintf("Red %d", i),
+							YellowImpact: fmt.Sprintf("Yellow %d", i),
+							Tags:         []string{Database, MongoDB},
+						}
+						register(check, health.CheckerOpts{}, func() error {
+							return nil
+						})
+					}
+
+					return nil
+				},
+				func(getRegisteredChecks health.RegisteredChecks) error {
+					checks := <-getRegisteredChecks(nil)
+					switch len(checks) {
+					case 0:
+						return errors.New("*** no registered health checks were returned")
+					case 10:
+						for _, check := range checks {
+							t.Logf("%#v", check)
+						}
 						return nil
 					default:
 						return errors.New("*** no registered health checks were returned")
