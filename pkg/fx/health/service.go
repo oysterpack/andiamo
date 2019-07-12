@@ -21,6 +21,7 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,9 @@ type service struct {
 	stop                chan struct{}
 	register            chan registerRequest
 	getRegisteredChecks chan getRegisteredChecksRequest
+
+	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
+	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
 
 	// TODO: refactor into its own service
 	// only 1 health check at a time can run - to protect the application and system from the health checks themselves
@@ -45,6 +49,9 @@ func newService() *service {
 		stop:                make(chan struct{}),
 		register:            make(chan registerRequest),
 		getRegisteredChecks: make(chan getRegisteredChecksRequest),
+
+		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
+		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
 
 		results:    make(chan Result),
 		runResults: make(map[string]Result),
@@ -64,6 +71,7 @@ Loop:
 				close(req.reply)
 				continue Loop
 			}
+			// send reply
 			go func() {
 				defer close(req.reply)
 				select {
@@ -75,6 +83,8 @@ Loop:
 			s.runResults[result.HealthCheckID] = result
 		case req := <-s.getRegisteredChecks:
 			s.SendRegisteredChecks(req)
+		case req := <-s.subscribeForRegisteredChecks:
+			s.SubscribeForRegisteredChecks(req)
 		}
 	}
 }
@@ -89,7 +99,10 @@ func (s *service) TriggerShutdown() {
 
 // Stop signals the service to shutdown
 func (s *service) Stop() {
-	// TODO
+	for ch, _ := range s.subscriptionsForRegisteredChecks {
+		close(ch)
+	}
+
 }
 
 type registerRequest struct {
@@ -226,6 +239,17 @@ func (s *service) Register(req registerRequest) error {
 		return err
 	}
 
+	SendRegisteredCheckToSubscribers := func(check RegisteredCheck) {
+		for ch, _ := range s.subscriptionsForRegisteredChecks {
+			go func() {
+				select {
+				case <-s.stop:
+				case ch <- check:
+				}
+			}()
+		}
+	}
+
 	check := TrimSpace(req.check)
 	if err := Validate(check); err != nil {
 		return multierr.Append(fmt.Errorf("Invalid health check: %#v", check), err)
@@ -251,6 +275,7 @@ func (s *service) Register(req registerRequest) error {
 	}
 	s.checks = append(s.checks, registeredCheck)
 	go Schedule(registeredCheck.ID, registeredCheck.Checker, registeredCheck.RunInterval)
+	SendRegisteredCheckToSubscribers(registeredCheck)
 
 	return nil
 }
@@ -283,10 +308,28 @@ func (s *service) SendRegisteredChecks(req getRegisteredChecksRequest) {
 	}
 
 	go func() {
+		defer close(req.reply)
 		select {
 		case <-s.stop:
 		case req.reply <- checks:
 		}
 	}()
+}
 
+type subscribeForRegisteredChecksRequest struct {
+	reply chan chan RegisteredCheck
+}
+
+func (s *service) SubscribeForRegisteredChecks(req subscribeForRegisteredChecksRequest) {
+	log.Print("SubscribeForRegisteredChecks")
+	ch := make(chan RegisteredCheck)
+	s.subscriptionsForRegisteredChecks[ch] = struct{}{}
+
+	go func() {
+		defer close(req.reply)
+		select {
+		case <-s.stop:
+		case req.reply <- ch:
+		}
+	}()
 }

@@ -28,6 +28,35 @@ import (
 	"testing"
 )
 
+func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
+	done := make(chan struct{})
+	defer func() {
+	ShutdownLoop:
+		for {
+			select {
+			case <-done:
+				break ShutdownLoop
+			default:
+				shutdowner.Shutdown()
+				runtime.Gosched()
+			}
+		}
+	}()
+
+	running := make(chan struct{})
+	go func() {
+		defer close(done)
+		close(running)
+		app.Run()
+	}()
+	<-running
+	runtime.Gosched()
+	for _, f := range funcs {
+		f()
+	}
+
+}
+
 func TestService_Register(t *testing.T) {
 	t.Parallel()
 
@@ -66,13 +95,41 @@ func TestService_Register(t *testing.T) {
 		runApp(app, shutdowner)
 	})
 
-	t.Run("register invalid health check", func(t *testing.T) {
+	t.Run("register invalid health check - no fields set", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
 			health.Options(),
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{}
+					return register(InvalidHealthCheck, health.CheckerOpts{}, func() error {
+						return nil
+					})
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		if app.Err() == nil {
+			t.Error("*** app initialization should have failed")
+			return
+		}
+		t.Log(app.Err())
+	})
+
+	t.Run("register invalid health check - tag is not valid ULID", func(t *testing.T) {
+		var shutdowner fx.Shutdowner
+		app := fx.New(
+			health.Options(),
+			fx.Invoke(
+				func(register health.Register) error {
+					InvalidHealthCheck := health.Check{
+						ID:           "01DFGJ4A2GBTSQR11YYMV0N086",
+						Description:  "Foo",
+						RedImpact:    "App is unusable",
+						YellowImpact: "App performance degradation",
+						Tags:         []string{Database, "INVALID"},
+					}
 					return register(InvalidHealthCheck, health.CheckerOpts{}, func() error {
 						return nil
 					})
@@ -218,31 +275,57 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 	})
 }
 
-func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
-	done := make(chan struct{})
-	defer func() {
-	ShutdownLoop:
-		for {
-			select {
-			case <-done:
-				break ShutdownLoop
-			default:
-				shutdowner.Shutdown()
-				runtime.Gosched()
-			}
-		}
-	}()
+func TestService_SubscribeForRegisteredChecks(t *testing.T) {
+	t.Parallel()
 
-	running := make(chan struct{})
-	go func() {
-		defer close(done)
-		close(running)
-		app.Run()
-	}()
-	<-running
-	runtime.Gosched()
-	for _, f := range funcs {
-		f()
+	const (
+		Database = "01DFGP2MJB9B8BMWA6Q2H4JD9Z"
+		MongoDB  = "01DFGP3TS31D016DHS9415JFBB"
+	)
+
+	var shutdowner fx.Shutdowner
+	var registeredChecks health.RegisteredCheckSubscription
+	app := fx.New(
+		health.Options(),
+		fx.Invoke(
+			func(subscribe health.SubscribeForRegisteredChecks) {
+				registeredChecks = subscribe()
+			},
+			func(register health.Register) error {
+				for i := 0; i < 10; i++ {
+					check := health.Check{
+						ID:           ulids.MustNew().String(),
+						Description:  fmt.Sprintf("Desc %d", i),
+						RedImpact:    fmt.Sprintf("Red %d", i),
+						YellowImpact: fmt.Sprintf("Yellow %d", i),
+						Tags:         []string{Database, MongoDB},
+					}
+					if err := register(check, health.CheckerOpts{}, func() error {
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			},
+		),
+		fx.Populate(&shutdowner),
+	)
+
+	if app.Err() != nil {
+		t.Errorf("*** app initialization failed : %v", app.Err())
+		return
 	}
 
+	var registeredCheckCount int
+	for check := range registeredChecks.Chan() {
+		t.Log(registeredCheckCount, check)
+		registeredCheckCount++
+		if registeredCheckCount == 10 {
+			break
+		}
+	}
+
+	runApp(app, shutdowner)
 }

@@ -16,14 +16,10 @@
 
 package health
 
-// Register is used to register health checks
-type Register func(check Check, opts CheckerOpts, checker Checker) error
+type RegisteredCheckSubscription struct {
+	ch chan RegisteredCheck
+}
 
-// RegisteredChecks returns all registered Checks
-type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck
-
-// SubscribeForRegisteredChecks is used to subscribe for health check registrations
-//
-// Use Cases:
-//  - logging - log the registered health checks
-type SubscribeForRegisteredChecks func() RegisteredCheckSubscription
+func (s RegisteredCheckSubscription) Chan() <-chan RegisteredCheck {
+	return s.ch
+}

@@ -28,6 +28,7 @@ func Options() fx.Option {
 			startService,
 			provideRegisterFunc,
 			provideRegisteredChecksFunc,
+			provideSubscribeForRegisteredChecks,
 		),
 	)
 }
@@ -81,5 +82,29 @@ func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 		}()
 
 		return reply
+	}
+}
+
+func provideSubscribeForRegisteredChecks(s *service) SubscribeForRegisteredChecks {
+	return func() RegisteredCheckSubscription {
+		closedChan := func() RegisteredCheckSubscription {
+			ch := make(chan RegisteredCheck)
+			close(ch)
+			return RegisteredCheckSubscription{ch}
+		}
+
+		reply := make(chan chan RegisteredCheck)
+
+		select {
+		case <-s.stop:
+			return closedChan()
+		case s.subscribeForRegisteredChecks <- subscribeForRegisteredChecksRequest{reply}:
+			select {
+			case <-s.stop:
+				return closedChan()
+			case ch := <-reply:
+				return RegisteredCheckSubscription{ch}
+			}
+		}
 	}
 }

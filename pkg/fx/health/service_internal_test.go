@@ -16,14 +16,16 @@
 
 package health
 
-// Register is used to register health checks
-type Register func(check Check, opts CheckerOpts, checker Checker) error
+import "testing"
 
-// RegisteredChecks returns all registered Checks
-type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck
+func TestService_TriggerShutdown(t *testing.T) {
 
-// SubscribeForRegisteredChecks is used to subscribe for health check registrations
-//
-// Use Cases:
-//  - logging - log the registered health checks
-type SubscribeForRegisteredChecks func() RegisteredCheckSubscription
+	t.Run("trigger shutdown is idempotent", func(t *testing.T) {
+		s := newService()
+		go s.run()
+		s.TriggerShutdown()
+		// calling it again should have no effect
+		s.TriggerShutdown()
+		<-s.stop
+	})
+}
