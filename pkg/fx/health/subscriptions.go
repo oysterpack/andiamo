@@ -16,10 +16,12 @@
 
 package health
 
+// RegisteredCheckSubscription wraps the channel used to notify subscribers
 type RegisteredCheckSubscription struct {
 	ch chan RegisteredCheck
 }
 
+// Chan returns the chan in read-only mode
 func (s RegisteredCheckSubscription) Chan() <-chan RegisteredCheck {
 	return s.ch
 }

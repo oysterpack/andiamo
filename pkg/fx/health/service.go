@@ -99,7 +99,7 @@ func (s *service) TriggerShutdown() {
 
 // Stop signals the service to shutdown
 func (s *service) Stop() {
-	for ch, _ := range s.subscriptionsForRegisteredChecks {
+	for ch := range s.subscriptionsForRegisteredChecks {
 		close(ch)
 	}
 
@@ -240,13 +240,13 @@ func (s *service) Register(req registerRequest) error {
 	}
 
 	SendRegisteredCheckToSubscribers := func(check RegisteredCheck) {
-		for ch, _ := range s.subscriptionsForRegisteredChecks {
-			go func() {
+		for ch := range s.subscriptionsForRegisteredChecks {
+			go func(ch chan<- RegisteredCheck) {
 				select {
 				case <-s.stop:
 				case ch <- check:
 				}
-			}()
+			}(ch)
 		}
 	}
 
