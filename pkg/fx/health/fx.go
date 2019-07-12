@@ -21,15 +21,16 @@ import (
 	"go.uber.org/fx"
 )
 
-// Options provides the fx options for the health module
-func Options() fx.Option {
-	return options(DefaultOpts())
+// ModuleWithDefaults provides the fx Module for the health module
+func ModuleWithDefaults() fx.Option {
+	return Module(DefaultOpts())
 }
 
-func options(svcOpts Opts) fx.Option {
+// ModuleWithDefaults provides the fx Module for the health module
+func Module(opts Opts) fx.Option {
 	return fx.Options(
 		fx.Provide(
-			startService(svcOpts),
+			startService(opts),
 
 			provideRegisterFunc,
 

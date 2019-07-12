@@ -20,7 +20,6 @@ import (
 	"go.uber.org/fx"
 	"runtime"
 	"testing"
-	"time"
 )
 
 func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
@@ -63,75 +62,5 @@ func TestService_TriggerShutdown(t *testing.T) {
 		// calling it again should have no effect
 		s.TriggerShutdown()
 		<-s.stop
-	})
-}
-
-func TestService_RunningScheduledHealthChecks(t *testing.T) {
-	t.Parallel()
-
-	const (
-		Database = "01DFGP2MJB9B8BMWA6Q2H4JD9Z"
-		MongoDB  = "01DFGP3TS31D016DHS9415JFBB"
-	)
-
-	var Foo = Check{
-		ID:           "01DFGJ4A2GBTSQR11YYMV0N086",
-		Description:  "Foo",
-		RedImpact:    "App is unusable",
-		YellowImpact: "App performance degradation",
-		Tags:         []string{Database, MongoDB},
-	}
-
-	t.Run("health check times out", func(t *testing.T) {
-		t.Parallel()
-
-		opts := DefaultOpts()
-		opts.MinRunInterval = time.Nanosecond
-
-		var shutdowner fx.Shutdowner
-		var resultsSubscription CheckResultsSubscription
-		app := fx.New(
-			options(opts),
-			fx.Invoke(
-				func(subscribe SubscribeForCheckResults) {
-					resultsSubscription = subscribe()
-				},
-				func(register Register) error {
-					checkerOpts := CheckerOpts{
-						Timeout: time.Nanosecond,
-					}
-					return register(Foo, checkerOpts, func() error {
-						time.Sleep(time.Microsecond)
-						return nil
-					})
-				},
-				// verify that the health check timeout is 1 ns
-				func(registeredChecks RegisteredChecks) {
-					registeredCheck := <-registeredChecks(nil)
-					t.Log(registeredCheck)
-					if registeredCheck[0].Timeout != time.Nanosecond {
-						t.Errorf("*** timeout should be 1 ns: %v", registeredCheck)
-					}
-				},
-			),
-			fx.Populate(&shutdowner),
-		)
-
-		if app.Err() != nil {
-			t.Errorf("*** app initialization failed : %v", app.Err())
-			return
-		}
-
-		runApp(app, shutdowner, func() {
-			result := <-resultsSubscription.Chan()
-			t.Log(result)
-			if result.Status != Red {
-				t.Errorf("*** health check should have timed out, which is considered a Red failure")
-			}
-			if result.error != ErrTimeout {
-				t.Errorf("*** error should have been timeout : %v", result.error)
-			}
-		})
-
 	})
 }

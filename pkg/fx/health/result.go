@@ -33,3 +33,8 @@ type Result struct {
 	// Duration is how long it took for the health check to run
 	time.Duration
 }
+
+// Err returns the underlying health check error
+func (r *Result) Err() error {
+	return r.error
+}

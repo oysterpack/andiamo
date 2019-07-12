@@ -58,7 +58,7 @@ const (
 	DefaultRunInterval = 15 * time.Second
 )
 
-// CheckerOpts is used to configure Checker run options.
+// CheckerOpts is used to configure Checker run Module.
 // Zero values imply using the system default values.
 type CheckerOpts struct {
 	// Timeout must not be zero

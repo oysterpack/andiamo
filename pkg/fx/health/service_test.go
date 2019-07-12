@@ -77,7 +77,7 @@ func TestService_Register(t *testing.T) {
 	t.Run("register valid health check", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.Options(),
+			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
 					return register(Foo, health.CheckerOpts{}, func() error {
@@ -99,7 +99,7 @@ func TestService_Register(t *testing.T) {
 	t.Run("register invalid health check - no fields set", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.Options(),
+			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{}
@@ -121,7 +121,7 @@ func TestService_Register(t *testing.T) {
 	t.Run("register invalid health check - tag is not valid ULID", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.Options(),
+			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{
@@ -169,7 +169,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 	t.Run("register valid health check", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.Options(),
+			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
 					// And CheckerOpts were not specified
@@ -231,7 +231,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 	t.Run("register 10 health checks", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.Options(),
+			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
 					for i := 0; i < 10; i++ {
@@ -287,7 +287,7 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	var registeredChecks health.RegisteredCheckSubscription
 	app := fx.New(
-		health.Options(),
+		health.ModuleWithDefaults(),
 		fx.Invoke(
 			func(subscribe health.SubscribeForRegisteredChecks) {
 				registeredChecks = subscribe()
@@ -334,7 +334,7 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 func TestService_CheckResults(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	app := fx.New(
-		health.Options(),
+		health.ModuleWithDefaults(),
 		fx.Invoke(
 			func(register health.Register) error {
 				for i := 0; i < 10; i++ {
@@ -386,4 +386,74 @@ func TestService_CheckResults(t *testing.T) {
 	}
 
 	runApp(app, shutdowner)
+}
+
+func TestService_RunningScheduledHealthChecks(t *testing.T) {
+	t.Parallel()
+
+	const (
+		Database = "01DFGP2MJB9B8BMWA6Q2H4JD9Z"
+		MongoDB  = "01DFGP3TS31D016DHS9415JFBB"
+	)
+
+	var Foo = health.Check{
+		ID:           "01DFGJ4A2GBTSQR11YYMV0N086",
+		Description:  "Foo",
+		RedImpact:    "App is unusable",
+		YellowImpact: "App performance degradation",
+		Tags:         []string{Database, MongoDB},
+	}
+
+	t.Run("health check times out", func(t *testing.T) {
+		t.Parallel()
+
+		opts := health.DefaultOpts()
+		opts.MinRunInterval = time.Nanosecond
+
+		var shutdowner fx.Shutdowner
+		var resultsSubscription health.CheckResultsSubscription
+		app := fx.New(
+			health.Module(opts),
+			fx.Invoke(
+				func(subscribe health.SubscribeForCheckResults) {
+					resultsSubscription = subscribe()
+				},
+				func(register health.Register) error {
+					checkerOpts := health.CheckerOpts{
+						Timeout: time.Nanosecond,
+					}
+					return register(Foo, checkerOpts, func() error {
+						time.Sleep(time.Microsecond)
+						return nil
+					})
+				},
+				// verify that the health check timeout is 1 ns
+				func(registeredChecks health.RegisteredChecks) {
+					registeredCheck := <-registeredChecks(nil)
+					t.Log(registeredCheck)
+					if registeredCheck[0].Timeout != time.Nanosecond {
+						t.Errorf("*** timeout should be 1 ns: %v", registeredCheck)
+					}
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		if app.Err() != nil {
+			t.Errorf("*** app initialization failed : %v", app.Err())
+			return
+		}
+
+		runApp(app, shutdowner, func() {
+			result := <-resultsSubscription.Chan()
+			t.Log(result)
+			if result.Status != health.Red {
+				t.Errorf("*** health check should have timed out, which is considered a Red failure")
+			}
+			if result.Err() != health.ErrTimeout {
+				t.Errorf("*** error should have been timeout : %v", result.Err())
+			}
+		})
+
+	})
 }
