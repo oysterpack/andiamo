@@ -27,3 +27,5 @@ type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan [
 // Use Cases:
 //  - logging - log the registered health checks
 type SubscribeForRegisteredChecks func() RegisteredCheckSubscription
+
+type SubscribeForCheckResults func() CheckResultsSubscription

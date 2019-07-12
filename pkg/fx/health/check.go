@@ -47,6 +47,9 @@ const (
 	MaxTimeout = 10 * time.Second
 	// Health checks should not be scheduled to run more frequently than every second
 	MinRunInterval = time.Second
+
+	// MaxCheckParallelism is used to configure the max number of health checks that can run concurrently
+	MaxCheckParallelism uint8 = 1
 )
 
 // checker defaults

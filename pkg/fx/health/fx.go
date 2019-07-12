@@ -23,26 +23,33 @@ import (
 
 // Options provides the fx options for the health module
 func Options() fx.Option {
+	return options(DefaultOpts())
+}
+
+func options(svcOpts Opts) fx.Option {
 	return fx.Options(
 		fx.Provide(
-			startService,
+			startService(svcOpts),
 			provideRegisterFunc,
 			provideRegisteredChecksFunc,
 			provideSubscribeForRegisteredChecks,
+			provideSubscribeForCheckResults,
 		),
 	)
 }
 
-func startService(lc fx.Lifecycle) *service {
-	s := newService()
-	go s.run()
-	lc.Append(fx.Hook{
-		OnStop: func(context.Context) error {
-			s.TriggerShutdown()
-			return nil
-		},
-	})
-	return s
+func startService(svcOpts Opts) func(lc fx.Lifecycle) *service {
+	s := newService(svcOpts)
+	return func(lc fx.Lifecycle) *service {
+		go s.run()
+		lc.Append(fx.Hook{
+			OnStop: func(context.Context) error {
+				s.TriggerShutdown()
+				return nil
+			},
+		})
+		return s
+	}
 }
 
 func provideRegisterFunc(s *service) Register {
@@ -104,6 +111,30 @@ func provideSubscribeForRegisteredChecks(s *service) SubscribeForRegisteredCheck
 				return closedChan()
 			case ch := <-reply:
 				return RegisteredCheckSubscription{ch}
+			}
+		}
+	}
+}
+
+func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
+	return func() CheckResultsSubscription {
+		closedChan := func() CheckResultsSubscription {
+			ch := make(chan Result)
+			close(ch)
+			return CheckResultsSubscription{ch}
+		}
+
+		reply := make(chan chan Result)
+
+		select {
+		case <-s.stop:
+			return closedChan()
+		case s.subscribeForCheckResults <- subscribeForCheckResults{reply}:
+			select {
+			case <-s.stop:
+				return closedChan()
+			case ch := <-reply:
+				return CheckResultsSubscription{ch}
 			}
 		}
 	}

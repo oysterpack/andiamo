@@ -25,3 +25,13 @@ type RegisteredCheckSubscription struct {
 func (s RegisteredCheckSubscription) Chan() <-chan RegisteredCheck {
 	return s.ch
 }
+
+//CheckResultsSubscription wraps the channel used to notify subscribers
+type CheckResultsSubscription struct {
+	ch chan Result
+}
+
+// Chan returns the chan in read-only mode
+func (s CheckResultsSubscription) Chan() <-chan Result {
+	return s.ch
+}

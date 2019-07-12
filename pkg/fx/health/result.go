@@ -24,7 +24,7 @@ import (
 type Result struct {
 	HealthCheckID string
 
-	Status
+	Status Status
 	// error should be nil if the status is `Green`
 	error
 

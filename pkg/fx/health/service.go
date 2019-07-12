@@ -21,13 +21,38 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"log"
 	"strings"
-	"sync"
 	"time"
 )
 
+// Opts are being extracted in order to make running health checks on a schedule testable, i.e., make the tests
+// run fast. The normal MinRunInterval is 1 sec and the MaxTimeout is 10 secs - too long to use in unit tests.
+type Opts struct {
+	MinRunInterval time.Duration
+	MaxTimeout     time.Duration
+
+	DefaultTimeout     time.Duration
+	DefaultRunInterval time.Duration
+
+	MaxCheckParallelism uint8
+}
+
+// DefaultOpts
+func DefaultOpts() Opts {
+	return Opts{
+		MinRunInterval: MinRunInterval,
+		MaxTimeout:     MaxTimeout,
+
+		DefaultRunInterval: DefaultRunInterval,
+		DefaultTimeout:     DefaultTimeout,
+
+		MaxCheckParallelism: MaxCheckParallelism,
+	}
+}
+
 type service struct {
+	Opts
+
 	checks []RegisteredCheck
 
 	stop                chan struct{}
@@ -37,14 +62,24 @@ type service struct {
 	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
 	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
 
+	subscribeForCheckResults     chan subscribeForCheckResults
+	subscriptionsForCheckResults map[chan<- Result]struct{}
+
 	// TODO: refactor into its own service
-	// only 1 health check at a time can run - to protect the application and system from the health checks themselves
-	runMutex   sync.Mutex
-	results    chan Result
-	runResults map[string]Result
+	// to protect the application and system from the health checks themselves we want to limit the number of health checks
+	// that are allowed to run concurrently
+	runSemaphore chan struct{}
+	results      chan Result
+	runResults   map[string]Result
 }
 
-func newService() *service {
+func newService(opts Opts) *service {
+	runSemaphore := make(chan struct{}, opts.MaxCheckParallelism)
+	var i uint8
+	for ; i < opts.MaxCheckParallelism; i++ {
+		runSemaphore <- struct{}{}
+	}
+
 	return &service{
 		stop:                make(chan struct{}),
 		register:            make(chan registerRequest),
@@ -53,8 +88,14 @@ func newService() *service {
 		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
 		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
 
-		results:    make(chan Result),
-		runResults: make(map[string]Result),
+		subscribeForCheckResults:     make(chan subscribeForCheckResults),
+		subscriptionsForCheckResults: make(map[chan<- Result]struct{}),
+
+		runSemaphore: runSemaphore,
+		results:      make(chan Result),
+		runResults:   make(map[string]Result),
+
+		Opts: opts,
 	}
 }
 
@@ -81,11 +122,25 @@ Loop:
 			}()
 		case result := <-s.results:
 			s.runResults[result.HealthCheckID] = result
+			s.publishResult(result)
 		case req := <-s.getRegisteredChecks:
 			s.SendRegisteredChecks(req)
 		case req := <-s.subscribeForRegisteredChecks:
 			s.SubscribeForRegisteredChecks(req)
+		case req := <-s.subscribeForCheckResults:
+			s.SubscribeForCheckResults(req)
 		}
+	}
+}
+
+func (s *service) publishResult(result Result) {
+	for ch := range s.subscriptionsForCheckResults {
+		go func(ch chan<- Result) {
+			select {
+			case <-s.stop:
+			case ch <- result:
+			}
+		}(ch)
 	}
 }
 
@@ -180,8 +235,10 @@ func (s *service) Register(req registerRequest) error {
 
 	Schedule := func(id string, check Checker, interval time.Duration) {
 		run := func() {
-			s.runMutex.Lock()
-			defer s.runMutex.Unlock()
+			<-s.runSemaphore
+			defer func() {
+				s.runSemaphore <- struct{}{}
+			}()
 			start := time.Now()
 			err := check()
 			duration := time.Since(start)
@@ -219,10 +276,10 @@ func (s *service) Register(req registerRequest) error {
 
 	ApplyDefaultOpts := func(opts CheckerOpts) CheckerOpts {
 		if opts.Timeout == time.Duration(0) {
-			opts.Timeout = DefaultTimeout
+			opts.Timeout = s.DefaultTimeout
 		}
 		if opts.RunInterval == time.Duration(0) {
-			opts.RunInterval = DefaultRunInterval
+			opts.RunInterval = s.DefaultRunInterval
 		}
 
 		return opts
@@ -230,10 +287,10 @@ func (s *service) Register(req registerRequest) error {
 
 	ValidateOpts := func(opts CheckerOpts) error {
 		var err error
-		if opts.RunInterval < MinRunInterval {
+		if opts.RunInterval < s.MinRunInterval {
 			err = ErrRunIntervalTooFrequent
 		}
-		if opts.Timeout > MaxTimeout {
+		if opts.Timeout > s.MaxTimeout {
 			err = multierr.Append(err, ErrRunTimeoutTooHigh)
 		}
 		return err
@@ -321,9 +378,25 @@ type subscribeForRegisteredChecksRequest struct {
 }
 
 func (s *service) SubscribeForRegisteredChecks(req subscribeForRegisteredChecksRequest) {
-	log.Print("SubscribeForRegisteredChecks")
 	ch := make(chan RegisteredCheck)
 	s.subscriptionsForRegisteredChecks[ch] = struct{}{}
+
+	go func() {
+		defer close(req.reply)
+		select {
+		case <-s.stop:
+		case req.reply <- ch:
+		}
+	}()
+}
+
+type subscribeForCheckResults struct {
+	reply chan chan Result
+}
+
+func (s *service) SubscribeForCheckResults(req subscribeForCheckResults) {
+	ch := make(chan Result)
+	s.subscriptionsForCheckResults[ch] = struct{}{}
 
 	go func() {
 		defer close(req.reply)
