@@ -19,7 +19,8 @@ package health
 // Register is used to register health checks
 type Register func(check Check, opts CheckerOpts, checker Checker) error
 
-// RegisteredChecks returns all registered Checks
+// RegisteredChecks returns all registered Checks that match the specified filter.
+// If the filter is nil, then all registered health checks are returned.
 type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck
 
 // SubscribeForRegisteredChecks is used to subscribe for health check registrations
@@ -28,4 +29,8 @@ type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan [
 //  - logging - log the registered health checks
 type SubscribeForRegisteredChecks func() RegisteredCheckSubscription
 
+// CheckResults returns all current health check results that match the specified filter
+type CheckResults func(filter func(result Result) bool) <-chan []Result
+
+// SubscribeForCheckResults is used to subscribe to health check results
 type SubscribeForCheckResults func() CheckResultsSubscription

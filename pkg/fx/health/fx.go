@@ -30,8 +30,12 @@ func options(svcOpts Opts) fx.Option {
 	return fx.Options(
 		fx.Provide(
 			startService(svcOpts),
+
 			provideRegisterFunc,
+
 			provideRegisteredChecksFunc,
+			provideCheckResultsFunc,
+
 			provideSubscribeForRegisteredChecks,
 			provideSubscribeForCheckResults,
 		),
@@ -79,7 +83,6 @@ func provideRegisterFunc(s *service) Register {
 func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 	return func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck {
 		reply := make(chan []RegisteredCheck)
-
 		go func() {
 			select {
 			case <-s.stop:
@@ -87,7 +90,20 @@ func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 			case s.getRegisteredChecks <- getRegisteredChecksRequest{filter, reply}:
 			}
 		}()
+		return reply
+	}
+}
 
+func provideCheckResultsFunc(s *service) CheckResults {
+	return func(filter func(result Result) bool) <-chan []Result {
+		reply := make(chan []Result)
+		go func() {
+			select {
+			case <-s.stop:
+				close(reply)
+			case s.getCheckResults <- getCheckResultsRequest{filter, reply}:
+			}
+		}()
 		return reply
 	}
 }

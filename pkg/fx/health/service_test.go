@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
@@ -325,6 +326,63 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 		if registeredCheckCount == 10 {
 			break
 		}
+	}
+
+	runApp(app, shutdowner)
+}
+
+func TestService_CheckResults(t *testing.T) {
+	var shutdowner fx.Shutdowner
+	app := fx.New(
+		health.Options(),
+		fx.Invoke(
+			func(register health.Register) error {
+				for i := 0; i < 10; i++ {
+					check := health.Check{
+						ID:           ulids.MustNew().String(),
+						Description:  fmt.Sprintf("Desc %d", i),
+						RedImpact:    fmt.Sprintf("Red %d", i),
+						YellowImpact: fmt.Sprintf("Yellow %d", i),
+					}
+					if err := register(check, health.CheckerOpts{}, func() error {
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			func(registeredChecks health.RegisteredChecks, checkResults health.CheckResults) error {
+				for {
+					results := <-checkResults(nil)
+					if len(results) == 10 {
+						break
+					}
+					t.Logf("waiting for results: count = %v", len(results))
+					runtime.Gosched()
+					time.Sleep(time.Millisecond)
+				}
+				checks := <-registeredChecks(nil)
+				if len(checks) != 10 {
+					return fmt.Errorf("failed to retrieve all registered health checks: %v", len(checks))
+				}
+				for _, check := range checks {
+					results := <-checkResults(func(result health.Result) bool {
+						return result.HealthCheckID == check.ID
+					})
+					if len(results) != 1 {
+						return fmt.Errorf("failed to get health check result: %v", results)
+					}
+				}
+				return nil
+			},
+		),
+		fx.Populate(&shutdowner),
+	)
+
+	if app.Err() != nil {
+		t.Errorf("*** app initialization failed : %v", app.Err())
+		return
 	}
 
 	runApp(app, shutdowner)

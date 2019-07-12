@@ -37,7 +37,7 @@ type Opts struct {
 	MaxCheckParallelism uint8
 }
 
-// DefaultOpts
+// DefaultOpts constructs a new Opts using recommended default values.
 func DefaultOpts() Opts {
 	return Opts{
 		MinRunInterval: MinRunInterval,
@@ -58,6 +58,7 @@ type service struct {
 	stop                chan struct{}
 	register            chan registerRequest
 	getRegisteredChecks chan getRegisteredChecksRequest
+	getCheckResults     chan getCheckResultsRequest
 
 	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
 	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
@@ -84,6 +85,7 @@ func newService(opts Opts) *service {
 		stop:                make(chan struct{}),
 		register:            make(chan registerRequest),
 		getRegisteredChecks: make(chan getRegisteredChecksRequest),
+		getCheckResults:     make(chan getCheckResultsRequest),
 
 		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
 		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
@@ -125,6 +127,8 @@ Loop:
 			s.publishResult(result)
 		case req := <-s.getRegisteredChecks:
 			s.SendRegisteredChecks(req)
+		case req := <-s.getCheckResults:
+			s.SendCheckResults(req)
 		case req := <-s.subscribeForRegisteredChecks:
 			s.SubscribeForRegisteredChecks(req)
 		case req := <-s.subscribeForCheckResults:
@@ -344,6 +348,35 @@ func (s *service) RegisteredCheck(id string) *RegisteredCheck {
 		}
 	}
 	return nil
+}
+
+type getCheckResultsRequest struct {
+	filter func(result Result) bool
+	reply  chan<- []Result
+}
+
+func (s *service) SendCheckResults(req getCheckResultsRequest) {
+	var results []Result
+	if req.filter == nil {
+		results = make([]Result, 0, len(s.runResults))
+		for _, result := range s.runResults {
+			results = append(results, result)
+		}
+	} else {
+		for _, result := range s.runResults {
+			if req.filter(result) {
+				results = append(results, result)
+			}
+		}
+	}
+
+	go func() {
+		defer close(req.reply)
+		select {
+		case <-s.stop:
+		case req.reply <- results:
+		}
+	}()
 }
 
 type getRegisteredChecksRequest struct {
