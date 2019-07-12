@@ -34,8 +34,8 @@ type service struct {
 	getRegisteredChecks chan getRegisteredChecksRequest
 
 	// TODO: refactor into its own service
-	// only 1 health check at a time can run
-	runLock    sync.Mutex
+	// only 1 health check at a time can run - to protect the application and system from the health checks themselves
+	runMutex   sync.Mutex
 	results    chan Result
 	runResults map[string]Result
 }
@@ -167,8 +167,8 @@ func (s *service) Register(req registerRequest) error {
 
 	Schedule := func(id string, check Checker, interval time.Duration) {
 		run := func() {
-			s.runLock.Lock()
-			defer s.runLock.Unlock()
+			s.runMutex.Lock()
+			defer s.runMutex.Unlock()
 			start := time.Now()
 			err := check()
 			duration := time.Since(start)

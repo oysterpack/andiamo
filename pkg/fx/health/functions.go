@@ -19,5 +19,5 @@ package health
 // Register is used to register health checks
 type Register func(check Check, opts CheckerOpts, checker Checker) error
 
-// Checks returns all registered Checks
+// RegisteredChecks returns all registered Checks
 type RegisteredChecks func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck
