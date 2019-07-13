@@ -11,12 +11,19 @@
   # launches browser with coverage report
   go tool cover -html cover.out
   ```
+- static code analysis - https://staticcheck.io/
+  ```
+  staticcheck 
+  ```
 
 # Code Commit Checklist
 - [ ] go fmt
 - [ ] [golint](https://github.com/golang/lint)
 - [ ] go vet
+- [ ] staticcheck
 - [ ] unit tests
+  - [ ] go test -cover
+  - [ ] go test -race
 - [ ] benchmark tests
 
 # Technology Stack
@@ -27,3 +34,4 @@
 - Config
   - [envconfig](https://github.com/kelseyhightower/envconfig)
 - Errors
+  - [multierr](https://godoc.org/go.uber.org/multierr)

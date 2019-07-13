@@ -59,19 +59,21 @@ func startService(svcOpts Opts) func(lc fx.Lifecycle) *service {
 
 func provideRegisterFunc(s *service) Register {
 	return func(check Check, opts CheckerOpts, checker Checker) error {
-		reply := make(chan error)
+		reply := make(chan error, 1) // a chan buf size 1 decouples the producer from the consumer
 		req := registerRequest{
 			check:   check,
 			opts:    opts,
 			checker: checker,
 			reply:   reply,
 		}
+		// send service request
 		select {
 		case <-s.stop:
 			return ErrServiceNotRunning
 		case s.register <- req:
 		}
 
+		// receive service reply
 		select {
 		case <-s.stop:
 			return ErrServiceNotRunning
@@ -83,7 +85,7 @@ func provideRegisterFunc(s *service) Register {
 
 func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 	return func() <-chan []RegisteredCheck {
-		reply := make(chan []RegisteredCheck)
+		reply := make(chan []RegisteredCheck, 1) // a chan buf size 1 decouples the producer from the consumer
 		go func() {
 			select {
 			case <-s.stop:
@@ -97,7 +99,7 @@ func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 
 func provideCheckResultsFunc(s *service) CheckResults {
 	return func() <-chan []Result {
-		reply := make(chan []Result)
+		reply := make(chan []Result, 1) // a chan buf size 1 decouples the producer from the consumer
 		go func() {
 			select {
 			case <-s.stop:
@@ -117,7 +119,7 @@ func provideSubscribeForRegisteredChecks(s *service) SubscribeForRegisteredCheck
 			return RegisteredCheckSubscription{ch}
 		}
 
-		reply := make(chan chan RegisteredCheck)
+		reply := make(chan chan RegisteredCheck, 1) // a chan buf size 1 decouples the producer from the consumer
 
 		select {
 		case <-s.stop:
@@ -126,8 +128,11 @@ func provideSubscribeForRegisteredChecks(s *service) SubscribeForRegisteredCheck
 			select {
 			case <-s.stop:
 				return closedChan()
-			case ch := <-reply:
-				return RegisteredCheckSubscription{ch}
+			case ch, ok := <-reply:
+				if ok {
+					return RegisteredCheckSubscription{ch}
+				}
+				return closedChan()
 			}
 		}
 	}
@@ -141,7 +146,7 @@ func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
 			return CheckResultsSubscription{ch}
 		}
 
-		reply := make(chan chan Result)
+		reply := make(chan chan Result, 1) // a chan buf size 1 decouples the producer from the consumer
 
 		select {
 		case <-s.stop:
@@ -150,8 +155,11 @@ func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
 			select {
 			case <-s.stop:
 				return closedChan()
-			case ch := <-reply:
-				return CheckResultsSubscription{ch}
+			case ch, ok := <-reply:
+				if ok {
+					return CheckResultsSubscription{ch}
+				}
+				return closedChan()
 			}
 		}
 	}

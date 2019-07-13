@@ -14,22 +14,16 @@
  * limitations under the License.
  */
 
-package health
+package health_test
 
 import (
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestService_TriggerShutdown(t *testing.T) {
-	t.Parallel()
-
-	t.Run("trigger shutdown is idempotent", func(t *testing.T) {
-		t.Parallel()
-		s := newService(DefaultOpts())
-		go s.run()
-		s.TriggerShutdown()
-		// calling it again should have no effect
-		s.TriggerShutdown()
-		<-s.stop
-	})
+func TestStatus_String(t *testing.T) {
+	assert.Equal(t, health.Green.String(), "Green")
+	assert.Equal(t, health.Yellow.String(), "Yellow")
+	assert.Equal(t, health.Red.String(), "Red")
 }

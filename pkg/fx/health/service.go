@@ -66,7 +66,6 @@ type service struct {
 	subscribeForCheckResults     chan subscribeForCheckResults
 	subscriptionsForCheckResults map[chan<- Result]struct{}
 
-	// TODO: refactor into its own service
 	// to protect the application and system from the health checks themselves we want to limit the number of health checks
 	// that are allowed to run concurrently
 	runSemaphore chan struct{}
@@ -102,7 +101,6 @@ func newService(opts Opts) *service {
 }
 
 func (s *service) run() {
-Loop:
 	for {
 		select {
 		case <-s.stop:
@@ -110,18 +108,7 @@ Loop:
 			return
 		case req := <-s.register:
 			err := s.Register(req)
-			if err == nil {
-				close(req.reply)
-				continue Loop
-			}
-			// send reply
-			go func() {
-				defer close(req.reply)
-				select {
-				case <-s.stop:
-				case req.reply <- err:
-				}
-			}()
+			s.sendError(req.reply, err)
 		case result := <-s.results:
 			s.runResults[result.ID] = result
 			s.publishResult(result)
@@ -134,6 +121,19 @@ Loop:
 		case req := <-s.subscribeForCheckResults:
 			s.SubscribeForCheckResults(req)
 		}
+	}
+}
+
+func (s *service) sendError(ch chan<- error, err error) {
+	defer close(ch)
+
+	if err == nil {
+		return
+	}
+
+	select {
+	case <-s.stop:
+	case ch <- err:
 	}
 }
 
@@ -169,7 +169,7 @@ type registerRequest struct {
 	opts    CheckerOpts
 	checker Checker
 
-	reply chan error
+	reply chan<- error
 }
 
 func (s *service) Register(req registerRequest) error {
@@ -313,7 +313,7 @@ func (s *service) Register(req registerRequest) error {
 
 	check := TrimSpace(req.check)
 	if err := Validate(check); err != nil {
-		return multierr.Append(fmt.Errorf("Invalid health check: %#v", check), err)
+		return multierr.Append(fmt.Errorf("invalid health check: %#v", check), err)
 	}
 
 	if req.checker == nil {
@@ -322,7 +322,7 @@ func (s *service) Register(req registerRequest) error {
 
 	opts := ApplyDefaultOpts(req.opts)
 	if err := ValidateOpts(opts); err != nil {
-		return multierr.Append(fmt.Errorf("Invalid health checker opts: %s : %#v", check.ID, opts), err)
+		return multierr.Append(fmt.Errorf("invalid health checker opts: %s : %#v", check.ID, opts), err)
 	}
 
 	if s.RegisteredCheck(check.ID) != nil {
@@ -357,27 +357,22 @@ func (s *service) SendCheckResults(reply chan<- []Result) {
 		results = append(results, result)
 	}
 
-	go func() {
-		defer close(reply)
-		select {
-		case <-s.stop:
-		case reply <- results:
-		}
-	}()
+	defer close(reply)
+	select {
+	case <-s.stop:
+	case reply <- results:
+	}
 }
 
 func (s *service) SendRegisteredChecks(reply chan<- []RegisteredCheck) {
-	var checks []RegisteredCheck
-	checks = make([]RegisteredCheck, len(s.checks))
+	checks := make([]RegisteredCheck, len(s.checks))
 	copy(checks, s.checks)
 
-	go func() {
-		defer close(reply)
-		select {
-		case <-s.stop:
-		case reply <- checks:
-		}
-	}()
+	defer close(reply)
+	select {
+	case <-s.stop:
+	case reply <- checks:
+	}
 }
 
 type subscribeForRegisteredChecksRequest struct {
@@ -388,13 +383,11 @@ func (s *service) SubscribeForRegisteredChecks(req subscribeForRegisteredChecksR
 	ch := make(chan RegisteredCheck)
 	s.subscriptionsForRegisteredChecks[ch] = struct{}{}
 
-	go func() {
-		defer close(req.reply)
-		select {
-		case <-s.stop:
-		case req.reply <- ch:
-		}
-	}()
+	defer close(req.reply)
+	select {
+	case <-s.stop:
+	case req.reply <- ch:
+	}
 }
 
 type subscribeForCheckResults struct {
@@ -405,11 +398,9 @@ func (s *service) SubscribeForCheckResults(req subscribeForCheckResults) {
 	ch := make(chan Result)
 	s.subscriptionsForCheckResults[ch] = struct{}{}
 
-	go func() {
-		defer close(req.reply)
-		select {
-		case <-s.stop:
-		case req.reply <- ch:
-		}
-	}()
+	defer close(req.reply)
+	select {
+	case <-s.stop:
+	case req.reply <- ch:
+	}
 }

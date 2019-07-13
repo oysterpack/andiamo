@@ -22,6 +22,8 @@ import (
 	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/fx"
 	"runtime"
 	"strings"
@@ -88,11 +90,7 @@ func TestService_Register(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() != nil {
-			t.Errorf("*** app initialization failed : %v", app.Err())
-			return
-		}
-
+		require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
 		runApp(app, shutdowner)
 	})
 
@@ -111,10 +109,7 @@ func TestService_Register(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() == nil {
-			t.Error("*** app initialization should have failed")
-			return
-		}
+		require.NotNil(t, app.Err(), "app initialization should have failed")
 		t.Log(app.Err())
 	})
 
@@ -139,12 +134,65 @@ func TestService_Register(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() == nil {
-			t.Error("*** app initialization should have failed")
-			return
-		}
+		require.NotNil(t, app.Err(), "app initialization should have failed")
 		t.Log(app.Err())
+	})
 
+	t.Run("register invalid health check - nil checker", func(t *testing.T) {
+		var shutdowner fx.Shutdowner
+		app := fx.New(
+			health.ModuleWithDefaults(),
+			fx.Invoke(
+				func(register health.Register) error {
+					return register(Foo, health.CheckerOpts{}, nil)
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		require.NotNil(t, app.Err(), "app initialization should have failed")
+		t.Log(app.Err())
+	})
+
+	t.Run("register invalid health check - invalid checker opts", func(t *testing.T) {
+		var shutdowner fx.Shutdowner
+		app := fx.New(
+			health.ModuleWithDefaults(),
+			fx.Invoke(
+				func(register health.Register) error {
+					return register(Foo, health.CheckerOpts{Timeout: time.Minute, RunInterval: time.Millisecond}, func() error {
+						return nil
+					})
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		require.NotNil(t, app.Err(), "app initialization should have failed")
+		t.Log(app.Err())
+	})
+
+	t.Run("register duplicate health check", func(t *testing.T) {
+		var shutdowner fx.Shutdowner
+		app := fx.New(
+			health.ModuleWithDefaults(),
+			fx.Invoke(
+				func(register health.Register) error {
+					return register(Foo, health.CheckerOpts{}, func() error {
+						return nil
+					})
+				},
+				func(register health.Register) error {
+					return register(Foo, health.CheckerOpts{}, func() error {
+						return nil
+					})
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		require.NotNil(t, app.Err(), "app initialization should have failed")
+		t.Log(app.Err())
 	})
 
 }
@@ -220,11 +268,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() != nil {
-			t.Errorf("*** app initialization failed : %v", app.Err())
-			return
-		}
-
+		require.Nil(t, app.Err(), "*** app initialization failed : %v", app.Err())
 		runApp(app, shutdowner)
 	})
 
@@ -242,9 +286,11 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 							YellowImpact: fmt.Sprintf("Yellow %d", i),
 							Tags:         []string{Database, MongoDB},
 						}
-						register(check, health.CheckerOpts{}, func() error {
+						if err := register(check, health.CheckerOpts{}, func() error {
 							return nil
-						})
+						}); err != nil {
+							return err
+						}
 					}
 
 					return nil
@@ -267,11 +313,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() != nil {
-			t.Errorf("*** app initialization failed : %v", app.Err())
-			return
-		}
-
+		require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
 		runApp(app, shutdowner)
 	})
 }
@@ -314,10 +356,7 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 		fx.Populate(&shutdowner),
 	)
 
-	if app.Err() != nil {
-		t.Errorf("*** app initialization failed : %v", app.Err())
-		return
-	}
+	require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
 
 	var registeredCheckCount int
 	for check := range registeredChecks.Chan() {
@@ -382,11 +421,7 @@ func TestService_CheckResults(t *testing.T) {
 		fx.Populate(&shutdowner),
 	)
 
-	if app.Err() != nil {
-		t.Errorf("*** app initialization failed : %v", app.Err())
-		return
-	}
-
+	require.Nil(t, app.Err(), "%v", app.Err())
 	runApp(app, shutdowner)
 }
 
@@ -441,21 +476,74 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 			fx.Populate(&shutdowner),
 		)
 
-		if app.Err() != nil {
-			t.Errorf("*** app initialization failed : %v", app.Err())
-			return
-		}
+		require.Nil(t, app.Err(), "%v", app.Err())
 
 		runApp(app, shutdowner, func() {
 			result := <-resultsSubscription.Chan()
 			t.Log(result)
-			if result.Status != health.Red {
-				t.Errorf("*** health check should have timed out, which is considered a Red failure")
-			}
-			if result.Err() != health.ErrTimeout {
-				t.Errorf("*** error should have been timeout : %v", result.Err())
-			}
+			assert.Equal(t, result.Status, health.Red, "health check should have timed out, which is considered a Red failure")
+			assert.Equal(t, result.Err(), health.ErrTimeout, "error should have been timeout : %v", result.Err())
 		})
 
 	})
+}
+
+func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
+	var Foo = health.Check{
+		ID:          "01DFGJ4A2GBTSQR11YYMV0N086",
+		Description: "Foo",
+		RedImpact:   "App is unusable",
+	}
+
+	var shutdowner fx.Shutdowner
+	var register health.Register
+	var registeredChecks health.RegisteredChecks
+	var checkResults health.CheckResults
+	var subscribeForRegisteredChecks health.SubscribeForRegisteredChecks
+	var subscribeForCheckResults health.SubscribeForCheckResults
+	app := fx.New(
+		health.ModuleWithDefaults(),
+		fx.Invoke(
+			func(register health.Register) error {
+				return register(Foo, health.CheckerOpts{}, func() error {
+					return nil
+				})
+			},
+		),
+		fx.Populate(
+			&shutdowner,
+			&register,
+			&registeredChecks,
+			&checkResults,
+			&subscribeForRegisteredChecks,
+			&subscribeForCheckResults,
+		),
+	)
+
+	require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
+	runApp(app, shutdowner)
+
+	assert.Error(t, register(
+		health.Check{
+			ID:          ulids.MustNew().String(),
+			Description: "Foo",
+			RedImpact:   "App is unusable",
+		},
+		health.CheckerOpts{},
+		func() error {
+			return nil
+		},
+	))
+
+	_, ok := <-registeredChecks()
+	assert.False(t, ok, "channel should be closed")
+
+	_, ok = <-checkResults()
+	assert.False(t, ok, "channel should be closed")
+
+	_, ok = <-subscribeForRegisteredChecks().Chan()
+	assert.False(t, ok, "channel should be closed")
+
+	_, ok = <-subscribeForCheckResults().Chan()
+	assert.False(t, ok, "channel should be closed")
 }
