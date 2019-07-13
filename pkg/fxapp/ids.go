@@ -19,7 +19,7 @@ package fxapp
 import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 )
 
 // ID corresponds to an application

@@ -18,7 +18,7 @@ package health
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"strings"

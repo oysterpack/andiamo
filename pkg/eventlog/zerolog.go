@@ -17,7 +17,7 @@
 package eventlog
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/rs/zerolog"
 	"io"
 )

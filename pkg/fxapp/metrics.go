@@ -18,7 +18,7 @@ package fxapp
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

@@ -17,7 +17,7 @@
 package fxapp_test
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/fxapp"
+	"github.com/oysterpack/andiamo/pkg/fxapp"
 	"testing"
 )
 

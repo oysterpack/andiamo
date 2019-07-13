@@ -19,8 +19,8 @@ package health_test
 import (
 	"fmt"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/fx/health"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/fx/health"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

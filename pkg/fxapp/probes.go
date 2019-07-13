@@ -18,7 +18,7 @@ package fxapp
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/fx/health"
+	"github.com/oysterpack/andiamo/pkg/fx/health"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"go.uber.org/multierr"

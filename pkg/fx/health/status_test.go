@@ -17,7 +17,7 @@
 package health_test
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/fx/health"
+	"github.com/oysterpack/andiamo/pkg/fx/health"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

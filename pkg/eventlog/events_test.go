@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"strings"
 	"testing"

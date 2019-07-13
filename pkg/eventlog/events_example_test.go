@@ -17,7 +17,7 @@
 package eventlog_test
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"os"

@@ -19,7 +19,7 @@ package ulids_test
 import (
 	crand "crypto/rand"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"math/rand"
 	"runtime"
 	"sync"

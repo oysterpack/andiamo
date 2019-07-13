@@ -17,9 +17,9 @@
 package fxapp_test
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/fx/health"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/fx/health"
+	"github.com/oysterpack/andiamo/pkg/fxapp"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"testing"

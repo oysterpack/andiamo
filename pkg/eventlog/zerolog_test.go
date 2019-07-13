@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/oklog/ulid"
-	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"testing"

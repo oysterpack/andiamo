@@ -18,8 +18,8 @@ package fxapp_test
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/ulids"
+	"github.com/oysterpack/andiamo/pkg/fxapp"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"os"
 	"strings"
 	"testing"

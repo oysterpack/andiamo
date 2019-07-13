@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
