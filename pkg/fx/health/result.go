@@ -22,7 +22,8 @@ import (
 
 // Result represents a health check Result
 type Result struct {
-	HealthCheckID string
+	// ID is the health check ID
+	ID string
 
 	Status Status
 	// error should be nil if the status is `Green`

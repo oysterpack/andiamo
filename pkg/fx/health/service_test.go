@@ -178,7 +178,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 					})
 				},
 				func(getRegisteredChecks health.RegisteredChecks) error {
-					checks := <-getRegisteredChecks(nil)
+					checks := <-getRegisteredChecks()
 					switch len(checks) {
 					case 0:
 						return errors.New("*** no registered health checks were returned")
@@ -250,7 +250,7 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 					return nil
 				},
 				func(getRegisteredChecks health.RegisteredChecks) error {
-					checks := <-getRegisteredChecks(nil)
+					checks := <-getRegisteredChecks()
 					switch len(checks) {
 					case 0:
 						return errors.New("*** no registered health checks were returned")
@@ -354,7 +354,7 @@ func TestService_CheckResults(t *testing.T) {
 			},
 			func(registeredChecks health.RegisteredChecks, checkResults health.CheckResults) error {
 				for {
-					results := <-checkResults(nil)
+					results := <-checkResults()
 					if len(results) == 10 {
 						break
 					}
@@ -362,17 +362,19 @@ func TestService_CheckResults(t *testing.T) {
 					runtime.Gosched()
 					time.Sleep(time.Millisecond)
 				}
-				checks := <-registeredChecks(nil)
+				checks := <-registeredChecks()
 				if len(checks) != 10 {
 					return fmt.Errorf("failed to retrieve all registered health checks: %v", len(checks))
 				}
+				results := <-checkResults()
+			CHECK_LOOP:
 				for _, check := range checks {
-					results := <-checkResults(func(result health.Result) bool {
-						return result.HealthCheckID == check.ID
-					})
-					if len(results) != 1 {
-						return fmt.Errorf("failed to get health check result: %v", results)
+					for _, result := range results {
+						if result.ID == check.ID {
+							continue CHECK_LOOP
+						}
 					}
+					t.Errorf("*** health check result was not returned for: %v", check)
 				}
 				return nil
 			},
@@ -429,7 +431,7 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 				},
 				// verify that the health check timeout is 1 ns
 				func(registeredChecks health.RegisteredChecks) {
-					registeredCheck := <-registeredChecks(nil)
+					registeredCheck := <-registeredChecks()
 					t.Log(registeredCheck)
 					if registeredCheck[0].Timeout != time.Nanosecond {
 						t.Errorf("*** timeout should be 1 ns: %v", registeredCheck)

@@ -57,8 +57,8 @@ type service struct {
 
 	stop                chan struct{}
 	register            chan registerRequest
-	getRegisteredChecks chan getRegisteredChecksRequest
-	getCheckResults     chan getCheckResultsRequest
+	getRegisteredChecks chan chan<- []RegisteredCheck
+	getCheckResults     chan chan<- []Result
 
 	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
 	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
@@ -84,8 +84,8 @@ func newService(opts Opts) *service {
 	return &service{
 		stop:                make(chan struct{}),
 		register:            make(chan registerRequest),
-		getRegisteredChecks: make(chan getRegisteredChecksRequest),
-		getCheckResults:     make(chan getCheckResultsRequest),
+		getRegisteredChecks: make(chan chan<- []RegisteredCheck),
+		getCheckResults:     make(chan chan<- []Result),
 
 		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
 		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
@@ -123,12 +123,12 @@ Loop:
 				}
 			}()
 		case result := <-s.results:
-			s.runResults[result.HealthCheckID] = result
+			s.runResults[result.ID] = result
 			s.publishResult(result)
-		case req := <-s.getRegisteredChecks:
-			s.SendRegisteredChecks(req)
-		case req := <-s.getCheckResults:
-			s.SendCheckResults(req)
+		case replyChan := <-s.getRegisteredChecks:
+			s.SendRegisteredChecks(replyChan)
+		case replyChan := <-s.getCheckResults:
+			s.SendCheckResults(replyChan)
 		case req := <-s.subscribeForRegisteredChecks:
 			s.SubscribeForRegisteredChecks(req)
 		case req := <-s.subscribeForCheckResults:
@@ -247,7 +247,7 @@ func (s *service) Register(req registerRequest) error {
 			err := check()
 			duration := time.Since(start)
 			result := Result{
-				HealthCheckID: id,
+				ID: id,
 
 				Status: ToStatus(err),
 				error:  err,
@@ -350,58 +350,32 @@ func (s *service) RegisteredCheck(id string) *RegisteredCheck {
 	return nil
 }
 
-type getCheckResultsRequest struct {
-	filter func(result Result) bool
-	reply  chan<- []Result
-}
-
-func (s *service) SendCheckResults(req getCheckResultsRequest) {
+func (s *service) SendCheckResults(reply chan<- []Result) {
 	var results []Result
-	if req.filter == nil {
-		results = make([]Result, 0, len(s.runResults))
-		for _, result := range s.runResults {
-			results = append(results, result)
-		}
-	} else {
-		for _, result := range s.runResults {
-			if req.filter(result) {
-				results = append(results, result)
-			}
-		}
+	results = make([]Result, 0, len(s.runResults))
+	for _, result := range s.runResults {
+		results = append(results, result)
 	}
 
 	go func() {
-		defer close(req.reply)
+		defer close(reply)
 		select {
 		case <-s.stop:
-		case req.reply <- results:
+		case reply <- results:
 		}
 	}()
 }
 
-type getRegisteredChecksRequest struct {
-	filter func(c Check, opts CheckerOpts) bool
-	reply  chan<- []RegisteredCheck
-}
-
-func (s *service) SendRegisteredChecks(req getRegisteredChecksRequest) {
+func (s *service) SendRegisteredChecks(reply chan<- []RegisteredCheck) {
 	var checks []RegisteredCheck
-	if req.filter == nil {
-		checks = make([]RegisteredCheck, len(s.checks))
-		copy(checks, s.checks)
-	} else {
-		for _, check := range s.checks {
-			if req.filter(check.Check, check.CheckerOpts) {
-				checks = append(checks, check)
-			}
-		}
-	}
+	checks = make([]RegisteredCheck, len(s.checks))
+	copy(checks, s.checks)
 
 	go func() {
-		defer close(req.reply)
+		defer close(reply)
 		select {
 		case <-s.stop:
-		case req.reply <- checks:
+		case reply <- checks:
 		}
 	}()
 }

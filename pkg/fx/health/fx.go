@@ -26,7 +26,7 @@ func ModuleWithDefaults() fx.Option {
 	return Module(DefaultOpts())
 }
 
-// ModuleWithDefaults provides the fx Module for the health module
+// Module provides the fx Module for the health module
 func Module(opts Opts) fx.Option {
 	return fx.Options(
 		fx.Provide(
@@ -82,13 +82,13 @@ func provideRegisterFunc(s *service) Register {
 }
 
 func provideRegisteredChecksFunc(s *service) RegisteredChecks {
-	return func(filter func(c Check, opts CheckerOpts) bool) <-chan []RegisteredCheck {
+	return func() <-chan []RegisteredCheck {
 		reply := make(chan []RegisteredCheck)
 		go func() {
 			select {
 			case <-s.stop:
 				close(reply)
-			case s.getRegisteredChecks <- getRegisteredChecksRequest{filter, reply}:
+			case s.getRegisteredChecks <- reply:
 			}
 		}()
 		return reply
@@ -96,13 +96,13 @@ func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 }
 
 func provideCheckResultsFunc(s *service) CheckResults {
-	return func(filter func(result Result) bool) <-chan []Result {
+	return func() <-chan []Result {
 		reply := make(chan []Result)
 		go func() {
 			select {
 			case <-s.stop:
 				close(reply)
-			case s.getCheckResults <- getCheckResultsRequest{filter, reply}:
+			case s.getCheckResults <- reply:
 			}
 		}()
 		return reply
