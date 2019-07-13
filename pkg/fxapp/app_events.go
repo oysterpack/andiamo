@@ -18,6 +18,7 @@ package fxapp
 
 import (
 	"github.com/oysterpack/partire-k8s/pkg/eventlog"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"reflect"
@@ -96,33 +97,57 @@ func (d duration) MarshalZerologObject(e *zerolog.Event) {
 
 // health check related events
 const (
-	// HealthCheck is used to generate the event data, e.g.,
-	//
-	// "01DF3FV60A2J1WKX5NQHP47H61": {
+	//  sample event data:
+	//  {
 	//    "id": "01DF3MNDKPB69AJR7ZGDNB3KA1",
 	//    "desc_id": "01DF3MNDKP8DS3B04E2TKFHXD9",
-	//    "description": [
-	//      "Foo",
-	//      "FooBar"
-	//    ],
-	//    "red_impact": [
-	//      "app is unavailable",
-	//      "fatal"
-	//    ],
-	//    "yellow_impact": [
-	//      "app response times are slow"
-	//    ],
+	//    "description": "Foo",
+	//    "red_impact": "app is unavailable",
+	//    "yellow_impact": "app response times are slow",
 	//    "timeout": 5000,
 	//    "run_interval": 15000
 	//  }
-	//
-	// - description, red_impact, yellow_impact are combined from health.Desc and health.RegisteredCheck
 	HealthCheckRegisteredEvent eventlog.Event = "01DF3FV60A2J1WKX5NQHP47H61"
 
+	//  sample event data:
+	//  {
+	//    "id": "01DF3MNDKPB69AJR7ZGDNB3KA1",
+	//	  "t": 155454546546,
+	//	  "d": 9
+	//  }
 	HealthCheckResultEvent eventlog.Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
 	HealthCheckGaugeRegistrationErrorEvent eventlog.Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )
+
+type healthCheck struct {
+	health.RegisteredCheck
+}
+
+func (h *healthCheck) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("id", h.ID)
+	e.Str("description", h.Description)
+	e.Str("red_impact", h.RedImpact)
+	if h.YellowImpact != "" {
+		e.Str("yellow_impact", h.YellowImpact)
+	}
+	e.Dur("timeout", h.Timeout)
+	e.Dur("run_interval", h.RunInterval)
+}
+
+type healthCheckResult struct {
+	health.Result
+}
+
+func (h *healthCheckResult) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("id", h.ID)
+	e.Uint8("status", uint8(h.Status))
+	e.Time("start", h.Time)
+	e.Dur("dur", h.Duration)
+	if h.Err != nil {
+		e.Err(h.Err)
+	}
+}
 
 // probe related events
 const (

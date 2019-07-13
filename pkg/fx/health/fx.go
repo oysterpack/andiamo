@@ -98,16 +98,19 @@ func provideRegisteredChecksFunc(s *service) RegisteredChecks {
 }
 
 func provideCheckResultsFunc(s *service) CheckResults {
-	return func() <-chan []Result {
-		reply := make(chan []Result, 1) // a chan buf size 1 decouples the producer from the consumer
+	return func(filter func(result Result) bool) <-chan []Result {
+		req := checkResultsRequest{
+			reply:  make(chan []Result, 1), // a chan buf size 1 decouples the producer from the consumer
+			filter: filter,
+		}
 		go func() {
 			select {
 			case <-s.stop:
-				close(reply)
-			case s.getCheckResults <- reply:
+				close(req.reply)
+			case s.getCheckResults <- req:
 			}
 		}()
-		return reply
+		return req.reply
 	}
 }
 
@@ -139,7 +142,7 @@ func provideSubscribeForRegisteredChecks(s *service) SubscribeForRegisteredCheck
 }
 
 func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
-	return func() CheckResultsSubscription {
+	return func(filter func(result Result) bool) CheckResultsSubscription {
 		closedChan := func() CheckResultsSubscription {
 			ch := make(chan Result)
 			close(ch)
@@ -151,7 +154,7 @@ func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
 		select {
 		case <-s.stop:
 			return closedChan()
-		case s.subscribeForCheckResults <- subscribeForCheckResults{reply}:
+		case s.subscribeForCheckResults <- subscribeForCheckResults{reply, filter}:
 			select {
 			case <-s.stop:
 				return closedChan()

@@ -18,11 +18,10 @@ package fxapp_test
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
-	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -34,32 +33,19 @@ import (
 // The app automatically provides health.registry and health.Scheduler.
 func TestAppHealthCheckRegistry(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
-		ID:           ulids.MustNew().String(),
-		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
 
-	var healthCheckRegistry health.Registry
-	var healthCheckScheduler health.Scheduler
+	var registeredChecks health.RegisteredChecks
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
-		Invoke(func(registry health.Registry, logger *zerolog.Logger) {
-			FooHealth := health.CheckOpts{
-				Desc:        FooHealthDesc,
+		Invoke(func(register health.Register, logger *zerolog.Logger) error {
+			return register(health.Check{
 				ID:          ulids.MustNew().String(),
 				Description: "Foo",
-				RedImpact:   "fatal",
-				Checker: func(ctx context.Context) health.Failure {
-					return nil
-				},
-			}.MustNew()
-
-			logger.Info().Msg(FooHealth.String())
-
-			registry.Register(FooHealth)
+				RedImpact:   "Red",
+			}, health.CheckerOpts{}, func() error {
+				return nil
+			})
 		}).
-		Populate(&healthCheckRegistry, &healthCheckScheduler).
+		Populate(&registeredChecks).
 		DisableHTTPServer().
 		Build()
 
@@ -69,7 +55,7 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 
 	// health checks are scheduled to run as they are registered
 
-	healthChecks := healthCheckRegistry.HealthChecks(nil)
+	healthChecks := <-registeredChecks()
 	if len(healthChecks) == 0 {
 		t.Error("*** health check registry is empty")
 		return
@@ -82,47 +68,27 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 	// When the app is shutdown
 	app.Shutdown()
 	<-app.Done()
-
-	// Then the health.Scheduler instance is shutdown
-	select {
-	case <-healthCheckScheduler.Done():
-	case <-time.After(time.Second): // health check scheduler is stopped async - thus, it may not have yet completed shutdown
-		t.Errorf("*** health check scheduler has not been shutdown: stopping = %v", healthCheckScheduler.Stopping())
-	}
-
 }
 
 func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
+	Foo := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
-	healthCheckID := ulids.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
-	var healthCheckRegistry health.Registry
-	var healthCheckRegistered <-chan health.Check
+	var healthCheckRegistered <-chan health.RegisteredCheck
 	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
-		Invoke(func(registry health.Registry) {
-			healthCheckRegistered = registry.Subscribe()
-			FooHealth := health.CheckOpts{
-				Desc:         FooHealthDesc,
-				ID:           healthCheckID.String(),
-				Description:  "Foo",
-				RedImpact:    "fatal",
-				YellowImpact: "yellow",
-				Checker: func(ctx context.Context) health.Failure {
-					return nil
-				},
-			}.MustNew()
-
-			registry.Register(FooHealth)
+		Invoke(func(register health.Register, subscribe health.SubscribeForRegisteredChecks) {
+			healthCheckRegistered = subscribe().Chan()
+			register(Foo, health.CheckerOpts{}, func() error {
+				return nil
+			})
 		}).
-		Populate(&healthCheckRegistry).
 		DisableHTTPServer().
 		Build()
 
@@ -135,9 +101,9 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	type Data struct {
 		ID           string
 		DescID       string `json:"desc_id"`
-		Description  []string
-		YellowImpact []string `json:"yellow_impact"`
-		RedImpact    []string `json:"red_impact"`
+		Description  string
+		YellowImpact string `json:"yellow_impact"`
+		RedImpact    string `json:"red_impact"`
 		Timeout      uint
 		RunInterval  uint `json:"run_interval"`
 	}
@@ -171,26 +137,16 @@ FoundEvent:
 	switch {
 	case logEvent.Name == "01DF3FV60A2J1WKX5NQHP47H61":
 		t.Logf("%#v", logEvent)
-		if logEvent.Data.ID != healthCheckID.String() {
-			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, healthCheckID)
+		if logEvent.Data.ID != Foo.ID {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, Foo.ID)
 		}
-
-		if logEvent.Data.DescID != FooHealthDesc.ID().String() {
-			t.Errorf("*** health check desc ID did not match: %v != %v", logEvent.Data.DescID, FooHealthDesc.ID())
-		}
-
-		if len(logEvent.Data.Description) != 2 &&
-			logEvent.Data.Description[0] != FooHealthDesc.Description() &&
-			logEvent.Data.Description[1] != "Foo" {
+		if logEvent.Data.Description != Foo.Description {
 			t.Error("*** health check description did not match")
 		}
-		if len(logEvent.Data.YellowImpact) != 1 &&
-			logEvent.Data.YellowImpact[0] != FooHealthDesc.YellowImpact() {
+		if logEvent.Data.YellowImpact != Foo.YellowImpact {
 			t.Error("*** health check yellow impact did not match")
 		}
-		if len(logEvent.Data.RedImpact) != 2 &&
-			logEvent.Data.RedImpact[0] != FooHealthDesc.RedImpact() &&
-			logEvent.Data.RedImpact[1] != "fatal" {
+		if logEvent.Data.RedImpact != Foo.RedImpact {
 			t.Error("*** health check red impact did not match")
 		}
 	default:
@@ -200,36 +156,25 @@ FoundEvent:
 
 func TestHealthCheckResultsAreLogged(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
+
+	Foo := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
-	healthCheckID := ulids.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
-	var healthCheckRegistry health.Registry
 	var healthCheckResults <-chan health.Result
 	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
-		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
-			healthCheckResults = scheduler.Subscribe(nil)
-			FooHealth := health.CheckOpts{
-				Desc:         FooHealthDesc,
-				ID:           healthCheckID.String(),
-				Description:  "Foo",
-				RedImpact:    "fatal",
-				YellowImpact: "yellow",
-				Checker: func(ctx context.Context) health.Failure {
-					time.Sleep(time.Millisecond)
-					return nil
-				},
-			}.MustNew()
-
-			registry.Register(FooHealth)
+		Invoke(func(register health.Register, subscribe health.SubscribeForCheckResults) error {
+			healthCheckResults = subscribe(nil).Chan()
+			return register(Foo, health.CheckerOpts{}, func() error {
+				time.Sleep(time.Millisecond)
+				return nil
+			})
 		}).
-		Populate(&healthCheckRegistry).
 		DisableHTTPServer().
 		Build()
 
@@ -284,8 +229,8 @@ FoundEvent:
 	switch {
 	case logEvent.Name == "01DF3X60Z7XFYVVXGE9TFFQ7Z1":
 		t.Logf("%#v", logEvent)
-		if logEvent.Data.ID != healthCheckID.String() {
-			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, healthCheckID)
+		if logEvent.Data.ID != Foo.ID {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, Foo.ID)
 		}
 		if logEvent.Data.Status != uint8(health.Green) {
 			t.Error("*** status did not match")
@@ -305,30 +250,20 @@ FoundEvent:
 
 func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
+	Foo := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
-	healthCheckID := ulids.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
 	buf := fxapptest.NewSyncLog()
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
-		Invoke(func(registry health.Registry, scheduler health.Scheduler) {
-			FooHealth := health.CheckOpts{
-				Desc:         FooHealthDesc,
-				ID:           healthCheckID.String(),
-				Description:  "Foo",
-				RedImpact:    "fatal",
-				YellowImpact: "yellow",
-				Checker: func(ctx context.Context) health.Failure {
-					return health.YellowFailure(errors.New("yellow"))
-				},
-			}.MustNew()
-
-			registry.Register(FooHealth)
+		Invoke(func(register health.Register) error {
+			return register(Foo, health.CheckerOpts{}, func() error {
+				return errors.New("BOOM!!!")
+			})
 		}).
 		DisableHTTPServer().
 		Build()
@@ -336,6 +271,8 @@ func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	if err != nil {
 		t.Errorf("*** failed to build app: %v", err)
 	}
+
+	time.Sleep(time.Millisecond)
 
 	err = app.Run()
 	if err == nil {

@@ -18,13 +18,14 @@ package fxapp
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
-	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/rs/zerolog"
+	"go.uber.org/fx"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -33,35 +34,44 @@ import (
 func TestLogYellowHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
-	FooHealthDesc := health.DescOpts{
+	FooHealth := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
-	}.MustNew()
+	}
 
-	FooHealth := health.CheckOpts{
-		Desc:        FooHealthDesc,
-		ID:          ulids.MustNew().String(),
-		Description: "Foo",
-		RedImpact:   "fatal",
-		Checker: func(ctx context.Context) health.Failure {
-			time.Sleep(time.Millisecond)
-			return health.YellowFailure(errors.New("warning"))
-		},
-	}.MustNew()
+	var shutdowner fx.Shutdowner
+	var subscription health.CheckResultsSubscription
+	var healthCheckResults health.CheckResults
+	app := fx.New(
+		health.ModuleWithDefaults(),
+		fx.Invoke(
+			func(subscribe health.SubscribeForCheckResults) {
+				subscription = subscribe(func(result health.Result) bool {
+					return result.ID == FooHealth.ID
+				})
+			},
+			func(register health.Register) error {
+				return register(FooHealth, health.CheckerOpts{}, func() error {
+					time.Sleep(time.Millisecond)
+					return health.NewYellowError(errors.New("warning"))
+				})
+			}),
+		fx.Populate(&shutdowner, &healthCheckResults),
+	)
 
-	registry := health.NewRegistry()
-	scheduler := health.StartScheduler(registry)
-	healthCheckResults := scheduler.Subscribe(nil)
-	defer scheduler.StopAsync()
+	defer func() {
+		go app.Run()
+		shutdowner.Shutdown()
+	}()
 
 	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(zerolog.SyncWriter(buf))
 	done := make(chan struct{})
 	defer close(done)
 
-	f := startHealthCheckLoggerFunc(scheduler.Subscribe(nil), &logger, done)
+	f := startHealthCheckLoggerFunc(subscription, &logger, done)
 
 	// wait until the health check logger routine is running
 	wg := sync.WaitGroup{}
@@ -72,9 +82,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 	}()
 	wg.Wait()
 
-	// When the health check is registered, it is run
-	registry.Register(FooHealth)
-	t.Log(<-healthCheckResults)
+	t.Log(<-healthCheckResults(nil))
 
 	type Data struct {
 		ID     string
@@ -94,7 +102,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 
 	// Then the health check is logged with a warn log level
 FoundEvent:
-	for i := 0; i < 3; i++ {
+	for {
 		reader := bufio.NewReader(buf)
 		for {
 			line, err := reader.ReadString('\n')
@@ -112,13 +120,14 @@ FoundEvent:
 			}
 		}
 		time.Sleep(time.Millisecond)
+		runtime.Gosched()
 	}
 
 	switch {
 	case logEvent.Name == "01DF3X60Z7XFYVVXGE9TFFQ7Z1":
 		t.Logf("%#v", logEvent)
-		if logEvent.Data.ID != FooHealth.ID().String() {
-			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, FooHealth.ID())
+		if logEvent.Data.ID != FooHealth.ID {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, FooHealth.ID)
 		}
 		if logEvent.Data.Status != uint8(health.Yellow) {
 			t.Error("*** status did not match")
@@ -144,34 +153,44 @@ FoundEvent:
 func TestLogRedHealthCheckResult(t *testing.T) {
 	t.Parallel()
 
-	FooHealthDesc := health.DescOpts{
+	FooHealth := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
 		YellowImpact: "app response times are slow",
 		RedImpact:    "app is unavailable",
-	}.MustNew()
-	FooHealth := health.CheckOpts{
-		Desc:        FooHealthDesc,
-		ID:          ulids.MustNew().String(),
-		Description: "Foo",
-		RedImpact:   "fatal",
-		Checker: func(ctx context.Context) health.Failure {
-			time.Sleep(time.Millisecond)
-			return health.RedFailure(errors.New("error"))
-		},
-	}.MustNew()
+	}
 
-	registry := health.NewRegistry()
-	scheduler := health.StartScheduler(registry)
-	healthCheckResults := scheduler.Subscribe(nil)
-	defer scheduler.StopAsync()
+	var shutdowner fx.Shutdowner
+	var subscription health.CheckResultsSubscription
+	var healthCheckResults health.CheckResults
+	app := fx.New(
+		health.ModuleWithDefaults(),
+		fx.Invoke(
+			func(subscribe health.SubscribeForCheckResults) {
+				subscription = subscribe(func(result health.Result) bool {
+					return result.ID == FooHealth.ID
+				})
+			},
+			func(register health.Register) error {
+				return register(FooHealth, health.CheckerOpts{}, func() error {
+					time.Sleep(time.Millisecond)
+					return errors.New("warning")
+				})
+			}),
+		fx.Populate(&shutdowner, &healthCheckResults),
+	)
+
+	defer func() {
+		go app.Run()
+		shutdowner.Shutdown()
+	}()
 
 	buf := fxapptest.NewSyncLog()
 	logger := zerolog.New(zerolog.SyncWriter(buf))
 	done := make(chan struct{})
 	defer close(done)
 
-	f := startHealthCheckLoggerFunc(scheduler.Subscribe(nil), &logger, done)
+	f := startHealthCheckLoggerFunc(subscription, &logger, done)
 
 	// wait until the health check logger routine is running
 	wg := sync.WaitGroup{}
@@ -183,8 +202,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 	wg.Wait()
 
 	// When the health check is registered, it is run
-	registry.Register(FooHealth)
-	t.Log(<-healthCheckResults)
+	t.Log(<-healthCheckResults(nil))
 
 	type Data struct {
 		ID     string
@@ -204,7 +222,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 
 	// Then the health check is logged with a warn log level
 FoundEvent:
-	for i := 0; i < 3; i++ {
+	for {
 		reader := bufio.NewReader(buf)
 		for {
 			line, err := reader.ReadString('\n')
@@ -222,13 +240,14 @@ FoundEvent:
 			}
 		}
 		time.Sleep(time.Millisecond)
+		runtime.Gosched()
 	}
 
 	switch {
 	case logEvent.Name == "01DF3X60Z7XFYVVXGE9TFFQ7Z1":
 		t.Logf("%#v", logEvent)
-		if logEvent.Data.ID != FooHealth.ID().String() {
-			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, FooHealth.ID())
+		if logEvent.Data.ID != FooHealth.ID {
+			t.Errorf("*** health check ID did not match: %v != %v", logEvent.Data.ID, FooHealth.ID)
 		}
 		if logEvent.Data.Status != uint8(health.Red) {
 			t.Error("*** status did not match")

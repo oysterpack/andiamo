@@ -58,13 +58,13 @@ type service struct {
 	stop                chan struct{}
 	register            chan registerRequest
 	getRegisteredChecks chan chan<- []RegisteredCheck
-	getCheckResults     chan chan<- []Result
+	getCheckResults     chan checkResultsRequest
 
 	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
 	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
 
 	subscribeForCheckResults     chan subscribeForCheckResults
-	subscriptionsForCheckResults map[chan<- Result]struct{}
+	subscriptionsForCheckResults map[chan<- Result]func(result Result) bool
 
 	// to protect the application and system from the health checks themselves we want to limit the number of health checks
 	// that are allowed to run concurrently
@@ -84,13 +84,13 @@ func newService(opts Opts) *service {
 		stop:                make(chan struct{}),
 		register:            make(chan registerRequest),
 		getRegisteredChecks: make(chan chan<- []RegisteredCheck),
-		getCheckResults:     make(chan chan<- []Result),
+		getCheckResults:     make(chan checkResultsRequest),
 
 		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
 		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
 
 		subscribeForCheckResults:     make(chan subscribeForCheckResults),
-		subscriptionsForCheckResults: make(map[chan<- Result]struct{}),
+		subscriptionsForCheckResults: make(map[chan<- Result]func(result Result) bool),
 
 		runSemaphore: runSemaphore,
 		results:      make(chan Result),
@@ -138,13 +138,15 @@ func (s *service) sendError(ch chan<- error, err error) {
 }
 
 func (s *service) publishResult(result Result) {
-	for ch := range s.subscriptionsForCheckResults {
-		go func(ch chan<- Result) {
-			select {
-			case <-s.stop:
-			case ch <- result:
-			}
-		}(ch)
+	for ch, filter := range s.subscriptionsForCheckResults {
+		if filter(result) {
+			go func(ch chan<- Result) {
+				select {
+				case <-s.stop:
+				case ch <- result:
+				}
+			}(ch)
+		}
 	}
 }
 
@@ -250,7 +252,7 @@ func (s *service) Register(req registerRequest) error {
 				ID: id,
 
 				Status: ToStatus(err),
-				error:  err,
+				Err:    err,
 
 				Time:     start,
 				Duration: duration,
@@ -350,17 +352,30 @@ func (s *service) RegisteredCheck(id string) *RegisteredCheck {
 	return nil
 }
 
-func (s *service) SendCheckResults(reply chan<- []Result) {
+type checkResultsRequest struct {
+	reply  chan []Result
+	filter func(result Result) bool
+}
+
+func (s *service) SendCheckResults(req checkResultsRequest) {
 	var results []Result
-	results = make([]Result, 0, len(s.runResults))
-	for _, result := range s.runResults {
-		results = append(results, result)
+	if req.filter == nil {
+		results = make([]Result, 0, len(s.runResults))
+		for _, result := range s.runResults {
+			results = append(results, result)
+		}
+	} else {
+		for _, result := range s.runResults {
+			if req.filter(result) {
+				results = append(results, result)
+			}
+		}
 	}
 
-	defer close(reply)
+	defer close(req.reply)
 	select {
 	case <-s.stop:
-	case reply <- results:
+	case req.reply <- results:
 	}
 }
 
@@ -391,12 +406,17 @@ func (s *service) SubscribeForRegisteredChecks(req subscribeForRegisteredChecksR
 }
 
 type subscribeForCheckResults struct {
-	reply chan chan Result
+	reply  chan chan Result
+	filter func(result Result) bool
 }
 
 func (s *service) SubscribeForCheckResults(req subscribeForCheckResults) {
 	ch := make(chan Result)
-	s.subscriptionsForCheckResults[ch] = struct{}{}
+	if req.filter != nil {
+		s.subscriptionsForCheckResults[ch] = req.filter
+	} else {
+		s.subscriptionsForCheckResults[ch] = func(Result) bool { return true }
+	}
 
 	defer close(req.reply)
 	select {

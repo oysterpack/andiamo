@@ -69,7 +69,7 @@ func (id FooID) InvokeLogSelf() {
 	log.Printf("InvokeLogSelf: %s", ulid.ULID(id))
 }
 
-func (_ FooID) InvokeLogInstanceID(id FooID) {
+func (FooID) InvokeLogInstanceID(id FooID) {
 	log.Printf("InvokeLogInstanceID: %s", ulid.ULID(id))
 }
 
@@ -408,11 +408,9 @@ func TestFuncInvokeOrder(t *testing.T) {
 		t.Errorf("*** the last func to be invoked should have been `shutdown`, but was %q", funcInvokes[10])
 	}
 	for i := 0; i < 10; i++ {
-		funcs = append(funcs, func() {
-			if funcInvokes[i] != fmt.Sprintf("%d", i) {
-				t.Errorf("*** func[%d] invoked out of expected order: %v", i, funcInvokes[i])
-			}
-		})
+		if funcInvokes[i] != fmt.Sprintf("%d", i) {
+			t.Errorf("*** func[%d] invoked out of expected order: %v", i, funcInvokes[i])
+		}
 	}
 
 	if err != nil {
@@ -596,7 +594,7 @@ func TestAppStopErrorHandler(t *testing.T) {
 // error handlers can be registered to handle any application errors
 func TestAppErrorHandler(t *testing.T) {
 	var errHandled bool
-	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
+	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func() error { return errors.New("invoke error") }).
 		HandleError(func(err error) { errHandled = true }).
 		Build()
@@ -611,7 +609,7 @@ func TestAppErrorHandler(t *testing.T) {
 	}
 
 	errHandled = false
-	app, err = fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
+	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(lc fx.Lifecycle) {
 			lc.Append(fx.Hook{
 				OnStart: func(context.Context) error {

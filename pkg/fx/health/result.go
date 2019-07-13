@@ -17,6 +17,7 @@
 package health
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -27,7 +28,7 @@ type Result struct {
 
 	Status Status
 	// error should be nil if the status is `Green`
-	error
+	Err error
 
 	// Time is when the health check was run
 	time.Time
@@ -35,7 +36,6 @@ type Result struct {
 	time.Duration
 }
 
-// Err returns the underlying health check error
-func (r *Result) Err() error {
-	return r.error
+func (r *Result) String() string {
+	return fmt.Sprintf("Result{ID: %q, Status: %s, Time: %s, Duration: %s", r.ID, r.Status, r.Time, r.Duration)
 }

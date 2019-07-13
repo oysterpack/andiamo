@@ -22,9 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
 	"github.com/oysterpack/partire-k8s/pkg/fxapptest"
-	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -195,39 +195,32 @@ func TestNewReadinessWaitgroup_Async(t *testing.T) {
 
 func TestLivenessProbe(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
+	Foo := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
-		FooCheck := health.CheckOpts{
-			Desc:         FooHealthDesc,
-			ID:           ulids.MustNew().String(),
-			Description:  "check",
-			RedImpact:    "RED",
-			YellowImpact: "yellow",
-			Checker: func(ctx context.Context) health.Failure {
-				switch status {
-				case health.Green:
-					return nil
-				case health.Yellow:
-					return health.YellowFailure(errors.New("YELLOW"))
-				default:
-					return health.RedFailure(errors.New("RED"))
-				}
-			},
-		}.MustNew()
+		Checker := func() error {
+			switch status {
+			case health.Green:
+				return nil
+			case health.Yellow:
+				return health.NewYellowError(errors.New("YELLOW"))
+			default:
+				return errors.New("RED")
+			}
+		}
 
 		var probe fxapp.LivenessProbe
-		var healthCheckRegistry health.Registry
-		var healthCheckScheduler health.Scheduler
+		var register health.Register
+		var subscribeForCheckResults health.SubscribeForCheckResults
 		var gatherer prometheus.Gatherer
 		app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
-			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
+			Populate(&probe, &register, &gatherer, &subscribeForCheckResults).
 			Build()
 
 		if err != nil {
@@ -245,14 +238,14 @@ func TestLivenessProbe(t *testing.T) {
 			t.Errorf("*** probe should succeed, but instead failed: %v", err)
 		}
 
-		// register a failing health check
-		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
-			return check.ID() == FooCheck.ID()
+		// register a health check
+		healthCheckResultChan := subscribeForCheckResults(func(result health.Result) bool {
+			return result.ID == Foo.ID
 		})
-		healthCheckRegistry.Register(FooCheck)
+		register(Foo, health.CheckerOpts{}, Checker)
 		select {
 		case <-time.After(time.Millisecond):
-		case <-healthCheckResultChan:
+		case <-healthCheckResultChan.Chan():
 		}
 
 		for {
@@ -265,7 +258,7 @@ func TestLivenessProbe(t *testing.T) {
 				if mf.GetName() == fxapp.HealthCheckMetricID {
 					for _, metric := range mf.Metric {
 						for _, labelPair := range metric.Label {
-							if labelPair.GetValue() == FooCheck.ID().String() {
+							if labelPair.GetValue() == Foo.ID {
 								return true
 							}
 						}
@@ -334,40 +327,34 @@ func TestLivenessProbe(t *testing.T) {
 }
 
 func TestLivenessProbHTTPEndpoint(t *testing.T) {
-	FooHealthDesc := health.DescOpts{
-		ID:          ulids.MustNew().String(),
-		Description: "Foo",
-		RedImpact:   "app is unavailable",
-	}.MustNew()
+	Foo := health.Check{
+		ID:           ulids.MustNew().String(),
+		Description:  "Foo",
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
 	livenessProbeEndpoint := fmt.Sprintf("http://:8008/%s", fxapp.LivenessProbeEvent)
 
 	checkProbe := func(t *testing.T, status health.Status) {
-		FooCheck := health.CheckOpts{
-			Desc:         FooHealthDesc,
-			ID:           ulids.MustNew().String(),
-			Description:  "check",
-			RedImpact:    "RED",
-			YellowImpact: "yellow",
-			Checker: func(ctx context.Context) health.Failure {
-				switch status {
-				case health.Green:
-					return nil
-				case health.Yellow:
-					return health.YellowFailure(errors.New("YELLOW"))
-				default:
-					return health.RedFailure(errors.New("RED"))
-				}
-			},
-		}.MustNew()
+		Checker := func() error {
+			switch status {
+			case health.Green:
+				return nil
+			case health.Yellow:
+				return health.NewYellowError(errors.New("YELLOW"))
+			default:
+				return errors.New("RED")
+			}
+		}
 
 		var probe fxapp.LivenessProbe
-		var healthCheckRegistry health.Registry
-		var healthCheckScheduler health.Scheduler
+		var register health.Register
+		var subscribeForCheckResults health.SubscribeForCheckResults
 		var gatherer prometheus.Gatherer
 		app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 			Invoke(func() {}).
-			Populate(&probe, &healthCheckRegistry, &healthCheckScheduler, &gatherer).
+			Populate(&probe, &register, &gatherer, &subscribeForCheckResults).
 			Build()
 
 		if err != nil {
@@ -385,14 +372,14 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 			t.Errorf("*** probe should succeed, but instead failed: %v", err)
 		}
 
-		// register a failing health check
-		healthCheckResultChan := healthCheckScheduler.Subscribe(func(check health.Check) bool {
-			return check.ID() == FooCheck.ID()
+		// register a health check
+		healthCheckResultChan := subscribeForCheckResults(func(result health.Result) bool {
+			return result.ID == Foo.ID
 		})
-		healthCheckRegistry.Register(FooCheck)
+		register(Foo, health.CheckerOpts{}, Checker)
 		select {
 		case <-time.After(time.Millisecond):
-		case <-healthCheckResultChan:
+		case <-healthCheckResultChan.Chan():
 		}
 
 		for {
@@ -405,7 +392,7 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 				if mf.GetName() == fxapp.HealthCheckMetricID {
 					for _, metric := range mf.Metric {
 						for _, labelPair := range metric.Label {
-							if labelPair.GetValue() == FooCheck.ID().String() {
+							if labelPair.GetValue() == Foo.ID {
 								return true
 							}
 						}

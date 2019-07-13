@@ -17,16 +17,17 @@
 package fxapp
 
 import (
-	"github.com/oysterpack/partire-k8s/pkg/health"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 // HealthCheckMetricID is used as the prometheus metric name
 const HealthCheckMetricID = "U01DF4CVSSF4RT1ZB4EXC44G668"
 
-func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, registerer prometheus.Registerer) error {
-	healthCheckResult := scheduler.Subscribe(func(c health.Check) bool {
-		return c.ID() == check.ID()
+func registerHealthCheckGauge(done <-chan struct{}, check health.RegisteredCheck, subscribeForCheckResults health.SubscribeForCheckResults, checkResults health.CheckResults, registerer prometheus.Registerer) error {
+	healthCheckResult := subscribeForCheckResults(func(result health.Result) bool {
+		return result.ID == check.ID
 	})
 
 	getResult := make(chan chan health.Result)
@@ -34,26 +35,40 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 		var result health.Result
 
 		// initialize the health check result
-		resultsChan := scheduler.Results(func(result health.Result) bool {
-			return result.HealthCheckID() == check.ID()
+		resultsChan := checkResults(func(result health.Result) bool {
+			return result.ID == check.ID
 		})
-		done := scheduler.Done()
-		select {
-		case <-done:
-			return
-		case results := <-resultsChan:
-			if len(results) == 1 {
-				result = results[0]
-			} else {
-				result = check.Run()
+		results := <-resultsChan
+		if len(results) == 1 {
+			result = results[0]
+		} else {
+			start := time.Now()
+			err := check.Checker()
+			duration := time.Since(start)
+			status := health.Green
+			if err != nil {
+				switch err.(type) {
+				case health.YellowError:
+					status = health.Yellow
+				default:
+					status = health.Red
+				}
+			}
+			result = health.Result{
+				ID:       check.ID,
+				Status:   status,
+				Err:      err,
+				Time:     start,
+				Duration: duration,
 			}
 		}
+
 		// event loop
 		for {
 			select {
 			case <-done:
 				return
-			case result = <-healthCheckResult: // update the health check result with the latest result
+			case result = <-healthCheckResult.Chan(): // update the health check result with the latest result
 			case reply := <-getResult: // metrics are being gathered
 				go func(result health.Result) {
 					reply <- result
@@ -65,8 +80,7 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 	opts := prometheus.GaugeOpts{
 		Name: HealthCheckMetricID,
 		ConstLabels: map[string]string{
-			"h": check.ID().String(),
-			"d": check.Desc().ID().String(),
+			"h": check.ID,
 		},
 		Help: "health check",
 	}
@@ -74,14 +88,14 @@ func registerHealthCheckGauge(check health.Check, scheduler health.Scheduler, re
 	return registerer.Register(prometheus.NewGaugeFunc(opts, func() float64 {
 		ch := make(chan health.Result)
 		select {
-		case <-scheduler.Done():
+		case <-done:
 			return -1
 		case getResult <- ch:
 			select {
-			case <-scheduler.Done():
+			case <-done:
 				return -1
 			case result := <-ch:
-				return float64(result.Status())
+				return float64(result.Status)
 			}
 		}
 	}))

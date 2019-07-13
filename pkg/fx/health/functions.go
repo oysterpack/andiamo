@@ -29,7 +29,7 @@ type RegisteredChecks func() <-chan []RegisteredCheck
 type SubscribeForRegisteredChecks func() RegisteredCheckSubscription
 
 // CheckResults returns all current health check results
-type CheckResults func() <-chan []Result
+type CheckResults func(filter func(result Result) bool) <-chan []Result
 
 // SubscribeForCheckResults is used to subscribe to health check results
-type SubscribeForCheckResults func() CheckResultsSubscription
+type SubscribeForCheckResults func(filter func(result Result) bool) CheckResultsSubscription

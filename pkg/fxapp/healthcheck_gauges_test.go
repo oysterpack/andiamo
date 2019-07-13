@@ -17,9 +17,8 @@
 package fxapp_test
 
 import (
-	"context"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
 	"github.com/oysterpack/partire-k8s/pkg/fxapp"
-	"github.com/oysterpack/partire-k8s/pkg/health"
 	"github.com/oysterpack/partire-k8s/pkg/ulids"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -29,48 +28,37 @@ import (
 
 func TestHealthCheckGauge(t *testing.T) {
 	t.Parallel()
-	FooHealthDesc := health.DescOpts{
-		ID:           ulids.MustNew().String(),
-		Description:  "Foo",
-		YellowImpact: "app response times are slow",
-		RedImpact:    "app is unavailable",
-	}.MustNew()
 
-	Foo1 := health.CheckOpts{
-		Desc:         FooHealthDesc,
+	Foo1 := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo1",
-		RedImpact:    "fatal",
-		YellowImpact: "yellow",
-		Checker: func(ctx context.Context) health.Failure {
-			return nil
-		},
-	}.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
-	Foo2 := health.CheckOpts{
-		Desc:         FooHealthDesc,
+	Foo2 := health.Check{
 		ID:           ulids.MustNew().String(),
 		Description:  "Foo2",
-		RedImpact:    "fatal",
-		YellowImpact: "yellow",
-		Checker: func(ctx context.Context) health.Failure {
-			return nil
-		},
-	}.MustNew()
+		RedImpact:    "Red",
+		YellowImpact: "Yellow",
+	}
 
 	var gatherer prometheus.Gatherer
-	var scheduler health.Scheduler
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
-		Invoke(func(registry health.Registry) error {
-			if err := registry.Register(Foo1); err != nil {
+		Invoke(func(register health.Register) error {
+			if err := register(Foo1, health.CheckerOpts{}, func() error {
+				return nil
+			}); err != nil {
 				return err
 			}
-			if err := registry.Register(Foo2); err != nil {
+			if err := register(Foo2, health.CheckerOpts{}, func() error {
+				return nil
+			}); err != nil {
 				return err
 			}
 			return nil
 		}).
-		Populate(&gatherer, &scheduler).
+		Populate(&gatherer).
 		DisableHTTPServer().
 		Build()
 
@@ -110,7 +98,7 @@ HealthCheckLoop:
 		for _, metric := range healthcheckMetrics.Metric {
 			t.Log(metric)
 			for _, labelPair := range metric.GetLabel() {
-				if labelPair.GetName() == "h" && labelPair.GetValue() == check.ID().String() {
+				if labelPair.GetName() == "h" && labelPair.GetValue() == check.ID {
 					continue HealthCheckLoop
 				}
 			}
@@ -120,9 +108,6 @@ HealthCheckLoop:
 
 	app.Shutdown()
 	<-app.Done()
-
-	// after the the scheduler is shutdown, then the health check gauges should return -1
-	<-scheduler.Done()
 
 MetricFamilyLoop2:
 	for {

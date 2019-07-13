@@ -18,10 +18,10 @@ package fxapp
 
 import (
 	"fmt"
-	"github.com/oysterpack/partire-k8s/pkg/health"
-	"github.com/prometheus/client_golang/prometheus"
-	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/oysterpack/partire-k8s/pkg/fx/health"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"go.uber.org/multierr"
 	"net/http"
 	"sync"
 	"time"
@@ -110,28 +110,19 @@ func readinessProbeHTTPHandler(readiness ReadinessWaitGroup) HTTPHandler {
 // LivenessProbe checks if the app is healthy. It returns an error if probe fails, indicating the app is unhealthy.
 type LivenessProbe func() error
 
-func livenessProbe(gatherer prometheus.Gatherer) LivenessProbe {
-	healthCheckID := func(m *io_prometheus_client.Metric) string {
-		for _, label := range m.Label {
-			if label.GetName() == "h" {
-				return label.GetValue()
-			}
-		}
-		return ""
-	}
+func livenessProbe(checkResults health.CheckResults) LivenessProbe {
 	return func() error {
-		mfs, err := gatherer.Gather()
-		if err != nil {
+		redCheckResults := <-checkResults(func(result health.Result) bool {
+			return result.Status == health.Red
+		})
+		if len(redCheckResults) > 0 {
+			err := errors.New("liveness probe failed because health checks are RED")
+			for _, result := range redCheckResults {
+				err = multierr.Append(err, fmt.Errorf("[%v] %v", result.ID, result.Err))
+			}
 			return err
 		}
-		healthCheckMetricFamily := FindMetricFamily(mfs, func(mf *io_prometheus_client.MetricFamily) bool {
-			return mf.GetName() == HealthCheckMetricID
-		})
-		for _, metric := range healthCheckMetricFamily.GetMetric() {
-			if health.Status(metric.Gauge.GetValue()) == health.Red {
-				return fmt.Errorf("liveness probe failed because health check is RED: %v", healthCheckID(metric))
-			}
-		}
+
 		return nil
 	}
 }

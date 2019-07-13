@@ -393,7 +393,7 @@ func TestService_CheckResults(t *testing.T) {
 			},
 			func(registeredChecks health.RegisteredChecks, checkResults health.CheckResults) error {
 				for {
-					results := <-checkResults()
+					results := <-checkResults(nil)
 					if len(results) == 10 {
 						break
 					}
@@ -405,9 +405,12 @@ func TestService_CheckResults(t *testing.T) {
 				if len(checks) != 10 {
 					return fmt.Errorf("failed to retrieve all registered health checks: %v", len(checks))
 				}
-				results := <-checkResults()
+
 			CHECK_LOOP:
 				for _, check := range checks {
+					results := <-checkResults(func(result health.Result) bool {
+						return result.ID == check.ID
+					})
 					for _, result := range results {
 						if result.ID == check.ID {
 							continue CHECK_LOOP
@@ -441,6 +444,51 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 		Tags:         []string{Database, MongoDB},
 	}
 
+	t.Run("health check runs on schedule", func(t *testing.T) {
+		t.Parallel()
+
+		opts := health.DefaultOpts()
+		opts.MinRunInterval = time.Nanosecond
+
+		var shutdowner fx.Shutdowner
+		var resultsSubscription health.CheckResultsSubscription
+		app := fx.New(
+			health.Module(opts),
+			fx.Invoke(
+				func(subscribe health.SubscribeForCheckResults) {
+					resultsSubscription = subscribe(nil)
+				},
+				// register a health check that is scheduled to run every microsecond
+				func(register health.Register) error {
+					checkerOpts := health.CheckerOpts{
+						Timeout:     time.Millisecond,
+						RunInterval: time.Microsecond,
+					}
+					return register(Foo, checkerOpts, func() error {
+						return health.NewYellowError(errors.New("error"))
+					})
+				},
+			),
+			fx.Populate(&shutdowner),
+		)
+
+		require.Nil(t, app.Err(), "%v", app.Err())
+
+		runApp(app, shutdowner, func() {
+			// wait for health check results to be reported
+			count := 1
+			for {
+				result := <-resultsSubscription.Chan()
+				t.Logf("[%d] %s", count, result)
+				if count == 5 {
+					// after we have received at least 5 results, then we are confident that the health checks are being run and reported properly
+					return
+				}
+				count++
+			}
+		})
+	})
+
 	t.Run("health check times out", func(t *testing.T) {
 		t.Parallel()
 
@@ -453,7 +501,7 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 			health.Module(opts),
 			fx.Invoke(
 				func(subscribe health.SubscribeForCheckResults) {
-					resultsSubscription = subscribe()
+					resultsSubscription = subscribe(nil)
 				},
 				func(register health.Register) error {
 					checkerOpts := health.CheckerOpts{
@@ -482,9 +530,8 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 			result := <-resultsSubscription.Chan()
 			t.Log(result)
 			assert.Equal(t, result.Status, health.Red, "health check should have timed out, which is considered a Red failure")
-			assert.Equal(t, result.Err(), health.ErrTimeout, "error should have been timeout : %v", result.Err())
+			assert.Equal(t, result.Err, health.ErrTimeout, "error should have been timeout : %v", result.Err)
 		})
-
 	})
 }
 
@@ -538,12 +585,12 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 	_, ok := <-registeredChecks()
 	assert.False(t, ok, "channel should be closed")
 
-	_, ok = <-checkResults()
+	_, ok = <-checkResults(nil)
 	assert.False(t, ok, "channel should be closed")
 
 	_, ok = <-subscribeForRegisteredChecks().Chan()
 	assert.False(t, ok, "channel should be closed")
 
-	_, ok = <-subscribeForCheckResults().Chan()
+	_, ok = <-subscribeForCheckResults(nil).Chan()
 	assert.False(t, ok, "channel should be closed")
 }
