@@ -203,14 +203,14 @@ func TestLivenessProbe(t *testing.T) {
 	}
 
 	checkProbe := func(t *testing.T, status health.Status, test func(t *testing.T, probe fxapp.LivenessProbe)) {
-		Checker := func() error {
+		Checker := func() (health.Status, error) {
 			switch status {
 			case health.Green:
-				return nil
+				return health.Green, nil
 			case health.Yellow:
-				return health.NewYellowError(errors.New("YELLOW"))
+				return health.Yellow, errors.New("YELLOW")
 			default:
-				return errors.New("RED")
+				return health.Red, errors.New("RED")
 			}
 		}
 
@@ -337,14 +337,14 @@ func TestLivenessProbHTTPEndpoint(t *testing.T) {
 	livenessProbeEndpoint := fmt.Sprintf("http://:8008/%s", fxapp.LivenessProbeEvent)
 
 	checkProbe := func(t *testing.T, status health.Status) {
-		Checker := func() error {
+		Checker := func() (health.Status, error) {
 			switch status {
 			case health.Green:
-				return nil
+				return health.Green, nil
 			case health.Yellow:
-				return health.NewYellowError(errors.New("YELLOW"))
+				return health.Yellow, errors.New("YELLOW")
 			default:
-				return errors.New("RED")
+				return health.Red, errors.New("RED")
 			}
 		}
 

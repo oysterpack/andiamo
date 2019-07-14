@@ -46,13 +46,13 @@ func TestHealthCheckGauge(t *testing.T) {
 	var gatherer prometheus.Gatherer
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		Invoke(func(register health.Register) error {
-			if err := register(Foo1, health.CheckerOpts{}, func() error {
-				return nil
+			if err := register(Foo1, health.CheckerOpts{}, func() (health.Status, error) {
+				return health.Green, nil
 			}); err != nil {
 				return err
 			}
-			if err := register(Foo2, health.CheckerOpts{}, func() error {
-				return nil
+			if err := register(Foo2, health.CheckerOpts{}, func() (health.Status, error) {
+				return health.Green, nil
 			}); err != nil {
 				return err
 			}

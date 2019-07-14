@@ -41,8 +41,8 @@ func TestAppHealthCheckRegistry(t *testing.T) {
 				ID:          ulids.MustNew().String(),
 				Description: "Foo",
 				RedImpact:   "Red",
-			}, health.CheckerOpts{}, func() error {
-				return nil
+			}, health.CheckerOpts{}, func() (health.Status, error) {
+				return health.Green, nil
 			})
 		}).
 		Populate(&registeredChecks).
@@ -85,8 +85,8 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 		LogWriter(buf).
 		Invoke(func(register health.Register, subscribe health.SubscribeForRegisteredChecks) {
 			healthCheckRegistered = subscribe().Chan()
-			register(Foo, health.CheckerOpts{}, func() error {
-				return nil
+			register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+				return health.Green, nil
 			})
 		}).
 		DisableHTTPServer().
@@ -170,9 +170,9 @@ func TestHealthCheckResultsAreLogged(t *testing.T) {
 		LogWriter(buf).
 		Invoke(func(register health.Register, subscribe health.SubscribeForCheckResults) error {
 			healthCheckResults = subscribe(nil).Chan()
-			return register(Foo, health.CheckerOpts{}, func() error {
+			return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
 				time.Sleep(time.Millisecond)
-				return nil
+				return health.Green, nil
 			})
 		}).
 		DisableHTTPServer().
@@ -261,8 +261,8 @@ func TestHealthCheckFailureCausesAppStartupFailure(t *testing.T) {
 	app, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
 		Invoke(func(register health.Register) error {
-			return register(Foo, health.CheckerOpts{}, func() error {
-				return errors.New("BOOM!!!")
+			return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+				return health.Red, errors.New("BOOM!!!")
 			})
 		}).
 		DisableHTTPServer().

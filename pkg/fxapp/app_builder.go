@@ -284,8 +284,8 @@ func healthCheckReadiness(registeredChecks health.RegisteredChecks, checkResults
 
 			var err error
 			for _, check := range <-registeredChecks() {
-				if e := check.Checker(); e != nil {
-					err = multierr.Combine(err, fmt.Errorf("health check failed: %s", check.ID), e)
+				if result := check.Checker(); result.Status != health.Green {
+					err = multierr.Combine(err, fmt.Errorf("health check failed: %s", check.ID), result.Err)
 				}
 			}
 			if err != nil {

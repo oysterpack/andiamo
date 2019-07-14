@@ -53,9 +53,9 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 				})
 			},
 			func(register health.Register) error {
-				return register(FooHealth, health.CheckerOpts{}, func() error {
+				return register(FooHealth, health.CheckerOpts{}, func() (health.Status, error) {
 					time.Sleep(time.Millisecond)
-					return health.NewYellowError(errors.New("warning"))
+					return health.Yellow, errors.New("warning")
 				})
 			}),
 		fx.Populate(&shutdowner, &healthCheckResults),
@@ -172,9 +172,9 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 				})
 			},
 			func(register health.Register) error {
-				return register(FooHealth, health.CheckerOpts{}, func() error {
+				return register(FooHealth, health.CheckerOpts{}, func() (health.Status, error) {
 					time.Sleep(time.Millisecond)
-					return errors.New("warning")
+					return health.Red, errors.New("error")
 				})
 			}),
 		fx.Populate(&shutdowner, &healthCheckResults),

@@ -19,7 +19,6 @@ package fxapp
 import (
 	"github.com/oysterpack/andiamo/pkg/fx/health"
 	"github.com/prometheus/client_golang/prometheus"
-	"time"
 )
 
 // HealthCheckMetricID is used as the prometheus metric name
@@ -42,25 +41,7 @@ func registerHealthCheckGauge(done <-chan struct{}, check health.RegisteredCheck
 		if len(results) == 1 {
 			result = results[0]
 		} else {
-			start := time.Now()
-			err := check.Checker()
-			duration := time.Since(start)
-			status := health.Green
-			if err != nil {
-				switch err.(type) {
-				case health.YellowError:
-					status = health.Yellow
-				default:
-					status = health.Red
-				}
-			}
-			result = health.Result{
-				ID:       check.ID,
-				Status:   status,
-				Err:      err,
-				Time:     start,
-				Duration: duration,
-			}
+			result = check.Checker()
 		}
 
 		// event loop
