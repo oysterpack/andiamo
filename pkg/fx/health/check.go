@@ -36,10 +36,9 @@ type Check struct {
 }
 
 // Checker performs the health check.
-// Return a `YellowError` to indicate that the health check failed with a `Yellow` status.
 //
 // NOTE: health checks must be designed to run as fast and as efficient as possible.
-type Checker func() error
+type Checker func() Result
 
 // checker constraints
 const (

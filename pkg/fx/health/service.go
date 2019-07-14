@@ -169,7 +169,7 @@ func (s *service) Stop() {
 type registerRequest struct {
 	check   Check
 	opts    CheckerOpts
-	checker Checker
+	checker func() (Status, error)
 
 	reply chan<- error
 }
@@ -209,34 +209,40 @@ func (s *service) Register(req registerRequest) error {
 		return err
 	}
 
-	WithTimeout := func(checker Checker, timeout time.Duration) Checker {
-		return func() error {
-			reply := make(chan error)
+	WithTimeout := func(id string, check func() (Status, error), timeout time.Duration) Checker {
+		return func() Result {
+			reply := make(chan Result, 1)
 			timer := time.After(timeout)
 			go func() {
-				select {
-				case <-timer:
-				case reply <- checker():
+				start := time.Now()
+				status, err := check()
+				duration := time.Since(start)
+				reply <- Result{
+					ID: id,
+
+					Status: status,
+					Err:    err,
+
+					Time:     start,
+					Duration: duration,
 				}
 			}()
 
 			select {
 			case <-timer:
-				return ErrTimeout
-			case err := <-reply:
-				return err
+				return Result{
+					ID: id,
+
+					Status: Red,
+					Err:    ErrTimeout,
+
+					Time:     time.Now().Add(timeout * -1),
+					Duration: timeout,
+				}
+			case result := <-reply:
+				return result
 			}
 		}
-	}
-
-	ToStatus := func(err error) Status {
-		if err == nil {
-			return Green
-		}
-		if _, ok := err.(YellowError); ok {
-			return Yellow
-		}
-		return Red
 	}
 
 	Schedule := func(id string, check Checker, interval time.Duration) {
@@ -245,22 +251,10 @@ func (s *service) Register(req registerRequest) error {
 			defer func() {
 				s.runSemaphore <- struct{}{}
 			}()
-			start := time.Now()
-			err := check()
-			duration := time.Since(start)
-			result := Result{
-				ID: id,
-
-				Status: ToStatus(err),
-				Err:    err,
-
-				Time:     start,
-				Duration: duration,
-			}
 			go func() {
 				select {
 				case <-s.stop:
-				case s.results <- result:
+				case s.results <- check():
 				}
 			}()
 		}
@@ -334,7 +328,7 @@ func (s *service) Register(req registerRequest) error {
 	registeredCheck := RegisteredCheck{
 		Check:       check,
 		CheckerOpts: opts,
-		Checker:     WithTimeout(req.checker, opts.Timeout),
+		Checker:     WithTimeout(check.ID, req.checker, opts.Timeout),
 	}
 	s.checks = append(s.checks, registeredCheck)
 	go Schedule(registeredCheck.ID, registeredCheck.Checker, registeredCheck.RunInterval)
@@ -373,10 +367,7 @@ func (s *service) SendCheckResults(req checkResultsRequest) {
 	}
 
 	defer close(req.reply)
-	select {
-	case <-s.stop:
-	case req.reply <- results:
-	}
+	req.reply <- results
 }
 
 func (s *service) SendRegisteredChecks(reply chan<- []RegisteredCheck) {
@@ -384,10 +375,7 @@ func (s *service) SendRegisteredChecks(reply chan<- []RegisteredCheck) {
 	copy(checks, s.checks)
 
 	defer close(reply)
-	select {
-	case <-s.stop:
-	case reply <- checks:
-	}
+	reply <- checks
 }
 
 type subscribeForRegisteredChecksRequest struct {
@@ -399,10 +387,7 @@ func (s *service) SubscribeForRegisteredChecks(req subscribeForRegisteredChecksR
 	s.subscriptionsForRegisteredChecks[ch] = struct{}{}
 
 	defer close(req.reply)
-	select {
-	case <-s.stop:
-	case req.reply <- ch:
-	}
+	req.reply <- ch
 }
 
 type subscribeForCheckResults struct {
@@ -419,8 +404,5 @@ func (s *service) SubscribeForCheckResults(req subscribeForCheckResults) {
 	}
 
 	defer close(req.reply)
-	select {
-	case <-s.stop:
-	case req.reply <- ch:
-	}
+	req.reply <- ch
 }

@@ -82,8 +82,8 @@ func TestService_Register(t *testing.T) {
 			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
-					return register(Foo, health.CheckerOpts{}, func() error {
-						return nil
+					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 			),
@@ -101,8 +101,8 @@ func TestService_Register(t *testing.T) {
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{}
-					return register(InvalidHealthCheck, health.CheckerOpts{}, func() error {
-						return nil
+					return register(InvalidHealthCheck, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 			),
@@ -126,8 +126,8 @@ func TestService_Register(t *testing.T) {
 						YellowImpact: "App performance degradation",
 						Tags:         []string{Database, "INVALID"},
 					}
-					return register(InvalidHealthCheck, health.CheckerOpts{}, func() error {
-						return nil
+					return register(InvalidHealthCheck, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 			),
@@ -160,8 +160,8 @@ func TestService_Register(t *testing.T) {
 			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
-					return register(Foo, health.CheckerOpts{Timeout: time.Minute, RunInterval: time.Millisecond}, func() error {
-						return nil
+					return register(Foo, health.CheckerOpts{Timeout: time.Minute, RunInterval: time.Millisecond}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 			),
@@ -178,13 +178,13 @@ func TestService_Register(t *testing.T) {
 			health.ModuleWithDefaults(),
 			fx.Invoke(
 				func(register health.Register) error {
-					return register(Foo, health.CheckerOpts{}, func() error {
-						return nil
+					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 				func(register health.Register) error {
-					return register(Foo, health.CheckerOpts{}, func() error {
-						return nil
+					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 			),
@@ -221,8 +221,8 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 			fx.Invoke(
 				func(register health.Register) error {
 					// And CheckerOpts were not specified
-					return register(Foo, health.CheckerOpts{}, func() error {
-						return nil
+					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					})
 				},
 				func(getRegisteredChecks health.RegisteredChecks) error {
@@ -286,8 +286,8 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 							YellowImpact: fmt.Sprintf("Yellow %d", i),
 							Tags:         []string{Database, MongoDB},
 						}
-						if err := register(check, health.CheckerOpts{}, func() error {
-							return nil
+						if err := register(check, health.CheckerOpts{}, func() (health.Status, error) {
+							return health.Green, nil
 						}); err != nil {
 							return err
 						}
@@ -343,8 +343,8 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 						YellowImpact: fmt.Sprintf("Yellow %d", i),
 						Tags:         []string{Database, MongoDB},
 					}
-					if err := register(check, health.CheckerOpts{}, func() error {
-						return nil
+					if err := register(check, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					}); err != nil {
 						return err
 					}
@@ -383,8 +383,8 @@ func TestService_CheckResults(t *testing.T) {
 						RedImpact:    fmt.Sprintf("Red %d", i),
 						YellowImpact: fmt.Sprintf("Yellow %d", i),
 					}
-					if err := register(check, health.CheckerOpts{}, func() error {
-						return nil
+					if err := register(check, health.CheckerOpts{}, func() (health.Status, error) {
+						return health.Green, nil
 					}); err != nil {
 						return err
 					}
@@ -428,6 +428,82 @@ func TestService_CheckResults(t *testing.T) {
 	runApp(app, shutdowner)
 }
 
+func TestService_SubscribeForCheckResults(t *testing.T) {
+	var shutdowner fx.Shutdowner
+	var subscription health.CheckResultsSubscription
+	app := fx.New(
+		health.ModuleWithDefaults(),
+		fx.Invoke(
+			func(subscribe health.SubscribeForCheckResults) {
+				subscription = subscribe(func(result health.Result) bool {
+					return result.Status != health.Green
+				})
+			},
+			func(register health.Register) error {
+				t.Log("register RED health check")
+				return register(
+					health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "desc",
+						RedImpact:   "FATAL",
+					},
+					health.CheckerOpts{},
+					func() (status health.Status, e error) {
+						return health.Red, errors.New("BOOM #1")
+					},
+				)
+			},
+			func(register health.Register) error {
+				t.Log("register GREEN health check")
+				return register(
+					health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "desc",
+						RedImpact:   "FATAL",
+					},
+					health.CheckerOpts{},
+					func() (status health.Status, e error) {
+						return health.Green, nil
+					},
+				)
+			},
+			func(register health.Register) error {
+				t.Log("register YELLOW health check")
+				return register(
+					health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "desc",
+						RedImpact:   "FATAL",
+					},
+					health.CheckerOpts{},
+					func() (status health.Status, e error) {
+						return health.Yellow, errors.New("BOOM #2")
+					},
+				)
+			},
+		),
+		fx.Populate(&shutdowner),
+	)
+
+	results := []health.Result{<-subscription.Chan(), <-subscription.Chan()}
+	t.Log(results)
+	statusCounts := make(map[health.Status]int)
+	for _, result := range results {
+		statusCounts[result.Status] += 1
+	}
+	assert.Equal(t, 0, statusCounts[health.Green], "there should be no Green results")
+	assert.Equal(t, 1, statusCounts[health.Yellow], "there should be 1 Yellow result")
+	assert.Equal(t, 1, statusCounts[health.Red], "there should be 1 Red result")
+
+	select {
+	case result := <-subscription.Chan():
+		t.Errorf("*** no more check results should have been received: %v", result)
+	default:
+	}
+
+	runApp(app, shutdowner)
+}
+
 func TestService_RunningScheduledHealthChecks(t *testing.T) {
 	t.Parallel()
 
@@ -464,8 +540,8 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 						Timeout:     time.Millisecond,
 						RunInterval: time.Microsecond,
 					}
-					return register(Foo, checkerOpts, func() error {
-						return health.NewYellowError(errors.New("error"))
+					return register(Foo, checkerOpts, func() (health.Status, error) {
+						return health.Yellow, errors.New("error")
 					})
 				},
 			),
@@ -507,9 +583,9 @@ func TestService_RunningScheduledHealthChecks(t *testing.T) {
 					checkerOpts := health.CheckerOpts{
 						Timeout: time.Nanosecond,
 					}
-					return register(Foo, checkerOpts, func() error {
+					return register(Foo, checkerOpts, func() (health.Status, error) {
 						time.Sleep(time.Microsecond)
-						return nil
+						return health.Green, nil
 					})
 				},
 				// verify that the health check timeout is 1 ns
@@ -552,8 +628,8 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 		health.ModuleWithDefaults(),
 		fx.Invoke(
 			func(register health.Register) error {
-				return register(Foo, health.CheckerOpts{}, func() error {
-					return nil
+				return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+					return health.Green, nil
 				})
 			},
 		),
@@ -577,8 +653,8 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 			RedImpact:   "App is unusable",
 		},
 		health.CheckerOpts{},
-		func() error {
-			return nil
+		func() (health.Status, error) {
+			return health.Green, nil
 		},
 	))
 

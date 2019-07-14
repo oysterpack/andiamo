@@ -16,16 +16,13 @@
 
 package test
 
-import "testing"
-
-type Z = int
-
-type Y int
+import (
+	"testing"
+	"time"
+)
 
 func TestTypeAlias(t *testing.T) {
-	var z Z = 1
-	z += 1
-	var y Y = Y(z)
-	t.Logf("z type = %T", z)
-	t.Logf("y type = %T", y)
+	now := time.Now()
+	before := now.Add(time.Second * -10)
+	t.Log(before, now)
 }

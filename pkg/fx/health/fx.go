@@ -58,7 +58,7 @@ func startService(svcOpts Opts) func(lc fx.Lifecycle) *service {
 }
 
 func provideRegisterFunc(s *service) Register {
-	return func(check Check, opts CheckerOpts, checker Checker) error {
+	return func(check Check, opts CheckerOpts, checker func() (Status, error)) error {
 		reply := make(chan error, 1) // a chan buf size 1 decouples the producer from the consumer
 		req := registerRequest{
 			check:   check,

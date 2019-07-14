@@ -29,16 +29,6 @@ var (
 	ErrTimeout = errors.New("health check timed out")
 )
 
-// YellowError is used to indicate that the health check failed with a warning.
-type YellowError struct {
-	error
-}
-
-// NewYellowError constructs a new YellowError
-func NewYellowError(err error) YellowError {
-	return YellowError{error: err}
-}
-
 // health check registration errors validation errors
 var (
 	ErrIDNotULID        = errors.New("`ID` must be a ULID")
