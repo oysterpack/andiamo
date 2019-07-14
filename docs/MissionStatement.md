@@ -1,23 +1,31 @@
-## Problem Statement
-Many enterprises rely on software speed and agility to achieve strategic business advantage.The cloud is a game changer 
-because it enables light speed business advantage. The cloud provides strategic drivers for businesses. It's always been 
-about speed and agility.
+# To be, or not to be, that is the question ...
 
-The problem is that speed comes at a high cost. Being able to move at the speed of light is great as long as it does not kill you. 
-Speeding recklessly puts yourself and others in danger. Speed requires precision, control, efficiency, quality, care, maintenance, 
-skill, focus, responsibility, attention to detail, etc.
+## Be Customer Focused
+Being customer focused equates to running a business. In order for a business to survive and prosper it must focus on solving
+problems and providing value for customers. 
 
-There are many problems and challenges enterprises must overcome in order to survive and adapt. Otherwise, they will face the 
-same fate as the great giant dinosaurs of the past: 
+Being **serverless** frees us from infrastructure and servers. We then can focus on the software that delivers real value for
+our customers.
 
-1. Legacy software is too **dangerous** to run in the cloud.
-2. Legacy software has too much **technical debt** to run in the cloud.
-3. Legacy software is too **costly** and **inefficient** to run in the cloud.
-4. Enterprises are spending too much capital and time on managing cloud infrastructure instead of leveraging the cloud to 
-   solve real business problems and deliver real business value.
-5. The cloud is all new territory. It's very young. It's rapidly changing, evolving, and improving.
-   How can enterprises keep pace and leverage the cloud to achieve strategic business advantage?
-   
-## Mission Statement
+## Be Strategic - not tactical
 
-## Strategic Business Drivers 
+## Be Professional
+Being professional means being disciplined and doing things the right way. We expect consistent high quality work from a 
+professional. It requires solid work ethic. It requires passion. It requires always learning and improving. 
+
+- never rush - haste makes waste
+  - take time to think things through
+  - spend more time on design 
+- TDD 
+- automate, automate, automate
+  - CI, CD
+
+## Be Simple
+The key to solving complex problems is simple solutions. If the solution is too complex, then it is not the right solution.
+There is always a simpler solution.
+
+Being simple leads to being efficient - less is more ...
+
+## Be Sustainable
+We want to build software architectures and deliver solutions that are sustainable over the long haul in order to maximize 
+ROI (return on investment). How can we run a business in a sustainable manner ... by applying all of the above 
