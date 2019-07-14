@@ -25,8 +25,7 @@ import (
 	"time"
 )
 
-// Opts are being extracted in order to make running health checks on a schedule testable, i.e., make the tests
-// run fast. The normal MinRunInterval is 1 sec and the MaxTimeout is 10 secs - too long to use in unit tests.
+// Opts are used to configure the fx module.
 type Opts struct {
 	MinRunInterval time.Duration
 	MaxTimeout     time.Duration

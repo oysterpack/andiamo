@@ -22,7 +22,7 @@ import (
 	"os"
 )
 
-func ExampleEvent_NewLogger() {
+func Example() {
 
 	// Define your application events
 	const (
