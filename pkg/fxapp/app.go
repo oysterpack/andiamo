@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/oklog/ulid"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"os"
@@ -410,31 +411,31 @@ func (a *app) Shutdown() error {
 }
 
 func (a *app) logAppInitialized(dependencyGraph fx.DotGraph) {
-	logEvent := InitializedEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(InitializedEvent, a.logger, zerolog.NoLevel)
 	logEvent(appInfo{a, dependencyGraph}, "app initialized")
 }
 
 func (a *app) logAppStarting() {
-	logEvent := StartingEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(StartingEvent, a.logger, zerolog.NoLevel)
 	logEvent(nil, "app starting")
 }
 
 func (a *app) logAppStarted(startupTime time.Duration) {
-	logEvent := StartedEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(StartedEvent, a.logger, zerolog.NoLevel)
 	logEvent(duration(startupTime), "app started")
 }
 
 func (a *app) logAppReady() {
-	logEvent := ReadyEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(ReadyEvent, a.logger, zerolog.NoLevel)
 	logEvent(nil, "app is ready to service requests")
 }
 
 func (a *app) logAppStopping() {
-	logEvent := StoppingEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(StoppingEvent, a.logger, zerolog.NoLevel)
 	logEvent(nil, "app stopping")
 }
 
 func (a *app) logAppStopped(shutdownDuration time.Duration) {
-	logEvent := StoppedEvent.NewLogger(a.logger, zerolog.NoLevel)
+	logEvent := eventlog.NewLogger(StoppedEvent, a.logger, zerolog.NoLevel)
 	logEvent(duration(shutdownDuration), "app stopped")
 }

@@ -18,6 +18,7 @@ package fxapp
 
 import (
 	"fmt"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/oysterpack/andiamo/pkg/fx/health"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -129,15 +130,15 @@ func livenessProbe(checkResults health.CheckResults) LivenessProbe {
 
 // if any health check status is Red, then the liveness check fails
 func livenessProbeHTTPHandler(probe LivenessProbe, logger *zerolog.Logger) HTTPHandler {
-	logProbeSuccess := LivenessProbeEvent.NewLogger(logger, zerolog.InfoLevel)
-	logProbeFailure := LivenessProbeEvent.NewErrorLogger(logger)
+	logProbeSuccess := eventlog.NewLogger(LivenessProbeEvent, logger, zerolog.InfoLevel)
+	logProbeFailure := eventlog.NewLogger(LivenessProbeEvent, logger, zerolog.ErrorLevel)
 	return NewHTTPHandler(fmt.Sprintf("/%s", LivenessProbeEvent), func(writer http.ResponseWriter, request *http.Request) {
 		start := time.Now()
 		err := probe()
 		probeDuration := duration(time.Since(start))
 		if err != nil {
 			writer.WriteHeader(http.StatusServiceUnavailable)
-			logProbeFailure(probeDuration, err, "liveness probe failed")
+			logProbeFailure(eventlog.NewError(err), "liveness probe failed")
 			return
 		}
 		writer.WriteHeader(http.StatusOK)

@@ -384,11 +384,15 @@ func TestAppInitFailedEventLogged(t *testing.T) {
 	default:
 		t.Logf("\n%v", buf)
 
+		type Data struct {
+			Err string `json:"e"`
+		}
+
 		type LogEvent struct {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Err     string `json:"e"`
+			Data    `json:"d"`
 		}
 
 		var logEvent LogEvent
@@ -481,11 +485,15 @@ func TestAppStartFailedEventLogged(t *testing.T) {
 
 		t.Logf("\n%v", buf)
 
+		type Data struct {
+			Err string `json:"e"`
+		}
+
 		type LogEvent struct {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Err     string `json:"e"`
+			Data    `json:"d"`
 		}
 
 		var logEvent LogEvent
@@ -582,11 +590,15 @@ func TestAppStartFailedAndStopFailed(t *testing.T) {
 
 		t.Logf("\n%v", buf)
 
+		type Data struct {
+			Err string `json:"e"`
+		}
+
 		type LogEvent struct {
 			Level   string `json:"l"`
 			Name    string `json:"n"`
 			Message string `json:"m"`
-			Err     string `json:"e"`
+			Data    `json:"d"`
 		}
 
 		var logEvent LogEvent

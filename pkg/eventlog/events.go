@@ -20,9 +20,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Event represents some type of event. The event name must be globally unique - ULIDs are recommended.
-type Event string
-
 // Logger is used to log events using a consistent and standardized structure.
 // Use the `NewLogger()` constructor function to create new Logger functions.
 //
@@ -31,16 +28,6 @@ type Event string
 // - events can be tagged
 //   - tagging use cases: tracing, grouping related events, tagging source code locations, etc
 type Logger func(data zerolog.LogObjectMarshaler, msg string, tags ...string)
-
-// ErrorLogger is used to log error events.
-// Use the `NewErrorLogger()` constructor function to create new ErrorLogger functions.
-//
-// - event is logged with `Error` level
-// - Event data is optional, i.e., nil may be supplied.
-// - error message is logged
-// - events can be tagged
-//   - tagging use cases: tracing, grouping related events, tagging source code locations, etc
-type ErrorLogger func(data zerolog.LogObjectMarshaler, err error, msg string, tags ...string)
 
 // NewLogger creates a new function used to log events using a standardized structure that supports use cases for automated
 // monitoring, alerting, querying, and analytics. Having a standardized structure makes it easier to build standardized tools.
@@ -61,31 +48,10 @@ type ErrorLogger func(data zerolog.LogObjectMarshaler, err error, msg string, ta
 //	  "g": ["tag-a","tag-b"], ---------------------------- event tags (optional)
 //	  "m": "health check failed" ------------------------- event short description
 //	}
-func (e Event) NewLogger(logger *zerolog.Logger, level zerolog.Level) Logger {
-	eventLogger := ForEvent(logger, string(e))
+func NewLogger(event string, logger *zerolog.Logger, level zerolog.Level) Logger {
+	eventLogger := ForEvent(logger, event)
 	return func(eventData zerolog.LogObjectMarshaler, msg string, tags ...string) {
 		log(eventLogger.WithLevel(level), eventData, msg, tags...)
-	}
-}
-
-// NewErrorLogger creates a new function used to log errors with contextual data. It uses the same structure as `Logger`
-// except that the level is automatically set to `error` and the error is set on the log event.
-//
-// Example error event
-//	{
-//	  "l": "error", -------------------------------------- event level
-//	  "n": "01DE2Z4E07E4T0GJJXCG8NN6A0", ----------------- event name
-//    "e": "failure to connect" -------------------------- error
-//	  "d": { --------------------------------------------- event data (optional)
-//		"id": "01DE379HHNVHQE5G6NHN2BBKAT", -------------- event data (optional)
-//	  }, ------------------------------------------------- event data (optional)
-//	  "g": ["tag-a","tag-b"], ---------------------------- tags (optional)
-//	  "m": "health check failed" ------------------------- event short description
-//	}
-func (e Event) NewErrorLogger(logger *zerolog.Logger) ErrorLogger {
-	eventLogger := ForEvent(logger, string(e))
-	return func(eventData zerolog.LogObjectMarshaler, err error, msg string, tags ...string) {
-		log(eventLogger.Error().Err(err), eventData, msg, tags...)
 	}
 }
 
@@ -101,4 +67,19 @@ func log(zerologEvent *zerolog.Event, eventData zerolog.LogObjectMarshaler, msg 
 	}
 
 	zerologEvent.Msg(msg)
+}
+
+// Error wraps an underlying error to implement `zerolog.LogObjectMarshaler` interface
+type Error struct {
+	error
+}
+
+// NewError wraps the specified error
+func NewError(err error) Error {
+	return Error{err}
+}
+
+// MarshalZerologObject implements `zerolog.LogObjectMarshaler` interface
+func (err Error) MarshalZerologObject(e *zerolog.Event) {
+	e.Err(err.error)
 }

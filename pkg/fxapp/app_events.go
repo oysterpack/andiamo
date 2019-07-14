@@ -17,7 +17,6 @@
 package fxapp
 
 import (
-	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/oysterpack/andiamo/pkg/fx/health"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
@@ -34,35 +33,35 @@ const (
 	//		Invokes      	[]string
 	//		DependencyGraph string `json:"dot_graph"` // DOT language visualization of the app dependency graph
 	//	}
-	InitializedEvent eventlog.Event = "01DE4STZ0S24RG7R08PAY1RQX3"
+	InitializedEvent = "01DE4STZ0S24RG7R08PAY1RQX3"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	InitFailedEvent eventlog.Event = "01DE4SWMZXD1ZB40QRT7RGQVPN"
+	InitFailedEvent = "01DE4SWMZXD1ZB40QRT7RGQVPN"
 
-	StartingEvent eventlog.Event = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
+	StartingEvent = "01DE4SXMG8W3KSPZ9FNZ8Z17F8"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StartFailedEvent eventlog.Event = "01DE4SY6RYCD0356KYJV7G7THW"
+	StartFailedEvent = "01DE4SY6RYCD0356KYJV7G7THW"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StartedEvent eventlog.Event = "01DE4X10QCV1M8TKRNXDK6AK7C"
+	StartedEvent = "01DE4X10QCV1M8TKRNXDK6AK7C"
 
-	ReadyEvent eventlog.Event = "01DEJ5RA8XRZVECJDJFAA2PWJF"
+	ReadyEvent = "01DEJ5RA8XRZVECJDJFAA2PWJF"
 
-	StoppingEvent eventlog.Event = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
+	StoppingEvent = "01DE4SZ1KY60JQTF7XP4DQ8WGC"
 	// 	type Data struct {
 	//		Err string `json:"e"`
 	//	}
-	StopFailedEvent eventlog.Event = "01DE4T0W35RPD6QMDS42WQXR48"
+	StopFailedEvent = "01DE4T0W35RPD6QMDS42WQXR48"
 
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	StoppedEvent eventlog.Event = "01DE4T1V9N50BB67V424S6MG5C"
+	StoppedEvent = "01DE4T1V9N50BB67V424S6MG5C"
 )
 
 type appInfo struct {
@@ -107,7 +106,7 @@ const (
 	//    "timeout": 5000,
 	//    "run_interval": 15000
 	//  }
-	HealthCheckRegisteredEvent eventlog.Event = "01DF3FV60A2J1WKX5NQHP47H61"
+	HealthCheckRegisteredEvent = "01DF3FV60A2J1WKX5NQHP47H61"
 
 	//  sample event data:
 	//  {
@@ -115,13 +114,14 @@ const (
 	//	  "t": 155454546546,
 	//	  "d": 9
 	//  }
-	HealthCheckResultEvent eventlog.Event = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
+	HealthCheckResultEvent = "01DF3X60Z7XFYVVXGE9TFFQ7Z1"
 
-	HealthCheckGaugeRegistrationErrorEvent eventlog.Event = "01DF6M0T7K3DNSFMFQ26TM7XX4"
+	HealthCheckGaugeRegistrationErrorEvent = "01DF6M0T7K3DNSFMFQ26TM7XX4"
 )
 
 type healthCheck struct {
 	health.RegisteredCheck
+	error
 }
 
 func (h *healthCheck) MarshalZerologObject(e *zerolog.Event) {
@@ -133,6 +133,9 @@ func (h *healthCheck) MarshalZerologObject(e *zerolog.Event) {
 	}
 	e.Dur("timeout", h.Timeout)
 	e.Dur("run_interval", h.RunInterval)
+	if h.error != nil {
+		e.Err(h.error)
+	}
 }
 
 type healthCheckResult struct {
@@ -154,5 +157,5 @@ const (
 	// 	type Data struct {
 	//		Duration uint
 	//	}
-	LivenessProbeEvent eventlog.Event = "01DF91XTSXWVDJQ4XJ432KQFXY"
+	LivenessProbeEvent = "01DF91XTSXWVDJQ4XJ432KQFXY"
 )

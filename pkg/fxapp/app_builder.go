@@ -181,12 +181,12 @@ func (b *builder) Build() (App, error) {
 		Shutdowner: shutdowner,
 	}
 	app.startErrorHandlers = append(app.startErrorHandlers, func(e error) {
-		logEvent := StartFailedEvent.NewErrorLogger(logger)
-		logEvent(nil, e, "app start failed")
+		logEvent := eventlog.NewLogger(StartFailedEvent, logger, zerolog.ErrorLevel)
+		logEvent(eventlog.NewError(e), "app start failed")
 	})
 	app.stopErrorHandlers = append(app.stopErrorHandlers, func(e error) {
-		logEvent := StopFailedEvent.NewErrorLogger(logger)
-		logEvent(nil, e, "app stop failed")
+		logEvent := eventlog.NewLogger(StopFailedEvent, logger, zerolog.ErrorLevel)
+		logEvent(eventlog.NewError(e), "app stop failed")
 	})
 
 	if err := app.Err(); err != nil {
@@ -243,8 +243,8 @@ func (b *builder) options() []fx.Option {
 			compOptions = append(compOptions, fx.ErrorHook(errorHandler(f)))
 		}
 		compOptions = append(compOptions, fx.ErrorHook(errorHandler(func(err error) {
-			logEvent := InitFailedEvent.NewErrorLogger(logger)
-			logEvent(nil, err, "app init failed")
+			logEvent := eventlog.NewLogger(InitFailedEvent, logger, zerolog.ErrorLevel)
+			logEvent(eventlog.NewError(err), "app init failed")
 		})))
 	}
 
@@ -301,8 +301,8 @@ func healthCheckReadiness(registeredChecks health.RegisteredChecks, checkResults
 // - register health check gauge
 func handleHealthCheckRegistrations(subscribeForRegisteredChecks health.SubscribeForRegisteredChecks, subscribeForCheckResults health.SubscribeForCheckResults, checkResults health.CheckResults, metricRegisterer prometheus.Registerer, lc fx.Lifecycle, logger *zerolog.Logger) {
 	done := make(chan struct{})
-	logHealthCheckRegistered := HealthCheckRegisteredEvent.NewLogger(logger, zerolog.NoLevel)
-	logHealthCheckGaugeRegistrationError := HealthCheckGaugeRegistrationErrorEvent.NewErrorLogger(logger)
+	logHealthCheckRegistered := eventlog.NewLogger(HealthCheckRegisteredEvent, logger, zerolog.NoLevel)
+	logHealthCheckGaugeRegistrationError := eventlog.NewLogger(HealthCheckGaugeRegistrationErrorEvent, logger, zerolog.ErrorLevel)
 	healthCheckRegistered := subscribeForRegisteredChecks()
 	go func() {
 		for {
@@ -311,10 +311,10 @@ func handleHealthCheckRegistrations(subscribeForRegisteredChecks health.Subscrib
 				return
 			case registeredCheck, ok := <-healthCheckRegistered.Chan():
 				if ok {
-					logHealthCheckRegistered(&healthCheck{registeredCheck}, "health check registered")
+					logHealthCheckRegistered(&healthCheck{registeredCheck, nil}, "health check registered")
 					if err := registerHealthCheckGauge(done, registeredCheck, subscribeForCheckResults, checkResults, metricRegisterer); err != nil {
 						// this should never happen
-						logHealthCheckGaugeRegistrationError(&healthCheck{registeredCheck}, err, "health check failed to register")
+						logHealthCheckGaugeRegistrationError(&healthCheck{registeredCheck, err}, "health check failed to register")
 					}
 				}
 			}
@@ -345,9 +345,9 @@ func logHealthCheckResults(subscribe health.SubscribeForCheckResults, logger *ze
 //
 // NOTE: this is extracted out in order to make it testable
 func startHealthCheckLoggerFunc(healthCheckResults health.CheckResultsSubscription, logger *zerolog.Logger, done <-chan struct{}) func() {
-	logGreenHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.NoLevel)
-	logYellowHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.WarnLevel)
-	logRedHealthCheck := HealthCheckResultEvent.NewLogger(logger, zerolog.ErrorLevel)
+	logGreenHealthCheck := eventlog.NewLogger(HealthCheckResultEvent, logger, zerolog.NoLevel)
+	logYellowHealthCheck := eventlog.NewLogger(HealthCheckResultEvent, logger, zerolog.WarnLevel)
+	logRedHealthCheck := eventlog.NewLogger(HealthCheckResultEvent, logger, zerolog.ErrorLevel)
 	return func() {
 		for {
 			select {

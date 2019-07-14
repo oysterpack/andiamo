@@ -19,37 +19,28 @@ package eventlog_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"github.com/oysterpack/andiamo/pkg/eventlog"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"strings"
 	"testing"
 )
 
+const Foo = "01DE2Z4E07E4T0GJJXCG8NN6A0"
+
 type FooLogger func(id FooID, tags ...string)
-
-func NewFooLogger(logger *zerolog.Logger) FooLogger {
-	logEvent := Foo.NewLogger(logger, zerolog.InfoLevel)
-	return func(event FooID, tags ...string) {
-		logEvent(event, "foo", tags...)
-	}
-}
-
-type LogFooFailure func(id FooID, err error, tags ...string)
-
-func NewFooErrorLogger(logger *zerolog.Logger) LogFooFailure {
-	log := Foo.NewErrorLogger(logger)
-	return func(id FooID, err error, tags ...string) {
-		log(id, err, "foo", tags...)
-	}
-}
-
-const Foo eventlog.Event = "01DE2Z4E07E4T0GJJXCG8NN6A0"
 
 type FooID string
 
 func (id FooID) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("id", string(id))
+}
+
+func NewFooLogger(logger *zerolog.Logger) FooLogger {
+	logEvent := eventlog.NewLogger(Foo, logger, zerolog.InfoLevel)
+	return func(event FooID, tags ...string) {
+		logEvent(event, "foo", tags...)
+	}
 }
 
 func TestEvent_Logger(t *testing.T) {
@@ -108,16 +99,16 @@ func TestEvent_Logger(t *testing.T) {
 
 }
 
-func TestEvent_NewErrorLogger(t *testing.T) {
+func TestNewError(t *testing.T) {
 	t.Parallel()
 
 	buf := new(bytes.Buffer)
 	logger := zerolog.New(buf)
-	logFooFailure := NewFooErrorLogger(&logger)
-	logFooFailure(FooID("01DF6P4G2WZ7HKDBES9YPXRHQ0"), errors.New("failure to connect"), "tag-a", "tag-b")
+	logFooError := eventlog.NewLogger(Foo, &logger, zerolog.ErrorLevel)
+	logFooError(eventlog.NewError(errors.New("BOOM")), "error message", "tag-a", "tag-b")
 
 	type Data struct {
-		ID string
+		Err string `json:"e"`
 	}
 
 	type LogEvent struct {
@@ -125,7 +116,6 @@ func TestEvent_NewErrorLogger(t *testing.T) {
 		Name    string   `json:"n"`
 		Message string   `json:"m"`
 		Tags    []string `json:"g"`
-		Err     string   `json:"e"`
 		Data    Data     `json:"d"`
 	}
 	var logEvent LogEvent
@@ -148,7 +138,7 @@ func TestEvent_NewErrorLogger(t *testing.T) {
 		if logEvent.Level != "error" {
 			t.Errorf("*** level did not match: %v", logEvent.Level)
 		}
-		if logEvent.Data.ID != "01DF6P4G2WZ7HKDBES9YPXRHQ0" {
+		if logEvent.Data.Err != "BOOM" {
 			t.Error("*** event data was not logged")
 		}
 		if len(logEvent.Tags) != 2 {
@@ -158,15 +148,8 @@ func TestEvent_NewErrorLogger(t *testing.T) {
 				t.Errorf("*** tags don't match: %v", logEvent.Tags)
 			}
 		}
-		if logEvent.Err != "failure to connect" {
-			t.Errorf("*** error did not match: %v", logEvent.Err)
-		}
-		if logEvent.Message != "foo" {
-			t.Errorf("*** message did not match: %v", logEvent.Message)
-		}
 
 	default:
 		t.Error("*** event was not logged")
 	}
-
 }
