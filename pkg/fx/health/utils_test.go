@@ -14,39 +14,31 @@
  * limitations under the License.
  */
 
-package test
+package health_test
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/fx"
 	"testing"
 )
 
-func TestTypeAlias(t *testing.T) {
-	var shutdowner fx.Shutdowner
-	app := fx.New(
-		fx.Invoke(func(lc fx.Lifecycle) {
-			lc.Append(fx.Hook{
-				OnStart: func(context.Context) error {
-					t.Log("starting")
-					return nil
-				},
-				OnStop: func(context.Context) error {
-					t.Log("stopping")
-					return nil
-				},
-			})
-		}),
-		fx.Populate(&shutdowner),
-	)
-	app.Start(context.Background())
-	if err := app.Stop(context.Background()); err != nil {
-		t.Error(err)
+func runApp(t *testing.T, app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), app.StopTimeout())
+		defer cancel()
+		if err := app.Stop(ctx); err != nil {
+			assert.Error(t, err, "app failed to stop")
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), app.StartTimeout())
+	defer cancel()
+	if err := app.Start(ctx); err != nil {
+		assert.Error(t, err, "app failed to start")
+		return
 	}
-	if err := app.Start(context.Background()); err != nil {
-		t.Error(err)
-	}
-	if err := app.Stop(context.Background()); err != nil {
-		t.Error(err)
+	for _, f := range funcs {
+		f()
 	}
 }

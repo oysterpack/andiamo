@@ -31,35 +31,6 @@ import (
 	"time"
 )
 
-func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
-	done := make(chan struct{})
-	defer func() {
-	ShutdownLoop:
-		for {
-			select {
-			case <-done:
-				break ShutdownLoop
-			default:
-				shutdowner.Shutdown()
-				runtime.Gosched()
-			}
-		}
-	}()
-
-	running := make(chan struct{})
-	go func() {
-		defer close(done)
-		close(running)
-		app.Run()
-	}()
-	<-running
-	runtime.Gosched()
-	for _, f := range funcs {
-		f()
-	}
-
-}
-
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
@@ -79,7 +50,7 @@ func TestRegister(t *testing.T) {
 	t.Run("register valid health check", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
@@ -91,13 +62,13 @@ func TestRegister(t *testing.T) {
 		)
 
 		require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
-		runApp(app, shutdowner)
+		runApp(t, app, shutdowner)
 	})
 
 	t.Run("register invalid health check - no fields set", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{}
@@ -116,7 +87,7 @@ func TestRegister(t *testing.T) {
 	t.Run("register invalid health check - tag is not valid ULID", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					InvalidHealthCheck := health.Check{
@@ -141,7 +112,7 @@ func TestRegister(t *testing.T) {
 	t.Run("register invalid health check - nil checker", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					return register(Foo, health.CheckerOpts{}, nil)
@@ -157,7 +128,7 @@ func TestRegister(t *testing.T) {
 	t.Run("register invalid health check - invalid checker opts", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					return register(Foo, health.CheckerOpts{Timeout: time.Minute, RunInterval: time.Millisecond}, func() (health.Status, error) {
@@ -175,7 +146,7 @@ func TestRegister(t *testing.T) {
 	t.Run("register duplicate health check", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
@@ -212,7 +183,7 @@ func TestRegister(t *testing.T) {
 
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					// And CheckerOpts were not specified
@@ -264,7 +235,7 @@ func TestRegister(t *testing.T) {
 		)
 
 		require.Nil(t, app.Err(), "*** app initialization failed : %v", app.Err())
-		runApp(app, shutdowner)
+		runApp(t, app, shutdowner)
 	})
 
 }
@@ -280,7 +251,7 @@ func TestRegisteredChecks(t *testing.T) {
 	t.Run("register 10 health checks", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
-			health.ModuleWithDefaults(),
+			health.Module(health.DefaultOpts()),
 			fx.Invoke(
 				func(register health.Register) error {
 					for i := 0; i < 10; i++ {
@@ -319,7 +290,7 @@ func TestRegisteredChecks(t *testing.T) {
 		)
 
 		require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
-		runApp(app, shutdowner)
+		runApp(t, app, shutdowner)
 	})
 
 }
@@ -335,7 +306,7 @@ func TestSubscribeForRegisteredChecks(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	var registeredChecks health.RegisteredCheckSubscription
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(subscribe health.SubscribeForRegisteredChecks) {
 				registeredChecks = subscribe()
@@ -373,13 +344,13 @@ func TestSubscribeForRegisteredChecks(t *testing.T) {
 		}
 	}
 
-	runApp(app, shutdowner)
+	runApp(t, app, shutdowner)
 }
 
 func TestCheckResults(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(register health.Register) error {
 				for i := 0; i < 10; i++ {
@@ -431,14 +402,14 @@ func TestCheckResults(t *testing.T) {
 	)
 
 	require.Nil(t, app.Err(), "%v", app.Err())
-	runApp(app, shutdowner)
+	runApp(t, app, shutdowner)
 }
 
 func TestSubscribeForCheckResults(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	var subscription health.CheckResultsSubscription
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(subscribe health.SubscribeForCheckResults) {
 				subscription = subscribe(func(result health.Result) bool {
@@ -507,7 +478,7 @@ func TestSubscribeForCheckResults(t *testing.T) {
 	default:
 	}
 
-	runApp(app, shutdowner)
+	runApp(t, app, shutdowner)
 }
 
 func TestRunningScheduledHealthChecks(t *testing.T) {
@@ -556,7 +527,7 @@ func TestRunningScheduledHealthChecks(t *testing.T) {
 
 		require.Nil(t, app.Err(), "%v", app.Err())
 
-		runApp(app, shutdowner, func() {
+		runApp(t, app, shutdowner, func() {
 			// wait for health check results to be reported
 			count := 1
 			for {
@@ -608,11 +579,11 @@ func TestRunningScheduledHealthChecks(t *testing.T) {
 
 		require.Nil(t, app.Err(), "%v", app.Err())
 
-		runApp(app, shutdowner, func() {
+		runApp(t, app, shutdowner, func() {
 			result := <-resultsSubscription.Chan()
 			t.Log(result)
-			assert.Equal(t, result.Status, health.Red, "health check should have timed out, which is considered a Red failure")
-			assert.Equal(t, result.Err, health.ErrTimeout, "error should have been timeout : %v", result.Err)
+			assert.Equal(t, health.Red, result.Status, "health check should have timed out, which is considered a Red failure")
+			assert.Contains(t, result.Err.Error(), health.ErrTimeout.Error(), "error should have been timeout : %v", result.Err)
 		})
 	})
 }
@@ -631,7 +602,7 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 	var subscribeForRegisteredChecks health.SubscribeForRegisteredChecks
 	var subscribeForCheckResults health.SubscribeForCheckResults
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(register health.Register) error {
 				return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
@@ -650,7 +621,7 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 	)
 
 	require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
-	runApp(app, shutdowner)
+	runApp(t, app, shutdowner)
 
 	assert.Error(t, register(
 		health.Check{

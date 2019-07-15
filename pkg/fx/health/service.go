@@ -25,30 +25,6 @@ import (
 	"time"
 )
 
-// Opts are used to configure the fx module.
-type Opts struct {
-	MinRunInterval time.Duration
-	MaxTimeout     time.Duration
-
-	DefaultTimeout     time.Duration
-	DefaultRunInterval time.Duration
-
-	MaxCheckParallelism uint8
-}
-
-// DefaultOpts constructs a new Opts using recommended default values.
-func DefaultOpts() Opts {
-	return Opts{
-		MinRunInterval: MinRunInterval,
-		MaxTimeout:     MaxTimeout,
-
-		DefaultRunInterval: DefaultRunInterval,
-		DefaultTimeout:     DefaultTimeout,
-
-		MaxCheckParallelism: MaxCheckParallelism,
-	}
-}
-
 type service struct {
 	Opts
 
@@ -209,6 +185,17 @@ func (s *service) Register(req registerRequest) error {
 	}
 
 	WithTimeout := func(id string, check func() (Status, error), timeout time.Duration) Checker {
+		healthCheckFailure := func(status Status, err error) error {
+			if status == Green {
+				return nil
+			}
+
+			return multierr.Append(
+				fmt.Errorf("health check failed: %s : %s", id, status),
+				err,
+			)
+		}
+
 		return func() Result {
 			reply := make(chan Result, 1)
 			timer := time.After(timeout)
@@ -220,7 +207,7 @@ func (s *service) Register(req registerRequest) error {
 					ID: id,
 
 					Status: status,
-					Err:    err,
+					Err:    healthCheckFailure(status, err),
 
 					Time:     start,
 					Duration: duration,
@@ -233,7 +220,7 @@ func (s *service) Register(req registerRequest) error {
 					ID: id,
 
 					Status: Red,
-					Err:    ErrTimeout,
+					Err:    healthCheckFailure(Red, ErrTimeout),
 
 					Time:     time.Now().Add(timeout * -1),
 					Duration: timeout,

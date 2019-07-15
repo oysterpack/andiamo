@@ -35,3 +35,15 @@ type CheckResultsSubscription struct {
 func (s CheckResultsSubscription) Chan() <-chan Result {
 	return s.ch
 }
+
+// OverallHealthMonitor publishes overall health changes.
+// When first created, it immediately sends the current status.
+// From that point on, when ever the overall health status changes, it is published.
+type OverallHealthMonitor struct {
+	ch chan Status
+}
+
+// Chan returns the chan in read-only mode
+func (m OverallHealthMonitor) Chan() <-chan Status {
+	return m.ch
+}

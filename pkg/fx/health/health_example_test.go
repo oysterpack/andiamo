@@ -19,7 +19,6 @@ package health_test
 import (
 	"context"
 	"github.com/oysterpack/andiamo/pkg/fx/health"
-	"github.com/pkg/errors"
 	"go.uber.org/fx"
 	"log"
 )
@@ -55,7 +54,7 @@ Red -> SQL error or operation took longer than 1 sec
 	var checkResults health.CheckResults
 	app := fx.New(
 		// install the health module using default options
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			// initialize subscribers
 			func(subscribe health.SubscribeForRegisteredChecks) {
@@ -63,13 +62,13 @@ Red -> SQL error or operation took longer than 1 sec
 			},
 			func(subscribe health.SubscribeForCheckResults) {
 				checkResultsSubscription = subscribe(func(result health.Result) bool {
-					return result.Status != health.Green
+					return result.ID == SmokeTest.ID
 				})
 			},
 			// register some health checks
 			func(register health.Register) error {
 				return register(DatabaseHealthCheck, health.CheckerOpts{}, func() (status health.Status, e error) {
-					return health.Yellow, errors.New("creating new session was too slow")
+					return health.Green, nil
 				})
 			},
 			func(register health.Register) error {
@@ -88,14 +87,20 @@ Red -> SQL error or operation took longer than 1 sec
 	if app.Err() != nil {
 		log.Panic(app.Err())
 	}
-	app.Start(context.Background())
-	defer app.Stop(context.Background())
+	if err := app.Start(context.Background()); err != nil {
+		log.Panic(err)
+	}
+	defer func() {
+		if err := app.Stop(context.Background()); err != nil {
+			log.Panic(err)
+		}
+	}()
 
 	// 2 health checks were registered
 	log.Println(<-registeredCheckSubscription.Chan())
 	log.Println(<-registeredCheckSubscription.Chan())
 
-	// we subscribed to receive health checks that are not Green
+	// we subscribed to receive health check results for the smoke test
 	log.Println(<-checkResultsSubscription.Chan())
 	// get all check results
 	log.Println(<-checkResults(nil))

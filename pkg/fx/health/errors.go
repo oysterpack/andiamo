@@ -27,6 +27,8 @@ var (
 
 	// ErrTimeout indicates a health check timed out.
 	ErrTimeout = errors.New("health check timed out")
+
+	ErrContextTimout = errors.New("context timed out")
 )
 
 // health check registration errors validation errors

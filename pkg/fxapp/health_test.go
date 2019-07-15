@@ -83,9 +83,9 @@ func TestRegisteredHealthChecksAreLogged(t *testing.T) {
 	buf := fxapptest.NewSyncLog()
 	_, err := fxapp.NewBuilder(fxapp.ID(ulids.MustNew()), fxapp.ReleaseID(ulids.MustNew())).
 		LogWriter(buf).
-		Invoke(func(register health.Register, subscribe health.SubscribeForRegisteredChecks) {
+		Invoke(func(register health.Register, subscribe health.SubscribeForRegisteredChecks) error {
 			healthCheckRegistered = subscribe().Chan()
-			register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
+			return register(Foo, health.CheckerOpts{}, func() (health.Status, error) {
 				return health.Green, nil
 			})
 		}).

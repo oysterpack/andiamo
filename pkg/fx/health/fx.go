@@ -18,17 +18,13 @@ package health
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"go.uber.org/fx"
 )
 
-// ModuleWithDefaults provides the fx Module for the health module
-func ModuleWithDefaults() fx.Option {
-	return Module(DefaultOpts())
-}
-
 // Module provides the fx Module for the health module
 func Module(opts Opts) fx.Option {
-	return fx.Options(
+	options := []fx.Option{
 		fx.Provide(
 			startService(opts),
 
@@ -40,7 +36,11 @@ func Module(opts Opts) fx.Option {
 			provideSubscribeForRegisteredChecks,
 			provideSubscribeForCheckResults,
 		),
-	)
+	}
+	if opts.FailFastOnStartup {
+		options = append(options, fx.Invoke(checkHealthOnStart))
+	}
+	return fx.Options(options...)
 }
 
 func startService(svcOpts Opts) func(lc fx.Lifecycle) *service {
@@ -166,4 +166,49 @@ func provideSubscribeForCheckResults(s *service) SubscribeForCheckResults {
 			}
 		}
 	}
+}
+
+func checkHealthOnStart(lc fx.Lifecycle, checks RegisteredChecks, checkResults CheckResults) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			registeredCheckChan := checks()
+			select {
+			case <-ctx.Done():
+				return ErrContextTimout
+			case registeredChecks, ok := <-registeredCheckChan:
+				if !ok {
+					return errors.New("failed to get registered health checks because the channel is closed")
+				}
+				if len(registeredChecks) == 0 {
+					return nil
+				}
+
+				// Health checks are run immediately in the background after they are registered. Thus, get all of the cached
+				// green results. If there is no cached green result, then run the health check now. If any health check fails,
+				// then return the error, which will cause the app start up to fail.
+				select {
+				case <-ctx.Done():
+					return ErrContextTimout
+				case results, ok := <-checkResults(func(result Result) bool { return result.Status == Green }):
+					if !ok {
+						return errors.New("failed to get health check results because the channel is closed")
+					}
+					// if any health checks are not green, then run them now. If any fail, i.e., not green then app start up will fail
+				RegisteredChecks:
+					for _, registeredCheck := range registeredChecks {
+						for _, result := range results {
+							if result.ID == registeredCheck.ID {
+								continue RegisteredChecks
+							}
+						}
+						if result := registeredCheck.Checker(); result.Status != Green {
+							return result.Err
+						}
+					}
+				}
+			}
+
+			return nil
+		},
+	})
 }

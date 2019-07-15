@@ -45,7 +45,7 @@ func TestLogYellowHealthCheckResult(t *testing.T) {
 	var subscription health.CheckResultsSubscription
 	var healthCheckResults health.CheckResults
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(subscribe health.SubscribeForCheckResults) {
 				subscription = subscribe(func(result health.Result) bool {
@@ -164,7 +164,7 @@ func TestLogRedHealthCheckResult(t *testing.T) {
 	var subscription health.CheckResultsSubscription
 	var healthCheckResults health.CheckResults
 	app := fx.New(
-		health.ModuleWithDefaults(),
+		health.Module(health.DefaultOpts()),
 		fx.Invoke(
 			func(subscribe health.SubscribeForCheckResults) {
 				subscription = subscribe(func(result health.Result) bool {

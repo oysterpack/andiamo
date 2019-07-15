@@ -222,7 +222,7 @@ func (b *builder) options() []fx.Option {
 		livenessProbe,
 		livenessProbeHTTPHandler,
 	))
-	compOptions = append(compOptions, health.ModuleWithDefaults())
+	compOptions = append(compOptions, health.Module(health.DefaultOpts()))
 	compOptions = append(compOptions, fx.Provide(b.constructors...))
 	compOptions = append(compOptions, fx.Invoke(
 		handleHealthCheckRegistrations,
