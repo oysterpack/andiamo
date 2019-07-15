@@ -60,7 +60,7 @@ func runApp(app *fx.App, shutdowner fx.Shutdowner, funcs ...func()) {
 
 }
 
-func TestService_Register(t *testing.T) {
+func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -195,26 +195,21 @@ func TestService_Register(t *testing.T) {
 		t.Log(app.Err())
 	})
 
-}
+	t.Run("register valid health check with fields whitespace padding", func(t *testing.T) {
+		// Given Check fields are padded with whitespace
+		const (
+			Database = "  01DFGP2MJB9B8BMWA6Q2H4JD9Z  "
+			MongoDB  = "  01DFGP3TS31D016DHS9415JFBB  "
+		)
 
-func TestService_SendRegisteredChecks(t *testing.T) {
-	t.Parallel()
+		var Foo = health.Check{
+			ID:           "  01DFGJ4A2GBTSQR11YYMV0N086  ",
+			Description:  "  Foo  ",
+			RedImpact:    "  App is unusable  ",
+			YellowImpact: "  App performance degradation  ",
+			Tags:         []string{Database, MongoDB},
+		}
 
-	// Given Check fields are padded with whitespace
-	const (
-		Database = "  01DFGP2MJB9B8BMWA6Q2H4JD9Z  "
-		MongoDB  = "  01DFGP3TS31D016DHS9415JFBB  "
-	)
-
-	var Foo = health.Check{
-		ID:           "  01DFGJ4A2GBTSQR11YYMV0N086  ",
-		Description:  "  Foo  ",
-		RedImpact:    "  App is unusable  ",
-		YellowImpact: "  App performance degradation  ",
-		Tags:         []string{Database, MongoDB},
-	}
-
-	t.Run("register valid health check", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
 			health.ModuleWithDefaults(),
@@ -272,6 +267,16 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 		runApp(app, shutdowner)
 	})
 
+}
+
+func TestRegisteredChecks(t *testing.T) {
+	t.Parallel()
+
+	const (
+		Database = "01DFGP2MJB9B8BMWA6Q2H4JD9Z"
+		MongoDB  = "01DFGP3TS31D016DHS9415JFBB"
+	)
+
 	t.Run("register 10 health checks", func(t *testing.T) {
 		var shutdowner fx.Shutdowner
 		app := fx.New(
@@ -316,9 +321,10 @@ func TestService_SendRegisteredChecks(t *testing.T) {
 		require.Nil(t, app.Err(), "app initialization failed : %v", app.Err())
 		runApp(app, shutdowner)
 	})
+
 }
 
-func TestService_SubscribeForRegisteredChecks(t *testing.T) {
+func TestSubscribeForRegisteredChecks(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -370,7 +376,7 @@ func TestService_SubscribeForRegisteredChecks(t *testing.T) {
 	runApp(app, shutdowner)
 }
 
-func TestService_CheckResults(t *testing.T) {
+func TestCheckResults(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	app := fx.New(
 		health.ModuleWithDefaults(),
@@ -428,7 +434,7 @@ func TestService_CheckResults(t *testing.T) {
 	runApp(app, shutdowner)
 }
 
-func TestService_SubscribeForCheckResults(t *testing.T) {
+func TestSubscribeForCheckResults(t *testing.T) {
 	var shutdowner fx.Shutdowner
 	var subscription health.CheckResultsSubscription
 	app := fx.New(
@@ -504,7 +510,7 @@ func TestService_SubscribeForCheckResults(t *testing.T) {
 	runApp(app, shutdowner)
 }
 
-func TestService_RunningScheduledHealthChecks(t *testing.T) {
+func TestRunningScheduledHealthChecks(t *testing.T) {
 	t.Parallel()
 
 	const (
