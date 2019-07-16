@@ -46,3 +46,33 @@ func DefaultOpts() Opts {
 		MaxCheckParallelism: MaxCheckParallelism,
 	}
 }
+
+// SetMinRunInterval sets the min health check run interval
+func (o Opts) SetMinRunInterval(runInterval time.Duration) Opts {
+	o.MinRunInterval = runInterval
+	return o
+}
+
+// SetMaxTimeout sets the max health check timeout
+func (o Opts) SetMaxTimeout(timeout time.Duration) Opts {
+	o.MaxTimeout = timeout
+	return o
+}
+
+// SetDefaultTimeout sets the default health check timeout
+func (o Opts) SetDefaultTimeout(timeout time.Duration) Opts {
+	o.DefaultTimeout = timeout
+	return o
+}
+
+// SetDefaultRunInterval sets the default health check run interval
+func (o Opts) SetDefaultRunInterval(runInterval time.Duration) Opts {
+	o.DefaultRunInterval = runInterval
+	return o
+}
+
+// SetFailFastOnStartup sets the fail fast on startup setting
+func (o Opts) SetFailFastOnStartup(failFastOnStartup bool) Opts {
+	o.FailFastOnStartup = failFastOnStartup
+	return o
+}

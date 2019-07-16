@@ -59,7 +59,7 @@ func TestModuleConfiguredToRunChecksOnStartUp(t *testing.T) {
 		}
 	})
 
-	t.Run("app start up times out", func(t *testing.T) {
+	t.Run("app start up times out before health checks complete", func(t *testing.T) {
 		opts := health.DefaultOpts()
 		opts.FailFastOnStartup = true
 		app := fx.New(
@@ -87,6 +87,23 @@ func TestModuleConfiguredToRunChecksOnStartUp(t *testing.T) {
 		} else {
 			t.Log(err)
 			assert.Contains(t, err.Error(), "context deadline exceeded")
+		}
+	})
+
+	t.Run("app has no health checks", func(t *testing.T) {
+		opts := health.DefaultOpts()
+		opts.FailFastOnStartup = true
+		app := fx.New(
+			health.Module(opts),
+		)
+
+		assert.NoError(t, app.Err(), "app failed to initialize")
+
+		if err := app.Start(context.Background()); err != nil {
+			assert.Error(t, err, "app failed to start")
+		}
+		if err := app.Stop(context.Background()); err != nil {
+			assert.Error(t, err, "app failed to stop")
 		}
 	})
 

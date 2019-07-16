@@ -17,6 +17,7 @@
 package health_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/andiamo/pkg/fx/health"
@@ -646,4 +647,147 @@ func TestInvokingFunctionsAfterServiceIsShutDown(t *testing.T) {
 
 	_, ok = <-subscribeForCheckResults(nil).Chan()
 	assert.False(t, ok, "channel should be closed")
+}
+
+func TestOverallHealth(t *testing.T) {
+
+	t.Run("all health checks are green", func(t *testing.T) {
+		var overallHealth health.OverallHealth
+		app := fx.New(
+			health.Module(health.DefaultOpts().SetFailFastOnStartup(true)),
+			fx.Invoke(
+				func(register health.Register) error {
+					for i := 0; i < 10; i++ {
+						err := register(health.Check{
+							ID:          ulids.MustNew().String(),
+							Description: fmt.Sprintf("Check #%d", i),
+							RedImpact:   fmt.Sprintf("red impact #%d", i),
+						}, health.CheckerOpts{}, func() (status health.Status, e error) {
+							return health.Green, nil
+						})
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			),
+			fx.Populate(&overallHealth),
+		)
+
+		assert.NoError(t, app.Err(), "app failed to initialize")
+		assert.NoError(t, app.Start(context.Background()), "app failed to start")
+		assert.Equal(t, health.Green, overallHealth())
+		assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
+	})
+
+	t.Run("1 health check is Yellow", func(t *testing.T) {
+		var overallHealth health.OverallHealth
+		app := fx.New(
+			health.Module(health.DefaultOpts()),
+			fx.Invoke(
+				func(register health.Register) error {
+					for i := 0; i < 3; i++ {
+						err := register(health.Check{
+							ID:          ulids.MustNew().String(),
+							Description: fmt.Sprintf("Check #%d", i),
+							RedImpact:   fmt.Sprintf("red impact #%d", i),
+						}, health.CheckerOpts{}, func() (status health.Status, e error) {
+							return health.Green, nil
+						})
+						if err != nil {
+							return err
+						}
+					}
+					err := register(health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "Check",
+						RedImpact:   "red impact",
+					}, health.CheckerOpts{}, func() (status health.Status, e error) {
+						return health.Yellow, errors.New("yellow error")
+					})
+					if err != nil {
+						return err
+					}
+					return nil
+				},
+			),
+			fx.Populate(&overallHealth),
+		)
+
+		assert.NoError(t, app.Err(), "app failed to initialize")
+		assert.NoError(t, app.Start(context.Background()), "app failed to start")
+
+		// health checks are run async - thus, let's wait until
+		deadline := time.Now().Add(time.Second)
+		for {
+			if overallHealth() == health.Yellow {
+				break
+			}
+			assert.False(t, time.Now().After(deadline), "running health checks is taking too long")
+			runtime.Gosched()
+			time.Sleep(time.Microsecond)
+		}
+
+		assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
+	})
+
+	t.Run("1 health check is Yellow", func(t *testing.T) {
+		var overallHealth health.OverallHealth
+		app := fx.New(
+			health.Module(health.DefaultOpts()),
+			fx.Invoke(
+				func(register health.Register) error {
+					for i := 0; i < 3; i++ {
+						err := register(health.Check{
+							ID:          ulids.MustNew().String(),
+							Description: fmt.Sprintf("Check #%d", i),
+							RedImpact:   fmt.Sprintf("red impact #%d", i),
+						}, health.CheckerOpts{}, func() (status health.Status, e error) {
+							return health.Green, nil
+						})
+						if err != nil {
+							return err
+						}
+					}
+					err := register(health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "Check",
+						RedImpact:   "red impact",
+					}, health.CheckerOpts{}, func() (status health.Status, e error) {
+						return health.Yellow, errors.New("yellow error")
+					})
+
+					err = register(health.Check{
+						ID:          ulids.MustNew().String(),
+						Description: "Check",
+						RedImpact:   "red impact",
+					}, health.CheckerOpts{}, func() (status health.Status, e error) {
+						return health.Red, errors.New("yellow error")
+					})
+					if err != nil {
+						return err
+					}
+					return nil
+				},
+			),
+			fx.Populate(&overallHealth),
+		)
+
+		assert.NoError(t, app.Err(), "app failed to initialize")
+		assert.NoError(t, app.Start(context.Background()), "app failed to start")
+
+		// health checks are run async - thus, let's wait until
+		deadline := time.Now().Add(time.Second)
+		for {
+			if overallHealth() == health.Red {
+				break
+			}
+			assert.False(t, time.Now().After(deadline), "running health checks is taking too long")
+			runtime.Gosched()
+			time.Sleep(time.Microsecond)
+		}
+
+		assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
+	})
 }

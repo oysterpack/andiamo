@@ -35,6 +35,8 @@ func Module(opts Opts) fx.Option {
 
 			provideSubscribeForRegisteredChecks,
 			provideSubscribeForCheckResults,
+
+			provideOverallHealth,
 		),
 	}
 	if opts.FailFastOnStartup {
@@ -211,4 +213,21 @@ func checkHealthOnStart(lc fx.Lifecycle, checks RegisteredChecks, checkResults C
 			return nil
 		},
 	})
+}
+
+func provideOverallHealth(s *service) OverallHealth {
+	return func() Status {
+		reply := make(chan Status, 1)
+		select {
+		case <-s.stop:
+			return Red
+		case s.getOverallHealth <- reply:
+			select {
+			case <-s.stop:
+				return Red
+			case status := <-reply:
+				return status
+			}
+		}
+	}
 }

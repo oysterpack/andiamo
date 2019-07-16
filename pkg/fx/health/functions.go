@@ -42,5 +42,5 @@ type MonitorOverallHealth func() OverallHealthMonitor
 // OverallHealth returns the overall health status.
 //  - `Green` if all health checks are `Green`
 //  - `Yellow` if there is at least 1 `Yellow` and no `Red`
-//  - `Red` if at least 1 health check has a `Red` status, or if not all health checks have been run yet
+//  - `Red` if at least 1 health check has a `Red` status
 type OverallHealth func() Status

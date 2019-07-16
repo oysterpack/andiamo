@@ -34,6 +34,7 @@ type service struct {
 	register            chan registerRequest
 	getRegisteredChecks chan chan<- []RegisteredCheck
 	getCheckResults     chan checkResultsRequest
+	getOverallHealth    chan chan<- Status
 
 	subscribeForRegisteredChecks     chan subscribeForRegisteredChecksRequest
 	subscriptionsForRegisteredChecks map[chan<- RegisteredCheck]struct{}
@@ -60,6 +61,7 @@ func newService(opts Opts) *service {
 		register:            make(chan registerRequest),
 		getRegisteredChecks: make(chan chan<- []RegisteredCheck),
 		getCheckResults:     make(chan checkResultsRequest),
+		getOverallHealth:    make(chan chan<- Status),
 
 		subscribeForRegisteredChecks:     make(chan subscribeForRegisteredChecksRequest),
 		subscriptionsForRegisteredChecks: make(map[chan<- RegisteredCheck]struct{}),
@@ -95,6 +97,8 @@ func (s *service) run() {
 			s.SubscribeForRegisteredChecks(req)
 		case req := <-s.subscribeForCheckResults:
 			s.SubscribeForCheckResults(req)
+		case reply := <-s.getOverallHealth:
+			reply <- s.OverallHealth()
 		}
 	}
 }
@@ -391,4 +395,18 @@ func (s *service) SubscribeForCheckResults(req subscribeForCheckResults) {
 
 	defer close(req.reply)
 	req.reply <- ch
+}
+
+func (s *service) OverallHealth() Status {
+	var status Status
+	for _, result := range s.runResults {
+		switch result.Status {
+		case Yellow:
+			status = result.Status
+		case Red:
+			return Red
+		}
+	}
+
+	return status
 }
