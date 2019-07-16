@@ -490,12 +490,14 @@ func TestRunningScheduledHealthChecks(t *testing.T) {
 		MongoDB  = "01DFGP3TS31D016DHS9415JFBB"
 	)
 
-	var Foo = health.Check{
-		ID:           "01DFGJ4A2GBTSQR11YYMV0N086",
-		Description:  "Foo",
-		RedImpact:    "App is unusable",
-		YellowImpact: "App performance degradation",
-		Tags:         []string{Database, MongoDB},
+	Foo := func() health.Check {
+		return health.Check{
+			ID:           "01DFGJ4A2GBTSQR11YYMV0N086",
+			Description:  "Foo",
+			RedImpact:    "App is unusable",
+			YellowImpact: "App performance degradation",
+			Tags:         []string{Database, MongoDB},
+		}
 	}
 
 	t.Run("health check runs on schedule", func(t *testing.T) {
@@ -518,7 +520,7 @@ func TestRunningScheduledHealthChecks(t *testing.T) {
 						Timeout:     time.Millisecond,
 						RunInterval: time.Microsecond,
 					}
-					return register(Foo, checkerOpts, func() (health.Status, error) {
+					return register(Foo(), checkerOpts, func() (health.Status, error) {
 						return health.Yellow, errors.New("error")
 					})
 				},
@@ -561,7 +563,7 @@ func TestRunningScheduledHealthChecks(t *testing.T) {
 					checkerOpts := health.CheckerOpts{
 						Timeout: time.Nanosecond,
 					}
-					return register(Foo, checkerOpts, func() (health.Status, error) {
+					return register(Foo(), checkerOpts, func() (health.Status, error) {
 						time.Sleep(time.Microsecond)
 						return health.Green, nil
 					})
@@ -750,22 +752,23 @@ func TestOverallHealth(t *testing.T) {
 							return err
 						}
 					}
-					err := register(health.Check{
+					if err := register(health.Check{
 						ID:          ulids.MustNew().String(),
 						Description: "Check",
 						RedImpact:   "red impact",
 					}, health.CheckerOpts{}, func() (status health.Status, e error) {
 						return health.Yellow, errors.New("yellow error")
-					})
+					}); err != nil {
+						return err
+					}
 
-					err = register(health.Check{
+					if err := register(health.Check{
 						ID:          ulids.MustNew().String(),
 						Description: "Check",
 						RedImpact:   "red impact",
 					}, health.CheckerOpts{}, func() (status health.Status, e error) {
 						return health.Red, errors.New("yellow error")
-					})
-					if err != nil {
+					}); err != nil {
 						return err
 					}
 					return nil

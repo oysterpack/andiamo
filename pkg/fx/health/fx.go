@@ -18,8 +18,12 @@ package health
 
 import (
 	"context"
+	"fmt"
+	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/fx"
+	"go.uber.org/multierr"
+	"strings"
 )
 
 // Module provides the fx Module for the health module
@@ -60,7 +64,46 @@ func startService(svcOpts Opts) func(lc fx.Lifecycle) *service {
 }
 
 func provideRegisterFunc(s *service) Register {
+	TrimSpace := func(check Check) Check {
+		check.ID = strings.TrimSpace(check.ID)
+		check.Description = strings.TrimSpace(check.Description)
+		check.RedImpact = strings.TrimSpace(check.RedImpact)
+		check.YellowImpact = strings.TrimSpace(check.YellowImpact)
+
+		for i := 0; i < len(check.Tags); i++ {
+			check.Tags[i] = strings.TrimSpace(check.Tags[i])
+		}
+
+		return check
+	}
+
+	Validate := func(check Check) error {
+		_, err := ulids.Parse(check.ID)
+		if err != nil {
+			err = multierr.Append(ErrIDNotULID, err)
+		}
+		if check.Description == "" {
+			err = multierr.Append(err, ErrBlankDescription)
+		}
+		if check.RedImpact == "" {
+			err = multierr.Append(err, ErrBlankRedImpact)
+		}
+		for _, tag := range check.Tags {
+			if _, err = ulids.Parse(tag); err != nil {
+				err = multierr.Append(ErrTagNotULID, err)
+				break
+			}
+		}
+
+		return err
+	}
+
 	return func(check Check, opts CheckerOpts, checker func() (Status, error)) error {
+		check = TrimSpace(check)
+		if err := Validate(check); err != nil {
+			return multierr.Append(fmt.Errorf("invalid health check: %#v", check), err)
+		}
+
 		reply := make(chan error, 1) // a chan buf size 1 decouples the producer from the consumer
 		req := registerRequest{
 			check:   check,

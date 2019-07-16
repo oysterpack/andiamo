@@ -18,10 +18,8 @@ package health
 
 import (
 	"fmt"
-	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"strings"
 	"time"
 )
 
@@ -154,40 +152,6 @@ type registerRequest struct {
 }
 
 func (s *service) Register(req registerRequest) error {
-	TrimSpace := func(check Check) Check {
-		check.ID = strings.TrimSpace(check.ID)
-		check.Description = strings.TrimSpace(check.Description)
-		check.RedImpact = strings.TrimSpace(check.RedImpact)
-		check.YellowImpact = strings.TrimSpace(check.YellowImpact)
-
-		for i := 0; i < len(check.Tags); i++ {
-			check.Tags[i] = strings.TrimSpace(check.Tags[i])
-		}
-
-		return check
-	}
-
-	Validate := func(check Check) error {
-		_, err := ulids.Parse(check.ID)
-		if err != nil {
-			err = multierr.Append(ErrIDNotULID, err)
-		}
-		if check.Description == "" {
-			err = multierr.Append(err, ErrBlankDescription)
-		}
-		if check.RedImpact == "" {
-			err = multierr.Append(err, ErrBlankRedImpact)
-		}
-		for _, tag := range check.Tags {
-			if _, err = ulids.Parse(tag); err != nil {
-				err = multierr.Append(ErrTagNotULID, err)
-				break
-			}
-		}
-
-		return err
-	}
-
 	WithTimeout := func(id string, check func() (Status, error), timeout time.Duration) Checker {
 		healthCheckFailure := func(status Status, err error) error {
 			if status == Green {
@@ -203,6 +167,7 @@ func (s *service) Register(req registerRequest) error {
 		return func() Result {
 			reply := make(chan Result, 1)
 			timer := time.After(timeout)
+			// run the check
 			go func() {
 				start := time.Now()
 				status, err := check()
@@ -218,20 +183,33 @@ func (s *service) Register(req registerRequest) error {
 				}
 			}()
 
-			select {
-			case <-timer:
-				return Result{
-					ID: id,
+			// wait for the check result with a timeout
+			result := func() Result {
+				select {
+				case <-timer: // health check timed out
+					return Result{
+						ID: id,
 
-					Status: Red,
-					Err:    healthCheckFailure(Red, ErrTimeout),
+						Status: Red,
+						Err:    healthCheckFailure(Red, ErrTimeout),
 
-					Time:     time.Now().Add(timeout * -1),
-					Duration: timeout,
+						Time:     time.Now().Add(timeout * -1),
+						Duration: timeout,
+					}
+				case result := <-reply:
+					return result
 				}
-			case result := <-reply:
-				return result
-			}
+			}()
+
+			// report the health check result
+			go func() {
+				select {
+				case <-s.stop:
+				case s.results <- result:
+				}
+			}()
+
+			return result
 		}
 	}
 
@@ -241,12 +219,7 @@ func (s *service) Register(req registerRequest) error {
 			defer func() {
 				s.runSemaphore <- struct{}{}
 			}()
-			go func() {
-				select {
-				case <-s.stop:
-				case s.results <- check():
-				}
-			}()
+			check()
 		}
 
 		// run the health check immediately
@@ -297,10 +270,7 @@ func (s *service) Register(req registerRequest) error {
 		}
 	}
 
-	check := TrimSpace(req.check)
-	if err := Validate(check); err != nil {
-		return multierr.Append(fmt.Errorf("invalid health check: %#v", check), err)
-	}
+	check := req.check
 
 	if req.checker == nil {
 		return multierr.Append(errors.New(check.ID), ErrNilChecker)
