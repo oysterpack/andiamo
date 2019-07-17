@@ -26,6 +26,13 @@
 // Health checks should be designed to run as fast as possible.
 //
 // The latest health check results are cached.
-// Interested parties can subscribe for health check results and registrations.
+// Interested parties can subscribe for the following health check events:
+//  - health check registrations
+//  - health check results
+//  - overall health status changes
 //
+// TODO:
+// 	1. health check http API
+//	2. health check grpc API
+//     - server streaming APIs for health check results and
 package health

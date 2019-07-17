@@ -41,6 +41,7 @@ func Module(opts Opts) fx.Option {
 			provideSubscribeForCheckResults,
 
 			provideOverallHealth,
+			provideMonitorOverallHealth,
 		),
 	}
 	if opts.FailFastOnStartup {
@@ -272,5 +273,29 @@ func provideOverallHealth(s *service) OverallHealth {
 				return status
 			}
 		}
+	}
+}
+
+func provideMonitorOverallHealth(s *service) MonitorOverallHealth {
+	return func() OverallHealthMonitor {
+		closedChan := func() OverallHealthMonitor {
+			ch := make(chan Status)
+			close(ch)
+			return OverallHealthMonitor{ch}
+		}
+
+		reply := make(chan chan Status)
+		select {
+		case <-s.stop:
+			return closedChan()
+		case s.subscribeForOverallHealthChanges <- reply:
+			select {
+			case <-s.stop:
+				return closedChan()
+			case ch := <-reply:
+				return OverallHealthMonitor{ch}
+			}
+		}
+
 	}
 }

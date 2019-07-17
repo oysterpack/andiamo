@@ -28,6 +28,7 @@ import (
 	"go.uber.org/fx"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -681,6 +682,8 @@ func TestOverallHealth(t *testing.T) {
 		assert.NoError(t, app.Start(context.Background()), "app failed to start")
 		assert.Equal(t, health.Green, overallHealth())
 		assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
+		// after the app has stopped, then the health status should be red
+		assert.Equal(t, health.Red, overallHealth())
 	})
 
 	t.Run("1 health check is Yellow", func(t *testing.T) {
@@ -793,4 +796,91 @@ func TestOverallHealth(t *testing.T) {
 
 		assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
 	})
+}
+
+func TestMonitorOverallHealth(t *testing.T) {
+	var healthStatus uint32
+
+	var monitorOverallHealth health.MonitorOverallHealth
+	var registeredCheckSubscription health.RegisteredCheckSubscription
+	app := fx.New(
+		health.Module(health.DefaultOpts().SetFailFastOnStartup(true)),
+		fx.Invoke(
+			func(subscribe health.SubscribeForRegisteredChecks) {
+				registeredCheckSubscription = subscribe()
+			},
+			func(register health.Register) error {
+				return register(health.Check{
+					ID:          ulids.MustNew().String(),
+					Description: "desc",
+					RedImpact:   "red impact",
+				}, health.CheckerOpts{}, func() (status health.Status, e error) {
+					switch health.Status(atomic.LoadUint32(&healthStatus)) {
+					case health.Green:
+						return health.Green, nil
+					case health.Yellow:
+						return health.Yellow, errors.New("yellow error")
+					default:
+						return health.Red, errors.New("red error")
+					}
+				})
+			},
+		),
+		fx.Populate(&monitorOverallHealth),
+	)
+
+	assert.NoError(t, app.Err(), "app failed to initialize")
+
+	healthMonitor := monitorOverallHealth()
+
+	assert.NoError(t, app.Start(context.Background()), "app failed to start")
+
+	// initial health status should be green
+	select {
+	case <-time.After(time.Second):
+		assert.Fail(t, "timed out waiting for overall health status")
+		return
+	case status := <-healthMonitor.Chan():
+		assert.Equal(t, health.Green, status)
+	}
+
+	select {
+	case <-time.After(time.Second):
+		assert.Fail(t, "timed out waiting for overall health status")
+		return
+	case check := <-registeredCheckSubscription.Chan():
+
+		atomic.StoreUint32(&healthStatus, uint32(health.Yellow))
+		assert.Equal(t, health.Yellow, check.Checker().Status)
+		select {
+		case <-time.After(time.Second):
+			assert.Fail(t, "timed out waiting for overall health status")
+		case status := <-healthMonitor.Chan():
+			assert.Equal(t, health.Yellow, status)
+		}
+
+		atomic.StoreUint32(&healthStatus, uint32(health.Red))
+		assert.Equal(t, health.Red, check.Checker().Status)
+		select {
+		case <-time.After(time.Second):
+			assert.Fail(t, "timed out waiting for overall health status")
+		case status := <-healthMonitor.Chan():
+			assert.Equal(t, health.Red, status)
+		}
+
+		atomic.StoreUint32(&healthStatus, uint32(health.Green))
+		assert.Equal(t, health.Green, check.Checker().Status)
+		select {
+		case <-time.After(time.Second):
+			assert.Fail(t, "timed out waiting for overall health status")
+		case status := <-healthMonitor.Chan():
+			assert.Equal(t, health.Green, status)
+		}
+	}
+
+	assert.NoError(t, app.Stop(context.Background()), "app failed to stop")
+
+	_, ok := <-monitorOverallHealth().Chan()
+	assert.False(t, ok, "after the app is stopped, new monitor channels should be closed")
+
 }

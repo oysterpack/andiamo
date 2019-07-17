@@ -34,8 +34,7 @@ type CheckResults func(filter func(result Result) bool) <-chan []Result
 // SubscribeForCheckResults is used to subscribe to health check results that match the specified filter
 type SubscribeForCheckResults func(filter func(result Result) bool) CheckResultsSubscription
 
-// MonitorOverallHealth is used to subscribe to health status changes
-// TODO:
+// MonitorOverallHealth is used to subscribe to overall health status changes
 type MonitorOverallHealth func() OverallHealthMonitor
 
 // OverallHealth returns the overall health status.

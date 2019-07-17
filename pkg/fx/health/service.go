@@ -40,6 +40,10 @@ type service struct {
 	subscribeForCheckResults     chan subscribeForCheckResults
 	subscriptionsForCheckResults map[chan<- Result]func(result Result) bool
 
+	subscribeForOverallHealthChanges     chan chan (chan Status)
+	subscriptionsForOverallHealthChanges map[chan<- Status]struct{}
+	overallHealth                        Status
+
 	// to protect the application and system from the health checks themselves we want to limit the number of health checks
 	// that are allowed to run concurrently
 	runSemaphore chan struct{}
@@ -67,6 +71,9 @@ func newService(opts Opts) *service {
 		subscribeForCheckResults:     make(chan subscribeForCheckResults),
 		subscriptionsForCheckResults: make(map[chan<- Result]func(result Result) bool),
 
+		subscribeForOverallHealthChanges:     make(chan chan (chan Status)),
+		subscriptionsForOverallHealthChanges: make(map[chan<- Status]struct{}),
+
 		runSemaphore: runSemaphore,
 		results:      make(chan Result),
 		runResults:   make(map[string]Result),
@@ -79,13 +86,13 @@ func (s *service) run() {
 	for {
 		select {
 		case <-s.stop:
-			s.Stop()
 			return
 		case req := <-s.register:
 			err := s.Register(req)
 			s.sendError(req.reply, err)
 		case result := <-s.results:
 			s.runResults[result.ID] = result
+			s.updateOverallHealth()
 			s.publishResult(result)
 		case replyChan := <-s.getRegisteredChecks:
 			s.SendRegisteredChecks(replyChan)
@@ -96,7 +103,9 @@ func (s *service) run() {
 		case req := <-s.subscribeForCheckResults:
 			s.SubscribeForCheckResults(req)
 		case reply := <-s.getOverallHealth:
-			reply <- s.OverallHealth()
+			reply <- s.overallHealth
+		case reply := <-s.subscribeForOverallHealthChanges:
+			s.SubscribeForOverallHealthChanges(reply)
 		}
 	}
 }
@@ -127,20 +136,30 @@ func (s *service) publishResult(result Result) {
 	}
 }
 
+// - compute the current overall health
+// - if the overall health status has changed, then notify monitors
+func (s *service) updateOverallHealth() {
+	previous := s.overallHealth
+	s.overallHealth = s.OverallHealth()
+	if previous == s.overallHealth {
+		return
+	}
+	for ch := range s.subscriptionsForOverallHealthChanges {
+		go func(ch chan<- Status, status Status) {
+			select {
+			case <-s.stop:
+			case ch <- status:
+			}
+		}(ch, s.overallHealth)
+	}
+}
+
 func (s *service) TriggerShutdown() {
 	select {
 	case <-s.stop:
 	default:
 		close(s.stop)
 	}
-}
-
-// Stop signals the service to shutdown
-func (s *service) Stop() {
-	for ch := range s.subscriptionsForRegisteredChecks {
-		close(ch)
-	}
-
 }
 
 type registerRequest struct {
@@ -379,4 +398,14 @@ func (s *service) OverallHealth() Status {
 	}
 
 	return status
+}
+
+func (s *service) SubscribeForOverallHealthChanges(reply chan (chan Status)) {
+	ch := make(chan Status, 1)
+	ch <- s.overallHealth
+	s.subscriptionsForOverallHealthChanges[ch] = struct{}{}
+	select {
+	case <-s.stop:
+	case reply <- ch:
+	}
 }
