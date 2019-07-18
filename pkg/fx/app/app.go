@@ -32,6 +32,10 @@ import (
 //	  - StartedEvent
 //	  - StoppingEvent
 //	  - StoppedEvent
+//	- app lifecycle error events:
+//	  - InitFailedEvent
+//	  - StartFailedEvent
+//    - StopFailedEvent
 func New(opts Opts, options ...fx.Option) *fx.App {
 	appOptions := make([]fx.Option, 0, len(options)+3)
 
