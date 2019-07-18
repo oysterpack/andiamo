@@ -17,7 +17,14 @@
 package app
 
 import (
+	"fmt"
 	"github.com/oklog/ulid"
+	"github.com/oysterpack/andiamo/pkg/ulids"
+	"github.com/rs/zerolog"
+	"go.uber.org/multierr"
+	"io"
+	"os"
+	"strings"
 )
 
 // Opts is used to configure the fx module
@@ -32,4 +39,84 @@ type Opts struct {
 
 	ID        ulid.ULID // if set, then it will not be loaded from the env
 	ReleaseID ulid.ULID // if set, then it will not be loaded from the env
+
+	LogWriter io.Writer // defaults to os.stderr
+	// GlobalLogLevel is used to get the global log level.
+	//
+	// If not explicitly set, then it will first try to lookup the log level from an env var ${EnvPrefix}_LOG_LEVEL.
+	// If the env var is not set, then `zerolog.InfoLevel` is returned.
+	GlobalLogLevel *zerolog.Level // defaults to zerolog.Info
+}
+
+func (o Opts) id() (func() ulid.ULID, error) {
+	zero := ulid.ULID{}
+	if o.ID == zero {
+		id, err := ulidFromEnv(o.EnvPrefix, "ID")
+		if err != nil {
+			return nil, err
+		}
+		return id, nil
+	}
+	return func() ulid.ULID { return o.ID }, nil
+}
+
+func (o Opts) releaseID() (func() ulid.ULID, error) {
+	zero := ulid.ULID{}
+	if o.ReleaseID == zero {
+		id, err := ulidFromEnv(o.EnvPrefix, "RELEASE_ID")
+		if err != nil {
+			return nil, err
+		}
+		return id, nil
+	}
+	return func() ulid.ULID { return o.ReleaseID }, nil
+}
+
+func (o Opts) globalLogLevel() (zerolog.Level, error) {
+	if o.GlobalLogLevel == nil {
+		levelStr, ok := os.LookupEnv(key(o.EnvPrefix, "LOG_LEVEL"))
+		if ok {
+			level, err := zerolog.ParseLevel(levelStr)
+			if err != nil {
+				return zerolog.InfoLevel, err
+			}
+			return level, nil
+		}
+		return zerolog.InfoLevel, nil
+	}
+
+	return *o.GlobalLogLevel, nil
+}
+
+func (o Opts) logWriter() io.Writer {
+	if o.LogWriter == nil {
+		return os.Stderr
+	}
+
+	return o.LogWriter
+}
+
+// ulidFromEnv will try to read a ULID from an env var using the following naming convention:
+//
+// 	${prefix}_ID
+//
+// prefix will get trimmed and uppercased. If prefix is blank then "APP12X" default value will be used
+func ulidFromEnv(prefix, name string) (func() ulid.ULID, error) {
+	id, ok := os.LookupEnv(key(prefix, name))
+	if !ok {
+		return nil, fmt.Errorf("env var is not defined: %q", key(prefix, name))
+	}
+	appID, err := ulids.Parse(id)
+	if err != nil {
+		return nil, multierr.Append(fmt.Errorf("failed to parse env var as ULID: %q", key(prefix, name)), err)
+	}
+	return func() ulid.ULID { return appID }, nil
+}
+
+func key(prefix, name string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		prefix = EnvPrefix
+	}
+	return strings.ToUpper(prefix + "_" + name)
 }

@@ -17,13 +17,12 @@
 package app
 
 import (
-	"fmt"
 	"github.com/oklog/ulid"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/oysterpack/andiamo/pkg/ulids"
+	"github.com/rs/zerolog"
 	"go.uber.org/fx"
-	"go.uber.org/multierr"
-	"os"
-	"strings"
+	"log"
 )
 
 // envconfig related constants
@@ -37,47 +36,73 @@ const (
 func Module(opts Opts) fx.Option {
 	return fx.Provide(
 		func() (ID, error) {
-			zero := ulid.ULID{}
-			if opts.ID == zero {
-				return ulidFromEnv(opts.EnvPrefix, "ID")
-			}
-			return func() ulid.ULID { return opts.ID }, nil
+			return opts.id()
 		},
 		func() (ReleaseID, error) {
-			zero := ulid.ULID{}
-			if opts.ReleaseID == zero {
-				return ulidFromEnv(opts.EnvPrefix, "RELEASE_ID")
-			}
-			return func() ulid.ULID { return opts.ReleaseID }, nil
+			return opts.releaseID()
 		},
 		func() InstanceID {
 			id := ulids.MustNew()
 			return func() ulid.ULID { return id }
 		},
+		provideEventLogger(opts),
 	)
 }
 
-// ulidFromEnv will try to read a ULID from an env var using the following naming convention:
+// application ID labels
 //
-// 	${prefix}_ID
+// - used to add app IDs to log events, e.g.,
 //
-// prefix will get trimmed and uppercased. If prefix is blank then "APP12X" default value will be used
-func ulidFromEnv(prefix, name string) (func() ulid.ULID, error) {
-	id, ok := os.LookupEnv(key(prefix, name))
-	if !ok {
-		return nil, fmt.Errorf("env var is not defined: %q", key(prefix, name))
+// 	 {"a":"01DG138TTVDX5JH5F4GMNC3V67","r":"01DG138TTVK4MVW3B5TJGDSKHR","x":"01DG138TTVYGSN7QWBFT9660SS","n":"foo","z":"01DG138TTVBHCXQW29QTQAWPNM","t":1563405085,"m":"bar"}
+const (
+	IDLabel         = "a"
+	ReleaseIDLabel  = "r"
+	InstanceIDLabel = "x"
+)
+
+func provideEventLogger(opts Opts) func(id ID, releaseID ReleaseID, instanceID InstanceID) (Logger, error) {
+	setGlobalLogLevel := func(opts Opts) error {
+		level, err := opts.globalLogLevel()
+		if err != nil {
+			return err
+		}
+		zerolog.SetGlobalLevel(level)
+		return nil
 	}
-	appID, err := ulids.Parse(id)
-	if err != nil {
-		return nil, multierr.Append(fmt.Errorf("failed to parse env var as ULID: %q", key(prefix, name)), err)
+
+	return func(id ID, releaseID ReleaseID, instanceID InstanceID) (Logger, error) {
+		if err := setGlobalLogLevel(opts); err != nil {
+			return nil, err
+		}
+
+		logger := eventlog.NewZeroLogger(opts.logWriter()).
+			With().
+			Str(IDLabel, ulid.ULID(id()).String()).
+			Str(ReleaseIDLabel, ulid.ULID(releaseID()).String()).
+			Str(InstanceIDLabel, ulid.ULID(instanceID()).String()).
+			Logger()
+
+		// use the logger as the go standard log output
+		log.SetFlags(0)
+		log.SetOutput(eventlog.ForComponent(&logger, "log"))
+
+		return func(event string, level zerolog.Level) eventlog.Logger {
+			return eventlog.NewLogger(event, &logger, level)
+		}, nil
 	}
-	return func() ulid.ULID { return appID }, nil
 }
 
-func key(prefix, name string) string {
-	prefix = strings.TrimSpace(prefix)
-	if prefix == "" {
-		prefix = EnvPrefix
-	}
-	return strings.ToUpper(prefix + "_" + name)
-}
+//type fxPrinter eventlog.Logger
+//
+//func (p fxPrinter) Printf(msg string, args ...interface{}) {
+//	switch {
+//	case len(args) == 0:
+//		p(nil, msg)
+//	default:
+//		p(nil, fmt.Sprintf(msg, args...))
+//	}
+//}
+//
+//func provideFxLogger(opts Opts) fx.Printer {
+//	return nil
+//}

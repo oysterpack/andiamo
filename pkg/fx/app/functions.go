@@ -16,7 +16,11 @@
 
 package app
 
-import "github.com/oklog/ulid"
+import (
+	"github.com/oklog/ulid"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
+	"github.com/rs/zerolog"
+)
 
 // ID returns the application ID, i.e., it corresponds to an application
 type ID func() ulid.ULID
@@ -26,3 +30,8 @@ type ReleaseID func() ulid.ULID
 
 // InstanceID returns the application instance ID, i.e., it corresponds to an application instance
 type InstanceID func() ulid.ULID
+
+// Logger returns a new application event logger
+//
+// 	- see `ZeroLogger` which provides the underlying app zerolog.Logger
+type Logger func(event string, level zerolog.Level) eventlog.Logger

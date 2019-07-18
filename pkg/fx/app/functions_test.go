@@ -17,9 +17,14 @@
 package app_test
 
 import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/andiamo/pkg/fx/app"
 	"github.com/oysterpack/andiamo/pkg/ulids"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/fx"
 	"os"
@@ -94,7 +99,6 @@ func TestAppIDs(t *testing.T) {
 		)
 
 		assert.NoError(t, a.Err(), "app failed to initialize")
-
 	})
 
 	t.Run("load from env - missing ID env var", func(t *testing.T) {
@@ -113,7 +117,6 @@ func TestAppIDs(t *testing.T) {
 		)
 
 		assert.Error(t, a.Err(), a.Err().Error())
-
 	})
 
 	t.Run("load from env - missing RELEASE_ID env var", func(t *testing.T) {
@@ -152,7 +155,6 @@ func TestAppIDs(t *testing.T) {
 		)
 
 		assert.Error(t, a.Err(), a.Err().Error())
-
 	})
 
 	t.Run("load from env - invalid RELEASE_ID ULID env var", func(t *testing.T) {
@@ -173,6 +175,82 @@ func TestAppIDs(t *testing.T) {
 
 		assert.Error(t, a.Err(), a.Err().Error())
 
+	})
+}
+
+func TestLogger(t *testing.T) {
+	t.Run("using defaults", func(t *testing.T) {
+		a := fx.New(
+			// Given the app module is plugged in
+			app.Module(app.Opts{
+				ID:        ulids.MustNew(),
+				ReleaseID: ulids.MustNew(),
+			}),
+			// When a Logger dependency is injected
+			fx.Invoke(func(logger app.Logger) {
+				// Then it available for used within the app
+				event := logger("foo", zerolog.NoLevel)
+				event(nil, "bar")
+			}),
+		)
+
+		// Then the app is initialized successfully
+		assert.NoError(t, a.Err())
+		assert.NoError(t, a.Start(context.Background()))
+		assert.NoError(t, a.Stop(context.Background()))
+
+		// And the default global log level is set to Info by default
+		assert.Equal(t, zerolog.GlobalLevel(), zerolog.InfoLevel)
+	})
+
+	t.Run("with log writer", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		var ID app.ID
+		var ReleaseID app.ReleaseID
+		var InstanceID app.InstanceID
+		a := fx.New(
+			app.Module(app.Opts{
+				ID:        ulids.MustNew(),
+				ReleaseID: ulids.MustNew(),
+				LogWriter: buf,
+			}),
+			fx.Invoke(func(logger app.Logger) {
+				event := logger("foo", zerolog.NoLevel)
+				event(nil, "bar")
+			}),
+			fx.Populate(&ID, &ReleaseID, &InstanceID),
+		)
+
+		assert.NoError(t, a.Err())
+		assert.NoError(t, a.Start(context.Background()))
+		assert.NoError(t, a.Stop(context.Background()))
+
+		assert.Equal(t, zerolog.GlobalLevel(), zerolog.InfoLevel)
+
+		// {"a":"01DG138TTVDX5JH5F4GMNC3V67","r":"01DG138TTVK4MVW3B5TJGDSKHR","x":"01DG138TTVYGSN7QWBFT9660SS","n":"foo","z":"01DG138TTVBHCXQW29QTQAWPNM","t":1563405085,"m":"bar"}
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+
+			AppID        string `json:"a"`
+			AppReleaseID string `json:"r"`
+			InstanceID   string `json:"x"`
+		}
+
+		r := bufio.NewReader(buf)
+		var logEvent LogEvent
+		for {
+			line, err := r.ReadString('\n')
+			t.Log(line)
+			if err != nil {
+				break
+			}
+			assert.NoError(t, json.Unmarshal([]byte(line), &logEvent), "failed to parse line: %s", line)
+			assert.Equal(t, ID().String(), logEvent.AppID)
+			assert.Equal(t, ReleaseID().String(), logEvent.AppReleaseID)
+			assert.Equal(t, InstanceID().String(), logEvent.InstanceID)
+		}
 	})
 
 }
