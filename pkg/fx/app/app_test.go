@@ -27,16 +27,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/fx"
 	"testing"
+	"time"
 )
 
 func TestNewApp(t *testing.T) {
 	buf := new(bytes.Buffer)
 	a := app.New(
-		app.Module(app.Opts{
+		app.Opts{
 			ID:        ulids.MustNew(),
 			ReleaseID: ulids.MustNew(),
 			LogWriter: buf,
-		}),
+		},
 		fx.Invoke(
 			func(logger app.Logger) {
 				event := logger("TestNewApp", zerolog.InfoLevel)
@@ -87,5 +88,70 @@ func TestNewApp(t *testing.T) {
 	}
 
 	assert.Empty(t, expectedEvents)
+}
 
+func TestApp_Go(t *testing.T) {
+	buf := new(bytes.Buffer)
+	shutdowner, done, err := app.Go(
+		app.Opts{
+			ID:        ulids.MustNew(),
+			ReleaseID: ulids.MustNew(),
+			LogWriter: buf,
+		},
+		fx.Invoke(
+			func(logger app.Logger) {
+				event := logger("TestNewApp", zerolog.InfoLevel)
+				event(nil, "CIAO MUNDO!!!")
+			},
+		),
+	)
+
+	assert.NoError(t, err)
+	shutdowner.Shutdown()
+	select {
+	case <-time.After(time.Second):
+		assert.Fail(t, "app shutdown timed out")
+		return
+	case err := <-done:
+		assert.NoError(t, err)
+	}
+
+	type Data struct {
+		Duration uint64
+	}
+
+	// {"a":"01DG138TTVDX5JH5F4GMNC3V67","r":"01DG138TTVK4MVW3B5TJGDSKHR","x":"01DG138TTVYGSN7QWBFT9660SS","n":"foo","z":"01DG138TTVBHCXQW29QTQAWPNM","t":1563405085,"m":"bar"}
+	type LogEvent struct {
+		Level   string `json:"l"`
+		Name    string `json:"n"`
+		Message string `json:"m"`
+
+		AppID        string `json:"a"`
+		AppReleaseID string `json:"r"`
+		InstanceID   string `json:"x"`
+
+		Data `json:"d"`
+	}
+
+	expectedEvents := map[string]struct{}{
+		app.InitializedEvent: struct{}{},
+		app.StartingEvent:    struct{}{},
+		app.StartedEvent:     struct{}{},
+		app.StoppingEvent:    struct{}{},
+		app.StoppedEvent:     struct{}{},
+	}
+	r := bufio.NewReader(buf)
+	var logEvent LogEvent
+	for {
+		line, err := r.ReadString('\n')
+		t.Log(line)
+		if err != nil {
+			break
+		}
+		assert.NoError(t, json.Unmarshal([]byte(line), &logEvent), "failed to parse line: %s", line)
+
+		delete(expectedEvents, logEvent.Name)
+	}
+
+	assert.Empty(t, expectedEvents)
 }

@@ -25,9 +25,14 @@ import (
 )
 
 // New initializes a new fx App with the following augmentations:
-//	- app life cycle events are logged
-func New(options ...fx.Option) *fx.App {
-	appOptions := make([]fx.Option, 0, len(options)+2)
+//	- app life cycle events are logged:
+//	  - InitializedEvent
+//	  - StartingEvent
+//	  - StartedEvent
+//	  - StoppingEvent
+//	  - StoppedEvent
+func New(opts Opts, options ...fx.Option) *fx.App {
+	appOptions := make([]fx.Option, 0, len(options)+3)
 
 	var startUnixTime, startNanosecond int64
 	appOptions = append(appOptions,
@@ -49,6 +54,7 @@ func New(options ...fx.Option) *fx.App {
 		}),
 	)
 
+	appOptions = append(appOptions, Module(opts))
 	appOptions = append(appOptions, options...)
 	appOptions = append(appOptions,
 		fx.Invoke(
@@ -75,4 +81,62 @@ func New(options ...fx.Option) *fx.App {
 	)
 
 	return fx.New(appOptions...)
+}
+
+// Go runs the app on a background goroutine.
+// It returns a shutdowner, which can be used to trigger application shutdown.
+// Once shutdown is triggered, the done channel can be used to wait until the app shutdown is complete.
+// The done channel will return an error if any error occurs during app initialization, startup, or shutdown.
+// An error is returned if the app initialization failed.
+func Go(opts Opts, options ...fx.Option) (shutdowner fx.Shutdowner, done chan error, err error) {
+	done = make(chan error, 1)
+
+	starting := make(chan struct{})
+	publishAppStartingEvent := func(lc fx.Lifecycle) {
+		lc.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				close(starting)
+				return nil
+			},
+		})
+	}
+	appOptions := make([]fx.Option, 0, len(options)+2)
+	appOptions = append(appOptions, fx.Invoke(publishAppStartingEvent), fx.Populate(&shutdowner))
+	app := New(opts, append(appOptions, options...)...)
+
+	if app.Err() != nil {
+		done <- app.Err()
+		close(done)
+		return nil, nil, app.Err()
+	}
+
+	go func() {
+		defer close(done)
+
+		// start the app
+		{
+			ctx, cancel := context.WithTimeout(context.Background(), app.StartTimeout())
+			defer cancel()
+			err := app.Start(ctx)
+			if err != nil {
+				done <- err
+				return
+			}
+		}
+
+		{
+			<-app.Done() // wait for stop signal
+			// stop the app
+			ctx, cancel := context.WithTimeout(context.Background(), app.StopTimeout())
+			defer cancel()
+			err := app.Stop(ctx)
+			if err != nil {
+				done <- err
+				return
+			}
+		}
+	}()
+
+	<-starting
+	return shutdowner, done, nil
 }
