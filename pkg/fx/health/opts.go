@@ -29,6 +29,7 @@ type Opts struct {
 	MaxCheckParallelism uint8
 
 	// FailFastOnStartup means the app will fail fast if any health checks fail to pass on app start up.
+	// If true, then all registered health checks are run on application startup.
 	//
 	// default = false
 	FailFastOnStartup bool

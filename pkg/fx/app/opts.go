@@ -46,9 +46,11 @@ type Opts struct {
 	// If not explicitly set, then it will first try to lookup the log level from an env var ${EnvPrefix}_LOG_LEVEL.
 	// If the env var is not set, then `zerolog.InfoLevel` is returned.
 	GlobalLogLevel *zerolog.Level // defaults to zerolog.Info
+
+	instanceID *ulid.ULID
 }
 
-func (o Opts) id() (func() ulid.ULID, error) {
+func (o *Opts) id() (func() ulid.ULID, error) {
 	zero := ulid.ULID{}
 	if o.ID == zero {
 		id, err := ulidFromEnv(o.EnvPrefix, "ID")
@@ -60,7 +62,7 @@ func (o Opts) id() (func() ulid.ULID, error) {
 	return func() ulid.ULID { return o.ID }, nil
 }
 
-func (o Opts) releaseID() (func() ulid.ULID, error) {
+func (o *Opts) releaseID() (func() ulid.ULID, error) {
 	zero := ulid.ULID{}
 	if o.ReleaseID == zero {
 		id, err := ulidFromEnv(o.EnvPrefix, "RELEASE_ID")
@@ -72,7 +74,7 @@ func (o Opts) releaseID() (func() ulid.ULID, error) {
 	return func() ulid.ULID { return o.ReleaseID }, nil
 }
 
-func (o Opts) globalLogLevel() (zerolog.Level, error) {
+func (o *Opts) globalLogLevel() (zerolog.Level, error) {
 	if o.GlobalLogLevel == nil {
 		levelStr, ok := os.LookupEnv(key(o.EnvPrefix, "LOG_LEVEL"))
 		if ok {
@@ -88,12 +90,21 @@ func (o Opts) globalLogLevel() (zerolog.Level, error) {
 	return *o.GlobalLogLevel, nil
 }
 
-func (o Opts) logWriter() io.Writer {
+func (o *Opts) logWriter() io.Writer {
 	if o.LogWriter == nil {
 		return os.Stderr
 	}
 
 	return o.LogWriter
+}
+
+func (o *Opts) appInstanceID() ulid.ULID {
+	if o.instanceID == nil {
+		id := ulids.MustNew()
+		o.instanceID = &id
+	}
+
+	return *o.instanceID
 }
 
 // ulidFromEnv will try to read a ULID from an env var using the following naming convention:

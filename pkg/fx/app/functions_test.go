@@ -189,7 +189,7 @@ func TestLogger(t *testing.T) {
 			// When a Logger dependency is injected
 			fx.Invoke(func(logger app.Logger) {
 				// Then it available for used within the app
-				event := logger("foo", zerolog.NoLevel)
+				event := logger("foo", zerolog.InfoLevel)
 				event(nil, "bar")
 			}),
 		)

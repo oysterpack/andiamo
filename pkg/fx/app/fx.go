@@ -17,9 +17,9 @@
 package app
 
 import (
+	"fmt"
 	"github.com/oklog/ulid"
 	"github.com/oysterpack/andiamo/pkg/eventlog"
-	"github.com/oysterpack/andiamo/pkg/ulids"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"log"
@@ -34,7 +34,9 @@ const (
 
 // Module returns the module's fx options
 func Module(opts Opts) fx.Option {
-	return fx.Provide(
+	options := make([]fx.Option, 0, 2)
+	instanceID := opts.appInstanceID()
+	options = append(options, fx.Provide(
 		func() (ID, error) {
 			return opts.id()
 		},
@@ -42,11 +44,17 @@ func Module(opts Opts) fx.Option {
 			return opts.releaseID()
 		},
 		func() InstanceID {
-			id := ulids.MustNew()
-			return func() ulid.ULID { return id }
+			return func() ulid.ULID { return instanceID }
 		},
 		provideEventLogger(opts),
-	)
+	))
+	if fxLogger, err := configureFxLogger(opts); err == nil {
+		options = append(options, fxLogger)
+	} else {
+		log.Printf("*** failed to configure fx logger")
+	}
+
+	return fx.Options(options...)
 }
 
 // application ID labels
@@ -92,17 +100,32 @@ func provideEventLogger(opts Opts) func(id ID, releaseID ReleaseID, instanceID I
 	}
 }
 
-//type fxPrinter eventlog.Logger
-//
-//func (p fxPrinter) Printf(msg string, args ...interface{}) {
-//	switch {
-//	case len(args) == 0:
-//		p(nil, msg)
-//	default:
-//		p(nil, fmt.Sprintf(msg, args...))
-//	}
-//}
-//
-//func provideFxLogger(opts Opts) fx.Printer {
-//	return nil
-//}
+type fxPrinter eventlog.Logger
+
+func (p fxPrinter) Printf(msg string, args ...interface{}) {
+	switch {
+	case len(args) == 0:
+		p(nil, msg)
+	default:
+		p(nil, fmt.Sprintf(msg, args...))
+	}
+}
+
+func configureFxLogger(opts Opts) (fx.Option, error) {
+	id, err := opts.id()
+	if err != nil {
+		return nil, err
+	}
+	releaseID, err := opts.releaseID()
+	if err != nil {
+		return nil, err
+	}
+	logger := eventlog.NewZeroLogger(opts.logWriter()).
+		With().
+		Str(IDLabel, ulid.ULID(id()).String()).
+		Str(ReleaseIDLabel, ulid.ULID(releaseID()).String()).
+		Str(InstanceIDLabel, ulid.ULID(opts.appInstanceID()).String()).
+		Logger()
+
+	return fx.Logger(fxPrinter(eventlog.NewLogger("fx", &logger, zerolog.NoLevel))), nil
+}
