@@ -247,10 +247,166 @@ func TestLogger(t *testing.T) {
 				break
 			}
 			assert.NoError(t, json.Unmarshal([]byte(line), &logEvent), "failed to parse line: %s", line)
+			// Then the app ID is set on the log event
 			assert.Equal(t, ID().String(), logEvent.AppID)
+			// And the app release ID is set on the log event
 			assert.Equal(t, ReleaseID().String(), logEvent.AppReleaseID)
+			// And the app instance ID is set on the log event
 			assert.Equal(t, InstanceID().String(), logEvent.InstanceID)
 		}
+	})
+
+	t.Run("global log level loaded from env", func(t *testing.T) {
+		// Given that APP12X_LOG_LEVEL env var is set to debug
+		prefix := app.EnvPrefix
+		os.Setenv(prefix+"_LOG_LEVEL", zerolog.DebugLevel.String())
+
+		defer func() {
+			os.Unsetenv(prefix + "_LOG_LEVEL")
+		}()
+
+		buf := new(bytes.Buffer)
+		var ID app.ID
+		var ReleaseID app.ReleaseID
+		var InstanceID app.InstanceID
+		const FooEvent = "01DG3P8XM1PAMV6B8XMSDX0QSH"
+		a := fx.New(
+			app.Module(app.Opts{
+				ID:        ulids.MustNew(),
+				ReleaseID: ulids.MustNew(),
+				LogWriter: buf,
+			}),
+			fx.Invoke(func(logger app.Logger) {
+				// And a debug event is logged
+				event := logger(FooEvent, zerolog.DebugLevel)
+				event(nil, "bar")
+			}),
+			fx.Populate(&ID, &ReleaseID, &InstanceID),
+		)
+
+		assert.NoError(t, a.Err())
+		// When the app is initialized
+		// Then the zerolog global log level should be set to debug
+		assert.Equal(t, zerolog.GlobalLevel(), zerolog.DebugLevel)
+
+		// {"a":"01DG138TTVDX5JH5F4GMNC3V67","r":"01DG138TTVK4MVW3B5TJGDSKHR","x":"01DG138TTVYGSN7QWBFT9660SS","n":"foo","z":"01DG138TTVBHCXQW29QTQAWPNM","t":1563405085,"m":"bar"}
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+
+			AppID        string `json:"a"`
+			AppReleaseID string `json:"r"`
+			InstanceID   string `json:"x"`
+		}
+
+		r := bufio.NewReader(buf)
+		var logEvent LogEvent
+		// Then the debug event was logged
+		fooEventLogged := false
+		for {
+			line, err := r.ReadString('\n')
+			t.Log(line)
+			if err != nil {
+				break
+			}
+			assert.NoError(t, json.Unmarshal([]byte(line), &logEvent), "failed to parse line: %s", line)
+			if logEvent.Name == FooEvent {
+				fooEventLogged = true
+				break
+			}
+		}
+		assert.True(t, fooEventLogged, "event should have been logged at debug level")
+	})
+
+	t.Run("invalid global log level loaded from env", func(t *testing.T) {
+		// Given that APP12X_LOG_LEVEL env var is set to an invalod value
+		prefix := app.EnvPrefix
+		os.Setenv(prefix+"_LOG_LEVEL", "invalid value")
+
+		defer func() {
+			os.Unsetenv(prefix + "_LOG_LEVEL")
+		}()
+
+		buf := new(bytes.Buffer)
+		var ID app.ID
+		var ReleaseID app.ReleaseID
+		var InstanceID app.InstanceID
+		const FooEvent = "01DG3P8XM1PAMV6B8XMSDX0QSH"
+		a := fx.New(
+			app.Module(app.Opts{
+				ID:        ulids.MustNew(),
+				ReleaseID: ulids.MustNew(),
+				LogWriter: buf,
+			}),
+			fx.Invoke(func(logger app.Logger) {
+				// And a debug event is logged
+				event := logger(FooEvent, zerolog.DebugLevel)
+				event(nil, "bar")
+			}),
+			fx.Populate(&ID, &ReleaseID, &InstanceID),
+		)
+
+		assert.Error(t, a.Err())
+	})
+
+	t.Run("global log level is specified explicitly on Opts", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		var ID app.ID
+		var ReleaseID app.ReleaseID
+		var InstanceID app.InstanceID
+		const FooEvent = "01DG3P8XM1PAMV6B8XMSDX0QSH"
+		LogLevel := zerolog.DebugLevel
+		a := fx.New(
+			app.Module(app.Opts{
+				ID:        ulids.MustNew(),
+				ReleaseID: ulids.MustNew(),
+
+				LogWriter: buf,
+				// Given that the global log level is set
+				GlobalLogLevel: &LogLevel,
+			}),
+			fx.Invoke(func(logger app.Logger) {
+				// And a debug event is logged
+				event := logger(FooEvent, zerolog.DebugLevel)
+				event(nil, "bar")
+			}),
+			fx.Populate(&ID, &ReleaseID, &InstanceID),
+		)
+
+		assert.NoError(t, a.Err())
+		// When the app is initialized
+		// Then the zerolog global log level should be set to debug
+		assert.Equal(t, zerolog.GlobalLevel(), zerolog.DebugLevel)
+
+		// {"a":"01DG138TTVDX5JH5F4GMNC3V67","r":"01DG138TTVK4MVW3B5TJGDSKHR","x":"01DG138TTVYGSN7QWBFT9660SS","n":"foo","z":"01DG138TTVBHCXQW29QTQAWPNM","t":1563405085,"m":"bar"}
+		type LogEvent struct {
+			Level   string `json:"l"`
+			Name    string `json:"n"`
+			Message string `json:"m"`
+
+			AppID        string `json:"a"`
+			AppReleaseID string `json:"r"`
+			InstanceID   string `json:"x"`
+		}
+
+		r := bufio.NewReader(buf)
+		var logEvent LogEvent
+		// Then the debug event was logged
+		fooEventLogged := false
+		for {
+			line, err := r.ReadString('\n')
+			t.Log(line)
+			if err != nil {
+				break
+			}
+			assert.NoError(t, json.Unmarshal([]byte(line), &logEvent), "failed to parse line: %s", line)
+			if logEvent.Name == FooEvent {
+				fooEventLogged = true
+				break
+			}
+		}
+		assert.True(t, fooEventLogged, "event should have been logged at debug level")
 	})
 
 }

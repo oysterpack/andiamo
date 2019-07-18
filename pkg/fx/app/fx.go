@@ -48,12 +48,7 @@ func Module(opts Opts) fx.Option {
 		},
 		provideEventLogger(opts),
 	))
-	if fxLogger, err := configureFxLogger(opts); err == nil {
-		options = append(options, fxLogger)
-	} else {
-		log.Printf("*** failed to configure fx logger")
-	}
-
+	options = append(options, fx.Logger(fxPrinter(eventlog.NewLogger("fx", zeroLogger(opts), zerolog.NoLevel))))
 	return fx.Options(options...)
 }
 
@@ -100,6 +95,23 @@ func provideEventLogger(opts Opts) func(id ID, releaseID ReleaseID, instanceID I
 	}
 }
 
+func zeroLogger(opts Opts) *zerolog.Logger {
+	loggerContext := eventlog.NewZeroLogger(opts.logWriter()).
+		With().
+		Str(InstanceIDLabel, opts.appInstanceID().String())
+
+	if id, err := opts.id(); err == nil {
+		loggerContext = loggerContext.Str(IDLabel, id().String())
+	}
+
+	if releaseID, err := opts.releaseID(); err == nil {
+		loggerContext = loggerContext.Str(ReleaseIDLabel, releaseID().String())
+	}
+
+	logger := loggerContext.Logger()
+	return &logger
+}
+
 type fxPrinter eventlog.Logger
 
 func (p fxPrinter) Printf(msg string, args ...interface{}) {
@@ -109,23 +121,4 @@ func (p fxPrinter) Printf(msg string, args ...interface{}) {
 	default:
 		p(nil, fmt.Sprintf(msg, args...))
 	}
-}
-
-func configureFxLogger(opts Opts) (fx.Option, error) {
-	id, err := opts.id()
-	if err != nil {
-		return nil, err
-	}
-	releaseID, err := opts.releaseID()
-	if err != nil {
-		return nil, err
-	}
-	logger := eventlog.NewZeroLogger(opts.logWriter()).
-		With().
-		Str(IDLabel, ulid.ULID(id()).String()).
-		Str(ReleaseIDLabel, ulid.ULID(releaseID()).String()).
-		Str(InstanceIDLabel, ulid.ULID(opts.appInstanceID()).String()).
-		Logger()
-
-	return fx.Logger(fxPrinter(eventlog.NewLogger("fx", &logger, zerolog.NoLevel))), nil
 }

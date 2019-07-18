@@ -18,6 +18,7 @@ package app
 
 import (
 	"context"
+	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/rs/zerolog"
 	"go.uber.org/fx"
 	"sync/atomic"
@@ -101,13 +102,18 @@ func Go(opts Opts, options ...fx.Option) (shutdowner fx.Shutdowner, done chan er
 		})
 	}
 	appOptions := make([]fx.Option, 0, len(options)+2)
-	appOptions = append(appOptions, fx.Invoke(publishAppStartingEvent), fx.Populate(&shutdowner))
+	var logger Logger
+	appOptions = append(appOptions,
+		fx.Invoke(publishAppStartingEvent),
+		fx.Populate(&shutdowner, &logger),
+	)
 	app := New(opts, append(appOptions, options...)...)
 
-	if app.Err() != nil {
-		done <- app.Err()
+	if err := app.Err(); err != nil {
+		logger(InitFailedEvent, zerolog.ErrorLevel)(eventlog.NewError(err), "app failed to initialize")
+		done <- err
 		close(done)
-		return nil, nil, app.Err()
+		return nil, done, err
 	}
 
 	go func() {
@@ -119,6 +125,7 @@ func Go(opts Opts, options ...fx.Option) (shutdowner fx.Shutdowner, done chan er
 			defer cancel()
 			err := app.Start(ctx)
 			if err != nil {
+				logger(StartFailedEvent, zerolog.ErrorLevel)(eventlog.NewError(err), "app failed to start")
 				done <- err
 				return
 			}
@@ -131,6 +138,7 @@ func Go(opts Opts, options ...fx.Option) (shutdowner fx.Shutdowner, done chan er
 			defer cancel()
 			err := app.Stop(ctx)
 			if err != nil {
+				logger(StopFailedEvent, zerolog.ErrorLevel)(eventlog.NewError(err), "app stopped with an error")
 				done <- err
 				return
 			}
