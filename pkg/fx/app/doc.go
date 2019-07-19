@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-// Package eventlog standardizes structured JSON logging using zerolog as the underlying logging framework.
+// Package app provides support for creating and running fx based apps.
 //
-// Zerolog is initialized with the following settings:
-//  - the following standard logger field names are shortened
-//    - Timestamp -> t
-//    - Level -> l
-//    - Message -> m
-//    - Error -> err
-//  - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
-//  - an error stack marshaller is configured
-//  - time.Duration fields are rendered as int instead float because it's more efficient
-package eventlog
+// It provides the following:
+//  - app ID
+//  - app ReleaseID
+//  - app InstanceID
+//  - eventlog.Logger using a zerolog.Logger with the above app IDs
+package app

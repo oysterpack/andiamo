@@ -22,7 +22,7 @@
 // When health checks are registered, they are scheduled to run on a periodic basis. The max number of health checks that
 // can be run concurrently is configurable as a module option.
 //
-// The health check is configured with timeout. If the health check times out, then it is considered a `Red` failure.
+// The health check is configured with a timeout. If the health check times out, then it is considered a `Red` failure.
 // Health checks should be designed to run as fast as possible.
 //
 // The latest health check results are cached.
@@ -32,7 +32,7 @@
 //  - overall health status changes
 //
 // TODO:
-// 	1. health check http API
-//	2. health check grpc API
-//     - server streaming APIs for health check results and
+// 1. health check http API
+// 2. health check grpc API
+//    - server streaming APIs for health check results and
 package health

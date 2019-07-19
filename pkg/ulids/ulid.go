@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Package ulidgen provides functions for ULID generators
+// Package ulids provides support for generating and parsing ULIDs
 package ulids
 
 import (
