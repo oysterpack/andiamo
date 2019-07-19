@@ -32,10 +32,6 @@ import (
 //	  - StartedEvent
 //	  - StoppingEvent
 //	  - StoppedEvent
-//	- app lifecycle error events:
-//	  - InitFailedEvent
-//	  - StartFailedEvent
-//    - StopFailedEvent
 func New(opts Opts, options ...fx.Option) *fx.App {
 	appOptions := make([]fx.Option, 0, len(options)+3)
 
@@ -88,11 +84,16 @@ func New(opts Opts, options ...fx.Option) *fx.App {
 	return fx.New(appOptions...)
 }
 
-// Go runs the app on a background goroutine.
-// It returns a shutdowner, which can be used to trigger application shutdown.
+// Go runs the app async, i.e., on a background goroutine.
+// It returns an fx.Shutdowner, which can be used to trigger application shutdown.
 // Once shutdown is triggered, the done channel can be used to wait until the app shutdown is complete.
 // The done channel will return an error if any error occurs during app initialization, startup, or shutdown.
 // An error is returned if the app initialization failed.
+//
+// App lifecycle error events:
+// 	- InitFailedEvent
+// 	- StartFailedEvent
+// 	- StopFailedEvent
 func Go(opts Opts, options ...fx.Option) (shutdowner fx.Shutdowner, done chan error, err error) {
 	done = make(chan error, 1)
 
