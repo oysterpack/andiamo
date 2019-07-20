@@ -235,7 +235,7 @@ func TestLogger(t *testing.T) {
 
 			AppID        string `json:"a"`
 			AppReleaseID string `json:"r"`
-			InstanceID   string `json:"x"`
+			InstanceID   string `json:"i"`
 		}
 
 		r := bufio.NewReader(buf)
@@ -297,7 +297,7 @@ func TestLogger(t *testing.T) {
 
 			AppID        string `json:"a"`
 			AppReleaseID string `json:"r"`
-			InstanceID   string `json:"x"`
+			InstanceID   string `json:"i"`
 		}
 
 		r := bufio.NewReader(buf)
@@ -387,7 +387,7 @@ func TestLogger(t *testing.T) {
 
 			AppID        string `json:"a"`
 			AppReleaseID string `json:"r"`
-			InstanceID   string `json:"x"`
+			InstanceID   string `json:"i"`
 		}
 
 		r := bufio.NewReader(buf)

@@ -60,7 +60,7 @@ func Module(opts Opts) fx.Option {
 const (
 	IDLabel         = "a"
 	ReleaseIDLabel  = "r"
-	InstanceIDLabel = "x"
+	InstanceIDLabel = "i"
 )
 
 func provideEventLogger(opts Opts) func(id ID, releaseID ReleaseID, instanceID InstanceID) (Logger, error) {

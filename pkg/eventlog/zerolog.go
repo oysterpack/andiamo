@@ -17,7 +17,7 @@
 package eventlog
 
 import (
-	"github.com/oysterpack/andiamo/pkg/ulids"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"io"
 )
@@ -44,12 +44,10 @@ func init() {
 
 // standard top level logger field names
 const (
-	Name      = "n" // event name - should be a ULID
-	Component = "c" // component name - should be a ULID
-	ULID      = "z" // event instance ULID
+	Name      = "n" // event name - should be a XID
+	Component = "c" // component name - should be a XID
+	XID       = "x" // event instance XID
 )
-
-var newEventID = ulids.MonotonicULIDGenerator()
 
 // ForEvent returns a new logger with the event type ID field 'n' set to the specified value.
 //
@@ -66,28 +64,28 @@ func ForComponent(logger *zerolog.Logger, name string) *zerolog.Logger {
 	return &l
 }
 
-// WithEventULID augments each log event with an event ULID.
+// WithEventXID augments each log event with an event XID.
 //
-// NOTE: The ULID uses a monotonic generator - thus, it's timestamp portion is simply used to construct the ULID
-// and does not represent when the ULID was created.
-func WithEventULID(logger zerolog.Logger) zerolog.Logger {
+// NOTE: The XID uses a monotonic generator - thus, it's timestamp portion is simply used to construct the XID
+// and does not represent when the XID was created.
+func WithEventXID(logger zerolog.Logger) zerolog.Logger {
 	return logger.Hook(zerolog.HookFunc(func(e *zerolog.Event, _ zerolog.Level, _ string) {
-		e.Str(ULID, newEventID().String())
+		e.Str(XID, xid.New().String())
 	}))
 }
 
 // NewZeroLogger constructs a new zerolog.Logger that is configured to add the following fields:
 //  - timestamp in UNIX time format
-//  - event ULID
+//  - event XID
 //
 // Example log message:
 //
 // {"z":"01DFBGCFD9WD29SGRJPK8KZKQS","t":1562680638,"m":"Hello World"}
 //
-// where z -> event ULID
+// where z -> event XID
 //       t -> event timestamp
 func NewZeroLogger(w io.Writer) zerolog.Logger {
-	return WithEventULID(zerolog.New(w)).
+	return WithEventXID(zerolog.New(w)).
 		With().
 		Timestamp().
 		Logger()

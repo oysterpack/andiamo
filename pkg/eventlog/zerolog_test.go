@@ -19,10 +19,11 @@ package eventlog_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/oklog/ulid"
 	"github.com/oysterpack/andiamo/pkg/eventlog"
 	"github.com/pkg/errors"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -129,11 +130,11 @@ func TestForEvent(t *testing.T) {
 func TestWithEventULID(t *testing.T) {
 	t.Parallel()
 	buf := new(bytes.Buffer)
-	eventLogger := eventlog.WithEventULID(zerolog.New(buf))
+	eventLogger := eventlog.WithEventXID(zerolog.New(buf))
 	eventLogger.Log().Msg("")
 
 	type LogEvent struct {
-		ULID string `json:"z"`
+		XID string `json:"x"`
 	}
 
 	var logEvent LogEvent
@@ -143,7 +144,8 @@ func TestWithEventULID(t *testing.T) {
 		t.Errorf("*** failed to parse log event as JSON: %v : %v", err, buf.String())
 	default:
 		t.Log(logEvent)
-		ulid.MustParse(logEvent.ULID)
+		_, err := xid.FromString(logEvent.XID)
+		assert.NoError(t, err)
 	}
 }
 
@@ -157,7 +159,7 @@ func TestNewZeroLogger(t *testing.T) {
 	t.Log(buf.String())
 
 	type LogEvent struct {
-		ULID      string `json:"z"`
+		XID       string `json:"x"`
 		Timestamp int64  `json:"t"`
 	}
 
@@ -168,7 +170,8 @@ func TestNewZeroLogger(t *testing.T) {
 		t.Errorf("*** failed to parse log event as JSON: %v : %v", err, buf.String())
 	default:
 		t.Log(logEvent)
-		ulid.MustParse(logEvent.ULID)
+		_, err := xid.FromString(logEvent.XID)
+		assert.NoError(t, err)
 
 		if logEvent.Timestamp == 0 {
 			t.Error("*** timestamp was not set")

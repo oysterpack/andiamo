@@ -34,7 +34,7 @@ type Logger func(data zerolog.LogObjectMarshaler, msg string, tags ...string)
 // The goal is to get more value out of log events by enabling the log events to be processed programmatically.
 //
 // The event object data is logged as an event dictionary, using the event name as the key. The event name must be globally
-// unique - it is recommended to use ULID as the event name. The event data structure should be designed to be as stable
+// unique - it is recommended to use XID as the event name. The event data structure should be designed to be as stable
 // as possible. Treat the event data structure as an interface because monitors, tools, queries, and other tools may depend on it.
 // Not all events may have event data.
 //

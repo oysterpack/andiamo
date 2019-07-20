@@ -17,36 +17,24 @@
 package test
 
 import (
-	"context"
-	"go.uber.org/fx"
+	"github.com/rs/xid"
 	"testing"
 )
 
-func TestTypeAlias(t *testing.T) {
-	var shutdowner fx.Shutdowner
-	app := fx.New(
-		fx.Invoke(func(lc fx.Lifecycle) {
-			lc.Append(fx.Hook{
-				OnStart: func(context.Context) error {
-					t.Log("starting")
-					return nil
-				},
-				OnStop: func(context.Context) error {
-					t.Log("stopping")
-					return nil
-				},
-			})
-		}),
-		fx.Populate(&shutdowner),
-	)
-	app.Start(context.Background())
-	if err := app.Stop(context.Background()); err != nil {
-		t.Error(err)
+func BenchmarkXID(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		xid.New()
 	}
-	if err := app.Start(context.Background()); err != nil {
-		t.Error(err)
-	}
-	if err := app.Stop(context.Background()); err != nil {
-		t.Error(err)
-	}
+}
+
+func BenchmarkXIDParallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			xid.New()
+		}
+	})
+}
+
+func TestXID(t *testing.T) {
+	t.Log(xid.New())
 }

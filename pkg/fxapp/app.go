@@ -52,7 +52,7 @@ import (
 //
 // The application descriptor is another way to say application metadata (see `Desc`). Every application has the following
 // metadata:
-// 	- ID - represented as a ULID
+// 	- ID - represented as a XID
 //	- release ID - an application has many versions, but not all versions are released.
 //    - can be used to look up additional release artifacts, e.g., release notes, test reports, etc
 //
@@ -76,7 +76,7 @@ import (
 //
 // All application log events should be defined as an `Event` and logged via `Event` logger functions. This makes it easy
 // to document and understand application logs. All events are assigned a unique identifier - it is recommended to use
-// a ULID as the event name.
+// a XID as the event name.
 //
 // Prometheus Metrics
 //

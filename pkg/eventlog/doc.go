@@ -25,4 +25,5 @@
 //  - Unix time format is used for performance reasons - seconds granularity is sufficient for log events
 //  - an error stack marshaller is configured
 //  - time.Duration fields are rendered as int instead float because it's more efficient
+//  - each log event is tagged with an XID via a field named "x"
 package eventlog
