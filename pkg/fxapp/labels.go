@@ -20,7 +20,7 @@ package fxapp
 const (
 	AppIDLabel         = "a"
 	AppReleaseIDLabel  = "r"
-	AppInstanceIDLabel = "x"
+	AppInstanceIDLabel = "i"
 
 	EventLabel = "z"
 )

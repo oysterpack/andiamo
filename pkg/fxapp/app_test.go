@@ -778,13 +778,13 @@ func TestAppBuilder_LogWriter(t *testing.T) {
 	type LogEvent struct {
 		AppID      string `json:"a"`
 		ReleaseID  string `json:"r"`
-		InstanceID string `json:"x"`
+		InstanceID string `json:"i"`
 		Timestamp  uint   `json:"t"`
 		Message    string `json:"m"`
 		Level      string `json:"l"`
 		Name       string `json:"n"`
 		Component  string `json:"c"`
-		EventID    string `json:"z"`
+		EventID    string `json:"x"`
 	}
 
 	switch {
